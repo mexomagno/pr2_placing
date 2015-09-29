@@ -1,0 +1,13 @@
+<launch>
+  <!-- Usamos la lógica del launch del empty_world pero cambiamos el nombre del world a usar -->
+  <!-- incluir launch del empty_world -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <!-- sobreescribir argumento "world_name" con nuestro world -->
+    <arg name="world_name" value="$(find mipr2_gazebo)/worlds/mipr2.world"/>
+    <!-- Aquí se pueden cambiar más parámetros default -->
+  </include>
+    <!-- Convertir el xacro y añadirlo al servidor de parámetros -->
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find pr2_description)/robots/pr2.urdf.xacro" />
+    <!-- Situar robot en el mundo de gazebo -->
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model pr2" />
+</launch>

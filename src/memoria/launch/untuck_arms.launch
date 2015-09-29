@@ -1,0 +1,6 @@
+<launch>
+    <include file="$(find memoria)/launch/tuck_arms.launch">
+        <arg name="l_tuck" value="u"/>
+        <arg name="r_tuck" value="u"/>
+    </include>
+</launch>

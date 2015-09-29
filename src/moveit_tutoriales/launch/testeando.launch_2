@@ -1,0 +1,17 @@
+<launch>
+
+    <!-- Directorio harcodeado de archivos de configuración del PR2 generados por el Wizzard -->
+    <arg name="pr2_config_files_dir" value="/home/mexomagno/catkin_ws/src/pr2_config_files"/>
+    <!-- Lanzar demo (configuraciones esenciales) -->
+    <include file="$(arg pr2_config_files_dir)/launch/demo.launch">
+        <arg name="pr2_config_files_dir" value="$(arg pr2_config_files_dir)"/>
+        <arg name="load_rviz" value="false"/>
+    </include>
+    <!-- Set the param that trajectory_execution_manager needs to find the controller plugin -->
+    <arg name="moveit_controller_manager" default="moveit_simple_controller_manager/MoveItSimpleControllerManager" />
+    <param name="moveit_controller_manager" value="$(arg moveit_controller_manager)"/>
+    <!-- load controller_list -->
+    <rosparam file="$(arg pr2_config_files_dir)/config/controllers.yaml"/>
+    <!-- Lanzo pr2 con la mesa y la lata -->
+    <!-- <include file="$(find mipr2_gazebo)/launch/pr2_mesa_lata.launch"></include> -->
+</launch>

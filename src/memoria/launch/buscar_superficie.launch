@@ -1,0 +1,14 @@
+<launch>
+    <!-- Tuck Arms -->
+    <include file="$(find memoria)/launch/tuck_arms.launch"/>
+    <!-- OJO: No terminará nunca porque el server de tuck_arms queda andando -->
+    <!-- Lanzar ejecutable de búsqueda de mesa -->
+    <node pkg="memoria"
+        type="buscar_superficie"
+        name="buscar_superficie">
+    <!-- Lanzar rviz -->
+    <node pkg="rviz"
+        type="rviz"
+        name="rviz"
+        args="-d $(find memoria)/rviz/buscar_superficie.rviz"/>
+</launch>

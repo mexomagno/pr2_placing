@@ -1,0 +1,43 @@
+<launch>
+    <!-- Directorio harcodeado de archivos de configuración del PR2 generados por el Wizzard -->
+    <arg name="pr2_config_files_dir" value="/home/mexomagno/catkin_ws/src/pr2_config_files"></arg>
+    <!-- *************************************** -->
+    <!-- Cargar descripción del robot al servidor de parámetros -->
+<!--     <include file="$(find pr2_moveit_config)/launch/planning_context.launch">
+        <arg name="load_robot_description" value="true"></arg>
+    </include> -->
+    <!-- <param name="robot_description" command="$(find xacro)/xacro.py $(find pr2_description)/robots/pr2.urdf.xacro"/> -->
+    <!-- Lanzar pr2 mío con la mesa y la lata -->
+    <include file="$(find mipr2_gazebo)/launch/pr2_mesa_lata.launch">
+    </include>
+    <!-- *************************************** -->
+    <!-- Cargar descripción semántica del robot -->
+    <!-- IMPORTANTÍSIMO: Observar el parámetro "textfile" que lee el archivo, en vez de "value" que entrega el nombre del archivo nada más!!!!! -->
+    <param name="robot_description_semantic" textfile="$(arg pr2_config_files_dir)/config/pr2.srdf"/>
+    <!-- Cargar lista de controladores -->
+    <rosparam file="$(arg pr2_config_files_dir)/config/controllers.yaml"></rosparam>
+    <!-- *************************************** -->
+    <!-- Setear parámetro que el "trajectory_execution_manager" necesita para encontrar el controller plugin -->
+    <arg name="moveit_controller_manager" default="moveit_simple_controller_manager/MoveItSimpleControllerManager" />
+    <param name="moveit_controller_manager" value="$(arg moveit_controller_manager)"/>
+    <!-- *************************************** -->
+    <!-- Lanzar el nodo -->
+<!--    comentado para poder lanzarlo manualmente y debuggear <node name="testeando" pkg="moveit_tutoriales" type="testeando" respawn="false" output="screen">
+    </node>
+ -->
+
+
+
+
+
+
+
+<!-- 
+  <include file="$(find pr2_moveit_config)/launch/demo.launch"/>
+
+<node name="testeando" pkg="moveit_tutoriales" type="testeando" respawn="false" output="screen">
+</node>
+<node name="move_group_interface_tutorial" pkg="pr2_moveit_tutorials" type="move_group_interface_tutorial" respawn="false" output="screen">
+  </node> -->
+
+</launch>

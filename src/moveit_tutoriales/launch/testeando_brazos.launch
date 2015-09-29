@@ -1,0 +1,11 @@
+<launch>
+  <!-- inicializar controladores y parámetros para moveit -->
+  <include file="$(find moveit_tutoriales)/launch/demo.launch">
+      <arg name="launch_rviz" value="false"/>
+  </include>
+  <!-- inicializar pr2 con mesa y lata  -->
+  <include file="$(find mipr2_gazebo)/launch/pr2_mesa_lata.launch">
+  </include>
+  <!-- lanzar gzclient -->
+  <node name="gzclient" pkg="gazebo_ros" type="gzclient"/>
+</launch>

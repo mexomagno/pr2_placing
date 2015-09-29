@@ -1,0 +1,20 @@
+1) [DONE]: Mostrar normal al plano encontrado como un vector
+    - [ELEGIDO] En ROS: geometry_msgs/PoseStamped. Pero cómo obtener quaternion? Sólo tengo índices del plano, que definen el vector normal después de todo. Cómo pasar desde estos índices a un PoseStamped?
+        Existen métodos para construirlos a partir de roll, pitch, yaw, pero la pregunta es: 
+        Cómo usa RPY ROS? existen diferentes interpretaciones en internet.
+        RESPUESTA: Experimentalmente, un vector con RPY=(0,0,0) inicia parado en el eje X.
+        Si creo el cuaternión usando  tf::createQuaternionMsgFromRollPitchYaw, se crea el cuaternión correspondiente, tomando la siguiente convención:
+            -ROLL gira en torno al eje X DEL VECTOR, no global
+            -PITCH en torno al Y DEL VECTOR
+            -YAW en torno al Z DEL VECTOR
+        La dirección del vector es la que define el eje X propio. 
+        Entonces, cada vez que se efectue una rotación con este cuaternión, las siguientes se superpondrán a la anterior. La forma correcta de pensar esto es como que primero se hace YAW, luego PITCH y finalmente ROLL.
+
+    - En PCL: Se puede estimar normales a partir de una nube de puntos. Además se puede orientar la normal si se sabe el viewpoint (porque no quedan bien orientadas desde un inicio). Entonces, casi que daría lo mismo saber los coeficientes del plano, sino que se podría directamente usar los inliers, calcular sus normales, tomar la del centroide y orientarla. Parece ser doble trabajo, pues ya se tenían los coeficientes y desde esta info ya se la normal. 
+        - Método 1: Usar coefs del plano
+            Cómo se transforma desde coeficientes a vector orientado? Cómo se representan los vectores en PCL?
+        - Método 2: Usar nueva normal desde los inliers
+            Supuestamente obtendríamos 
+2) NO POR AHORA Transformar nube de puntos desde kinect a la base
+3) [DONE]: Transformar normal al sistema de coordenadas de la base
+4) Sacar angulo de un vector con otro.

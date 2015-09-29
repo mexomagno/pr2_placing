@@ -1,0 +1,31 @@
+
+bool update;
+void visualize()
+{
+  visualization::PCLVisualizer::Ptr viewer;
+  viewer = visualization::PCLVisualizer::Ptr(new visualization::PCLVisualizer ("PCL Viewer"));
+  viewer->setBackgroundColor (0.0, 0.0, 0.0);
+  viewer->addCoordinateSystem (0.3);
+  viewer->initCameraParameters();
+
+  while (!viewer->wasStopped ())
+  {
+    viewer->spinOnce (1);
+    // Check if cloud was updated
+    if(update)
+    {
+      // Visualize normals
+      viewer->removePointCloud("Normals");
+      viewer->addPointCloudNormals<PointXYZ,Normal>(smoothedCloud, cloudNormals, vizNormalsCount, 0.05, "Normals");
+      update = false;
+    }
+  }
+}
+
+// antes del ros spin
+//Start visualizer thread
+  boost::thread workerThread(visualize);
+  workerThread.detach();
+
+// Cuando hago cambios en una nube:
+update = true;

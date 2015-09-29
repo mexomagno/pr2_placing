@@ -1,0 +1,11 @@
+<launch>
+<!-- Utilizar launch por defecto de pr2_moveit -->
+  <include file="$(find pr2_moveit_config)/launch/demo.launch"/>
+ <!--  Este launch:
+    * Enciende RViz
+  -->   
+
+  <node name="testeando" pkg="moveit" type="move_group_interface_tutorial" respawn="false" output="screen">
+  </node>
+
+</launch>

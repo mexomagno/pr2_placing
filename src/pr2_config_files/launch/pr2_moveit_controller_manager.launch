@@ -1,0 +1,11 @@
+<!-- Editado por Mexomagno basándose en el tutorial de 
+http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/controller_configuration.html 
+Además hubo que editar ../config/controllers.yaml -->
+<launch>
+    <!-- Set the param that trajectory_execution_manager needs to find the controller plugin -->
+    <arg name="moveit_controller_manager" default="moveit_simple_controller_manager/MoveItSimpleControllerManager" />
+    <param name="moveit_controller_manager" value="$(arg moveit_controller_manager)"/>
+    <!-- load controller_list -->
+    <rosparam file="$(find pr2_moveit_brazos_grippers)/config/controllers.yaml"/>
+    <param name="robot_description_semantic" value="$(find pr2_moveit_config)/config/pr2.srdf"/>
+</launch>

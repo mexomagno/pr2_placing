@@ -1,0 +1,19 @@
+<launch>
+    <arg name="output" default="screen"/>
+    <!-- Si se quiere hacer untuck de alguno, se le asigna valor "u" -->
+    <arg name="l_tuck" default="t"/>
+    <arg name="r_tuck" default="t"/>
+    <!-- Iniciar el server de tuck arms -->
+    <node pkg="pr2_tuck_arms_action" 
+        name="tuck_arms_server" 
+        type="tuck_arms.py"
+        output="$(arg output)"
+        />
+    <!-- Iniciar cliente y ordenar el tuckeo -->
+    <node pkg="pr2_tuck_arms_action"
+        name="tuck_arms_client"
+        type="tuck_arms_test.py"
+        args="-l $(arg l_tuck) -r $(arg r_tuck)"
+        required="true"
+        />
+</launch>
