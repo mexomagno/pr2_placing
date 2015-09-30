@@ -1,0 +1,8 @@
+# Mensaje con punto donde mirar y frame de referencia
+memoria/LookAtMsg lookatmsg
+---
+# Código de respuesta.
+# 0 : OK
+# 1 : Error
+# 2 : Timeout
+int32 error

@@ -21,7 +21,9 @@ LIBRERÍAS
         ros/ros : para todo ros
         Mensajes:
             sensor_msgs/PointCloud2 : para recibir mensajes de kinect
-
+            geometry_msgs/PointStamped : Para enviar requests al server de la cabeza
+        memoria/LookAt :  Para usar el servicio lookat para control de la cabeza
+        memoria/LookAtMsg :  Mensaje personalizado para el server de control de la cabeza
     PCL para procesamiento de nube de puntos del Kinect
         pcl/point_cloud : para usar clase pointcloud
         pcl/point_types : para usar tipos de puntos
@@ -43,6 +45,9 @@ LIBRERÍAS
 */
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <geometry_msgs/PointStamped.h>
+#include <memoria/LookAt.h>
+#include <memoria/LookAtMsg.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
@@ -63,24 +68,29 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
 // CONSTANTES
 const string KINECT_TOPIC = "head_mount_kinect/depth/points";
-const string FIXED_FRAME = "/odom_combined";
+const string QUERY_TOPIC = "memoria/lookat";
+const string WORLD_FRAME = "/odom_combined";
+const string ROBOT_FRAME = "/base_footprint";
 const double LEAFSIZEX = 0.05, LEAFSIZEY = 0.05, LEAFSIZEZ = 0.05; 
 
 // VARIABLES GLOBALES
 ros::Publisher aux_pointcloud_publisher;
-
+memoria::LookAt lookat_srv;
 
 // MÉTODOS
 void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     ROS_INFO("Nube recibida");
+
     // Submuestrear nube para procesamiento más rápido
     PointCloud::Ptr in_cloud_subsampled(new PointCloud), segmented(new PointCloud);
     pcl::VoxelGrid<pcl::PointXYZ> subsampler;
     subsampler.setInputCloud(in_cloud);
     subsampler.setLeafSize (LEAFSIZEX,LEAFSIZEY,LEAFSIZEZ);
     subsampler.filter(*in_cloud_subsampled);
-    ROS_INFO("Subsampleo: %d puntos de %d (%f%%)\n",(int)in_cloud->size(),(int)in_cloud_subsampled->size(),(100.0*(int)in_cloud_subsampled->size()/(int)in_cloud->size()));
+    ROS_INFO("Subsampleo: %d puntos de %d (%f%%)\n",(int)in_cloud_subsampled->size(),(int)in_cloud->size(),(100.0*(int)in_cloud_subsampled->size()/(int)in_cloud->size()));
     aux_pointcloud_publisher.publish(in_cloud_subsampled);
+
+    //
 }
 
 int main(int argc, char **argv){
@@ -90,9 +100,24 @@ int main(int argc, char **argv){
     ros::NodeHandle nh;
     // Suscribirse al Kinect
     ros::Subscriber kinect_sub = nh.subscribe<PointCloud>(KINECT_TOPIC, 1, kinectCallback);
-
+    // "Subscribirse" al servicio de LookAt
+    ros::ServiceClient lookat_client = nh.serviceClient<memoria::LookAt>("look_at");
     // Publicador auxiliar
     aux_pointcloud_publisher = nh.advertise<PointCloud> ("plano_submuestreado", 1);
-
+    // Mirar un poco al suelo (por ahi por 5,0,0 respecto al robot)
+    memoria::LookAtMsg lookatmsg;
+    lookatmsg.frame_id = ROBOT_FRAME;
+    lookatmsg.rotate = 0; // FALSE, no rotar, sino que mover al punto.
+    lookatmsg.vector.x = 2; lookatmsg.vector.y = lookatmsg.vector.z = 0;
+    lookat_srv.request.lookatmsg = lookatmsg;
+    ROS_INFO("Mirando un poco hacia el suelo");
+    if (lookat_client.call(lookat_srv)){
+        ROS_INFO("OK");
+    }
+    else{
+        ROS_ERROR("Error al llamar al servicio 'look_at'");
+        return 1;
+    }
+    ros::spin();
     return EXIT_SUCCESS; //0
 }

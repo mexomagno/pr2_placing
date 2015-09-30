@@ -8,6 +8,9 @@ find_package(catkin REQUIRED COMPONENTS
     pcl_ros
     roscpp
     sensor_msgs
+    actionlib
+    pr2_controllers_msgs
+    message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -44,18 +47,18 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
+add_message_files(
+  FILES
+  LookAtMsg.msg
 #   Message2.msg
-# )
+)
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
+add_service_files(
+  FILES
+  LookAt.srv
 #   Service2.srv
-# )
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -65,10 +68,11 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+ generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+  geometry_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -82,7 +86,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES memoria
-#  CATKIN_DEPENDS other_catkin_pkg
+ CATKIN_DEPENDS message_runtime 
 #  DEPENDS system_lib
 )
 
@@ -114,8 +118,21 @@ include_directories(
 #   ${catkin_LIBRARIES}
 # )
 
+#########################
+
+#### EJECUTABLE LOOKAT
+
+add_executable(LookAt src/LookAt.cpp)
+add_dependencies(LookAt memoria_generate_messages_cpp)
+target_link_libraries(LookAt ${catkin_LIBRARIES})
+#add_dependencies(LookAt memoria_gencpp)
+
+#### EJECUTABLE BUSCAR SUPERFICIE
+
 add_executable(buscar_superficie src/buscar_superficie.cpp)
+add_dependencies(buscar_superficie memoria_generate_messages_cpp)
 target_link_libraries(buscar_superficie ${catkin_LIBRARIES})
+#add_dependencies(buscar_superficie memoria_gencpp)
 
 
 
