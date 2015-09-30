@@ -33,8 +33,8 @@ const string LOOKAT_TOPIC = "memoria/lookat";
 const string ROBOT_FRAME = "/base_footprint";
 const string CAMERA_FRAME = "high_def_frame";
 const string POINT_HEAD_CONTROLLER = "/head_traj_controller/point_head_action";
-const float HEAD_MAX_VELOCITY = 0.5;
-const float HEAD_MIN_DURATION = 0.5;
+const float HEAD_MAX_VELOCITY = 0.8;
+const float HEAD_MIN_DURATION = 0.1;
 const float HEAD_TIMEOUT = 15;
 // typedef para simplificar las cosas
 
@@ -74,11 +74,27 @@ bool callback(memoria::LookAt::Request& lookatmsg, memoria::LookAt::Response& re
     // Validar valores
     double x, y, z;
     if (lookatmsg.lookatmsg.rotate != 0){
-        ROS_INFO("Se pidio rotar");
         // Calcular punto resultante de rotación
         double yaw = lookatmsg.lookatmsg.vector.x;
         double pitch = lookatmsg.lookatmsg.vector.y;
-        x = 
+        ROS_INFO("Se pidio rotar yaw = %f, pitch = %f",yaw,pitch);
+        // Rotar respecto a Z
+        /*
+        Rz = | cosW -sinW 0 |
+             | sinW cosW  0 |
+             |   0    0   1 |
+        */
+        x = lastpoint.x*cos(yaw)+lastpoint.y*-sin(yaw);
+        y = lastpoint.x*sin(yaw)+lastpoint.y*cos(yaw);
+        z = lastpoint.z;
+        // Rotar respecto a Y
+        /*
+        Ry = | cosW  0 sinW |
+             |   0   1   0  |
+             | -sinW 0 cosW |
+        */
+        x = x*cos(pitch) + z*sin(pitch);
+        z = x*-sin(pitch) + z*cos(pitch);
     }
     else {
         x = lookatmsg.lookatmsg.vector.x;
@@ -101,7 +117,8 @@ int main(int argc,char** argv){
         ROS_INFO("Esperando al point_head_action server...");
     }
     // Setear punto inicial de mira
-    lookAt(ROBOT_FRAME,1000,0,1.5); // Aproximadamente mirar al frente
+    ROS_INFO("Mirando hacia el frente...");
+    lookAt(ROBOT_FRAME,10,0,1.5); // Aproximadamente mirar al frente
     // Crear servicio
     ros::ServiceServer service = nh.advertiseService("look_at", callback);
     ROS_INFO("Listo para recibir requests de look_at");

@@ -71,13 +71,45 @@ const string KINECT_TOPIC = "head_mount_kinect/depth/points";
 const string QUERY_TOPIC = "memoria/lookat";
 const string WORLD_FRAME = "/odom_combined";
 const string ROBOT_FRAME = "/base_footprint";
+// Parámetros
+//      de submuestreo
 const double LEAFSIZEX = 0.05, LEAFSIZEY = 0.05, LEAFSIZEZ = 0.05; 
+//      de segmentación
+const float SEG_THRESHOLD = 0.01;
 
 // VARIABLES GLOBALES
-ros::Publisher aux_pointcloud_publisher;
+ros::ServiceClient lookat_client;
 memoria::LookAt lookat_srv;
+pcl::SACSegmentation<pcl::PointXYZ> segmentator;
+// Variables auxiliares
+ros::Publisher aux_pointcloud_publisher;
+
 
 // MÉTODOS
+bool lookAt(string frame_id, double x, double y, double z, bool rotate){
+    /* 
+    Recibe: Frame_id
+            Punto en el espacio, si rotate == false
+            Yaw, pitch, whatever, si rotate == true
+    */
+    memoria::LookAtMsg lookatmsg;
+    lookatmsg.frame_id = frame_id;
+    lookatmsg.rotate = rotate ? 1 : 0;
+    lookatmsg.vector.x = x;
+    lookatmsg.vector.y = y;
+    lookatmsg.vector.z = z;
+    lookat_srv.request.lookatmsg = lookatmsg;
+    if (lookat_client.call(lookat_srv)){
+        ROS_INFO("Cabeza movida");
+        return true;
+    }
+    else{
+        ROS_ERROR("Error al llamar al servicio 'look_at'");
+        return false;
+    }
+}
+
+
 void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     ROS_INFO("Nube recibida");
 
@@ -89,8 +121,11 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     subsampler.filter(*in_cloud_subsampled);
     ROS_INFO("Subsampleo: %d puntos de %d (%f%%)\n",(int)in_cloud_subsampled->size(),(int)in_cloud->size(),(100.0*(int)in_cloud_subsampled->size()/(int)in_cloud->size()));
     aux_pointcloud_publisher.publish(in_cloud_subsampled);
-
-    //
+    // Segmentar en búsqueda de un plano
+    segmentator.setOptimizeCoefficients(true);
+    segmentator.setModelType(pcl::SACMODEL_PLANE);
+    segmentator.setMethodType(pcl::SAC_RANSAC);
+    segmentator.setDistanceThreshold(SEG_THRESHOLD);
 }
 
 int main(int argc, char **argv){
@@ -101,23 +136,14 @@ int main(int argc, char **argv){
     // Suscribirse al Kinect
     ros::Subscriber kinect_sub = nh.subscribe<PointCloud>(KINECT_TOPIC, 1, kinectCallback);
     // "Subscribirse" al servicio de LookAt
-    ros::ServiceClient lookat_client = nh.serviceClient<memoria::LookAt>("look_at");
+    lookat_client = nh.serviceClient<memoria::LookAt>("look_at");
     // Publicador auxiliar
     aux_pointcloud_publisher = nh.advertise<PointCloud> ("plano_submuestreado", 1);
     // Mirar un poco al suelo (por ahi por 5,0,0 respecto al robot)
-    memoria::LookAtMsg lookatmsg;
-    lookatmsg.frame_id = ROBOT_FRAME;
-    lookatmsg.rotate = 0; // FALSE, no rotar, sino que mover al punto.
-    lookatmsg.vector.x = 2; lookatmsg.vector.y = lookatmsg.vector.z = 0;
-    lookat_srv.request.lookatmsg = lookatmsg;
     ROS_INFO("Mirando un poco hacia el suelo");
-    if (lookat_client.call(lookat_srv)){
-        ROS_INFO("OK");
-    }
-    else{
-        ROS_ERROR("Error al llamar al servicio 'look_at'");
+    if (not lookAt(ROBOT_FRAME,2,0,0,false)){
         return 1;
     }
     ros::spin();
-    return EXIT_SUCCESS; //0
+    return 0;
 }

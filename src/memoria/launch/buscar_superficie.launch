@@ -2,6 +2,11 @@
     <!-- Tuck Arms -->
     <include file="$(find memoria)/launch/tuck_arms.launch"/>
     <!-- OJO: No terminará nunca porque el server de tuck_arms queda andando -->
+    <!-- Lanzar servidor de movimientos de cabeza -->
+    <node pkg="memoria"
+        type="LookAt"
+        name="look_at_server"
+        />
     <!-- Lanzar ejecutable de búsqueda de mesa -->
     <node pkg="memoria"
         type="buscar_superficie"
