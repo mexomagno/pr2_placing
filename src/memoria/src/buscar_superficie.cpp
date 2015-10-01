@@ -1,7 +1,7 @@
 /* 
 Este algoritmo se basa en el flujo explicitado en "~/Escritorio/Memoria/Conceptos"
-Básicamente es:
-    -Dock Arms
+Pseudocódigo:
+    -
     -Apuntar cabeza un poco al suelo
     -Buscar superficie:
         - Calzar modelo con RANSAC (plano primeramente)
@@ -71,21 +71,39 @@ const string KINECT_TOPIC = "head_mount_kinect/depth/points";
 const string QUERY_TOPIC = "memoria/lookat";
 const string WORLD_FRAME = "/odom_combined";
 const string ROBOT_FRAME = "/base_footprint";
+const double pi = 3.14159;
+const float HEAD_YAWS[] = {-pi*2/4.0, -pi*1/4.0, 0, pi*1/4.0, pi*2/4}; // Posiciones de cabeza hardcodeadas para búsqueda de superficies.
+const int HEAD_YAWS_SIZE = (int)(sizeof(HEAD_YAWS)/sizeof(*HEAD_YAWS));
 // Parámetros
 //      de submuestreo
 const double LEAFSIZEX = 0.05, LEAFSIZEY = 0.05, LEAFSIZEZ = 0.05; 
 //      de segmentación
-const float SEG_THRESHOLD = 0.01;
+const float SEG_THRESHOLD = 0.01; // Radio para considerarse inlier
+const float MIN_CLOUD_LEFT_RATIO = 10; // Mínimo porcentaje de nube restante para seguir buscando una superficie
+const float MIN_SEGMENTED_SURFACE_PERCENT = 10; // Tamaño mínimo de superficie en términos de porcentaje de puntos versus puntos totales de la escena inicialmente capturada
+const float MIN_SURFACE_HEIGHT = 0.5; // Altura mínima de la superficie al suelo, en metros.
+const float PITCH_THRESHOLD = 0.09; // Holgura de inclinación de superficie, en radianes
+const float DESIRED_PITCH = -3.14159/2.0; // Inclinación deseada del plano (normal vertical)
+//      de transformaciones TF
+const float WAIT_TRANSFORM_TIMEOUT = 1.0;
 
 // VARIABLES GLOBALES
 ros::ServiceClient lookat_client;
 memoria::LookAt lookat_srv;
 pcl::SACSegmentation<pcl::PointXYZ> segmentator;
+PointCloud::Ptr selected_surface (new PointCloud);
+bool surface_found = false;
 // Variables auxiliares
 ros::Publisher aux_pointcloud_publisher;
-
+ros::Publisher aux_pose_publisher;
 
 // MÉTODOS
+float toGrad(float rad){
+    return rad*360/(2*3.1415);
+}
+float toRad(int grados){
+    return grados*2*3.1415/360.0;
+}
 bool lookAt(string frame_id, double x, double y, double z, bool rotate){
     /* 
     Recibe: Frame_id
@@ -109,23 +127,134 @@ bool lookAt(string frame_id, double x, double y, double z, bool rotate){
     }
 }
 
+geometry_msgs::Quaternion coefsToQuaternionMsg(float a, float b, float c){
+    /* 
+    Recibe: a, b, c, coeficientes de un plano
+    Retorna: Quaternion con la orientación de la normal del plano.
+    */
+    float vmod=sqrt(a*a+b*b+c*c);
+    float pitch = -(1.0*asin(1.0*c/vmod));
+    float yaw = (a==0?toRad(90):atan(b/a)) + (a>=0?0:toRad(180));
+    return tf::createQuaternionMsgFromRollPitchYaw(0,pitch,yaw);
+}
 
 void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     ROS_INFO("Nube recibida");
+    // ********* Obtener transformación de este momento con TF
+    // Crear objetos
+    tf::TransformListener transform_listener;
+    tf::StampedTransform stamped_transform;
+    ros::Time transform_time = ros::Time(0);
+    // Intentar obtener transformación actual
+    try{
+        ROS_INFO("Esperando transformación disponible...");
+        if (not transform_listener.waitForTransform(in_cloud->header.frame_id, ROBOT_FRAME, transform_time, ros::Duration(WAIT_TRANSFORM_TIMEOUT))){
+            ROS_ERROR("Transformación no pudo ser obtenida en %f segundos",WAIT_TRANSFORM_TIMEOUT);
+            // Salir del callback
+            return;
+        }
+        transform_listener.lookupTransform(in_cloud->header.frame_id, ROBOT_FRAME, ros::Time(0), stamped_transform);
+    }
+    catch (tf::TransformException ex){
+        ROS_ERROR("Excepción al obtener transformación: %s",ex.what());
+    }
+    // ********* Submuestrear nube para procesamiento más rápido
+    PointCloud::Ptr in_cloud_subsampled(new PointCloud), // Subsampleada
+                    segmented(new PointCloud),           // Nube inliers
+                    remaining_cloud (new PointCloud);
 
-    // Submuestrear nube para procesamiento más rápido
-    PointCloud::Ptr in_cloud_subsampled(new PointCloud), segmented(new PointCloud);
     pcl::VoxelGrid<pcl::PointXYZ> subsampler;
     subsampler.setInputCloud(in_cloud);
     subsampler.setLeafSize (LEAFSIZEX,LEAFSIZEY,LEAFSIZEZ);
     subsampler.filter(*in_cloud_subsampled);
     ROS_INFO("Subsampleo: %d puntos de %d (%f%%)\n",(int)in_cloud_subsampled->size(),(int)in_cloud->size(),(100.0*(int)in_cloud_subsampled->size()/(int)in_cloud->size()));
     aux_pointcloud_publisher.publish(in_cloud_subsampled);
-    // Segmentar en búsqueda de un plano
+    // ********* Segmentar en búsqueda de un plano
     segmentator.setOptimizeCoefficients(true);
     segmentator.setModelType(pcl::SACMODEL_PLANE);
     segmentator.setMethodType(pcl::SAC_RANSAC);
     segmentator.setDistanceThreshold(SEG_THRESHOLD);
+    // Contenedores de resultados de segmentación
+    pcl::ModelCoefficients::Ptr coefs (new pcl::ModelCoefficients());
+    pcl::PointIndices::Ptr inliers (new pcl::PointIndices());
+    pcl::ExtractIndices<pcl::PointXYZ> extractor;
+    // opcional: segmentator.setMaxIterations(1000);
+    // ********* Iterar sobre cada plano encontrado hasta cierto criterio
+    // Criterio: Hasta que puntos restantes sean menores a un porcentaje de los puntos iniciales
+    //           o hasta que el modelo calzado actual tenga menos de X inliers
+    int init_cloud_size = (int)in_cloud_subsampled->size();
+    do{
+        // ********* Segmentar
+        segmentator.setInputCloud(in_cloud_subsampled);
+        segmentator.segment(*inliers,*coefs);
+        if (inliers->indices.size()*100.0/(int)in_cloud_subsampled->size() < MIN_SEGMENTED_SURFACE_PERCENT){
+            // Si no se encuentra superficie
+            if (inliers->indices.size() == 0)
+                ROS_INFO("No encontré más superficies");
+            else
+            // Superficie muy chica
+                ROS_INFO("Superficie muy pequeña (<%f%% del total de puntos)",inliers->indices.size()*100.0/init_cloud_size);
+            break;
+        }
+        // Extraer inliers
+        extractor.setInputCloud(in_cloud_subsampled);
+        extractor.setIndices(inliers);
+        extractor.setNegative(false);
+        extractor.filter(*segmented);
+        // ********* VERIFICAR 1-ER CRITERIO ACEPTACIÓN: Altura de la superficie
+        /*
+        Cómo implementar esta parte?
+            - Altura del centroide del plano
+                Pros: Simple, asegura al menos un punto de apoyo
+                Contras: Centroide puede estar bajo altura mínima pero superficie puede servir igual
+            - Altura del punto más bajo
+                Pros: Asegura superficie útil
+                Contras: Descarta potencialmente otras también útiles (caso anterior)
+            - Altura del punto más alto
+                Pros: none
+                Contras: Todos.
+            - Existencia de suficientes puntos sobre cierta altura deseada
+                Pros: Asegura superficie de apoyo. Manera más correcta.
+                Contras: Cómo se implementa? Hay que transformar TODOS los inliers al frame de la base.
+
+        */
+        // Obtener la normal del plano
+        geometry_msgs::QuaternionStamped normal_quat,normal_quat_baseframe;
+        normal_quat.quaternion = coefsToQuaternionMsg(coefs->values[0],coefs->values[1],coefs->values[2]);
+        normal_quat.header.frame_id = in_cloud->header.frame_id;
+        normal_quat.header.stamp = stamped_transform.stamp_;
+        //      Transformar normal a frame de la base
+        transform_listener.transformQuaternion(ROBOT_FRAME,normal_quat,normal_quat_baseframe);
+        //      Expresarla en términos de RPY
+        tf::Quaternion tf_quaternion;
+        tf::quaternionMsgToTF(normal_quat.quaternion,tf_quaternion);
+        double roll,pitch,yaw;
+        tf::Matrix3x3(tf_quaternion).getRPY(roll,pitch,yaw);
+        // ********* VERIFICAR 2-DO CRITERIO ACEPTACIÓN: inclinación (pitch)
+        if (DESIRED_PITCH - PITCH_THRESHOLD < pitch and pitch < DESIRED_PITCH + PITCH_THRESHOLD ){
+            ROS_INFO("Superficie encontrada!");
+            // Guardar superficie encontrada
+            extractor.setInputCloud(in_cloud_subsampled);
+            extractor.setIndices(inliers);
+            extractor.setNegative(false);
+            extractor.filter(*selected_surface);
+            // Publicar para visualización
+            aux_pointcloud_publisher.publish(selected_surface);
+            surface_found = true;
+            // Terminar callback
+            return;
+        }
+        else{
+            ROS_INFO("Superficie demasiado inclinada (%frad demás)",(pitch - DESIRED_PITCH));
+        }
+        // Quitar inliers rechazados para la siguiente iteración
+        // "in_cloud -= inliers"
+        extractor.setInputCloud(in_cloud_subsampled);
+        extractor.setIndices(inliers);
+        extractor.setNegative(true);
+        extractor.filter(*in_cloud_subsampled);
+    }while ( ((int)in_cloud_subsampled->size()*100.0/init_cloud_size) >= MIN_CLOUD_LEFT_RATIO);
+
 }
 
 int main(int argc, char **argv){
@@ -139,11 +268,24 @@ int main(int argc, char **argv){
     lookat_client = nh.serviceClient<memoria::LookAt>("look_at");
     // Publicador auxiliar
     aux_pointcloud_publisher = nh.advertise<PointCloud> ("plano_submuestreado", 1);
+    aux_pose_publisher = nh.advertise<PointCloud> ("normal_plano", 1);
     // Mirar un poco al suelo (por ahi por 5,0,0 respecto al robot)
     ROS_INFO("Mirando un poco hacia el suelo");
     if (not lookAt(ROBOT_FRAME,2,0,0,false)){
         return 1;
     }
-    ros::spin();
+    // Mirar al primer punto de búsqueda de superficie
+    for (int i = 0; i< HEAD_YAWS_SIZE; i++){
+        ROS_INFO("Buscando en %f°",toGrad(HEAD_YAWS[i]));
+        lookAt(ROBOT_FRAME,HEAD_YAWS[i],0,0,true);
+        ros::spinOnce();
+        if (surface_found){
+            ROS_INFO("Superficie encontrada");
+            break;
+        }
+    }
+    if (not surface_found){
+        ROS_INFO("No se encontró ninguna superficie adecuada. Abortando...");
+    }
     return 0;
 }
