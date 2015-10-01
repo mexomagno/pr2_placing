@@ -68,12 +68,14 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
 // CONSTANTES
 const string KINECT_TOPIC = "head_mount_kinect/depth/points";
+const string KINECT_FRAME = "head_mount_kinect_ir_optical_frame";
 const string QUERY_TOPIC = "memoria/lookat";
 const string WORLD_FRAME = "/odom_combined";
-const string ROBOT_FRAME = "/base_footprint";
+const string ROBOT_BASE_FRAME = "/base_footprint";
 const double pi = 3.14159;
 const float HEAD_YAWS[] = {-pi*2/4.0, -pi*1/4.0, 0, pi*1/4.0, pi*2/4}; // Posiciones de cabeza hardcodeadas para búsqueda de superficies.
 const int HEAD_YAWS_SIZE = (int)(sizeof(HEAD_YAWS)/sizeof(*HEAD_YAWS));
+const float WAIT_LOOKAT = 1;
 // Parámetros
 //      de submuestreo
 const double LEAFSIZEX = 0.05, LEAFSIZEY = 0.05, LEAFSIZEZ = 0.05; 
@@ -95,6 +97,7 @@ PointCloud::Ptr selected_surface (new PointCloud);
 bool surface_found = false;
 // Variables auxiliares
 ros::Publisher aux_pointcloud_publisher;
+ros::Publisher aux_pointcloud_publisher_2;
 ros::Publisher aux_pose_publisher;
 
 // MÉTODOS
@@ -118,7 +121,7 @@ bool lookAt(string frame_id, double x, double y, double z, bool rotate){
     lookatmsg.vector.z = z;
     lookat_srv.request.lookatmsg = lookatmsg;
     if (lookat_client.call(lookat_srv)){
-        ROS_INFO("Cabeza movida");
+        //ROS_INFO("Cabeza movida");
         return true;
     }
     else{
@@ -148,12 +151,12 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     // Intentar obtener transformación actual
     try{
         ROS_INFO("Esperando transformación disponible...");
-        if (not transform_listener.waitForTransform(in_cloud->header.frame_id, ROBOT_FRAME, transform_time, ros::Duration(WAIT_TRANSFORM_TIMEOUT))){
+        if (not transform_listener.waitForTransform(in_cloud->header.frame_id, ROBOT_BASE_FRAME, transform_time, ros::Duration(WAIT_TRANSFORM_TIMEOUT))){
             ROS_ERROR("Transformación no pudo ser obtenida en %f segundos",WAIT_TRANSFORM_TIMEOUT);
             // Salir del callback
             return;
         }
-        transform_listener.lookupTransform(in_cloud->header.frame_id, ROBOT_FRAME, ros::Time(0), stamped_transform);
+        transform_listener.lookupTransform(in_cloud->header.frame_id, ROBOT_BASE_FRAME, ros::Time(0), stamped_transform);
     }
     catch (tf::TransformException ex){
         ROS_ERROR("Excepción al obtener transformación: %s",ex.what());
@@ -167,7 +170,7 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     subsampler.setInputCloud(in_cloud);
     subsampler.setLeafSize (LEAFSIZEX,LEAFSIZEY,LEAFSIZEZ);
     subsampler.filter(*in_cloud_subsampled);
-    ROS_INFO("Subsampleo: %d puntos de %d (%f%%)\n",(int)in_cloud_subsampled->size(),(int)in_cloud->size(),(100.0*(int)in_cloud_subsampled->size()/(int)in_cloud->size()));
+    ROS_INFO("Subsampleo: %d puntos de %d (%f%%)",(int)in_cloud_subsampled->size(),(int)in_cloud->size(),(100.0*(int)in_cloud_subsampled->size()/(int)in_cloud->size()));
     aux_pointcloud_publisher.publish(in_cloud_subsampled);
     // ********* Segmentar en búsqueda de un plano
     segmentator.setOptimizeCoefficients(true);
@@ -194,8 +197,9 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
             else
             // Superficie muy chica
                 ROS_INFO("Superficie muy pequeña (<%f%% del total de puntos)",inliers->indices.size()*100.0/init_cloud_size);
-            break;
+            return;
         }
+        ROS_INFO("Coeficientes plano encontrado (KINECT_FRAME): (%f, %f, %f)",coefs->values[0],coefs->values[1],coefs->values[2]);
         // Extraer inliers
         extractor.setInputCloud(in_cloud_subsampled);
         extractor.setIndices(inliers);
@@ -222,14 +226,16 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
         geometry_msgs::QuaternionStamped normal_quat,normal_quat_baseframe;
         normal_quat.quaternion = coefsToQuaternionMsg(coefs->values[0],coefs->values[1],coefs->values[2]);
         normal_quat.header.frame_id = in_cloud->header.frame_id;
+        //normal_quat.header.stamp = ros::Time(in_cloud->header.stamp/1000000.0);//stamped_transform.stamp_;
         normal_quat.header.stamp = stamped_transform.stamp_;
         //      Transformar normal a frame de la base
-        transform_listener.transformQuaternion(ROBOT_FRAME,normal_quat,normal_quat_baseframe);
+        transform_listener.transformQuaternion(ROBOT_BASE_FRAME,normal_quat,normal_quat_baseframe);
         //      Expresarla en términos de RPY
         tf::Quaternion tf_quaternion;
-        tf::quaternionMsgToTF(normal_quat.quaternion,tf_quaternion);
+        tf::quaternionMsgToTF(normal_quat_baseframe.quaternion,tf_quaternion);
         double roll,pitch,yaw;
         tf::Matrix3x3(tf_quaternion).getRPY(roll,pitch,yaw);
+        ROS_INFO("Normal en RPY (ROBOT_BASE_FRAME): (%f°, %f°, %f°)",toGrad(roll),toGrad(pitch),toGrad(yaw));
         // ********* VERIFICAR 2-DO CRITERIO ACEPTACIÓN: inclinación (pitch)
         if (DESIRED_PITCH - PITCH_THRESHOLD < pitch and pitch < DESIRED_PITCH + PITCH_THRESHOLD ){
             ROS_INFO("Superficie encontrada!");
@@ -239,7 +245,7 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
             extractor.setNegative(false);
             extractor.filter(*selected_surface);
             // Publicar para visualización
-            aux_pointcloud_publisher.publish(selected_surface);
+            aux_pointcloud_publisher_2.publish(selected_surface);
             surface_found = true;
             // Terminar callback
             return;
@@ -254,7 +260,8 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
         extractor.setNegative(true);
         extractor.filter(*in_cloud_subsampled);
     }while ( ((int)in_cloud_subsampled->size()*100.0/init_cloud_size) >= MIN_CLOUD_LEFT_RATIO);
-
+    // Al parecer lo anterior debiera ser un while true, que muere en la condición de los inliers de segmentacioń
+    ROS_INFO("Quedan muy pocos puntos para buscar una superficie. Superficie NO ENCONTRADA.");
 }
 
 int main(int argc, char **argv){
@@ -268,19 +275,21 @@ int main(int argc, char **argv){
     lookat_client = nh.serviceClient<memoria::LookAt>("look_at");
     // Publicador auxiliar
     aux_pointcloud_publisher = nh.advertise<PointCloud> ("plano_submuestreado", 1);
+    aux_pointcloud_publisher_2 = nh.advertise<PointCloud> ("superficie_encontrada", 1);
     aux_pose_publisher = nh.advertise<PointCloud> ("normal_plano", 1);
     // Mirar un poco al suelo (por ahi por 5,0,0 respecto al robot)
     ROS_INFO("Mirando un poco hacia el suelo");
-    if (not lookAt(ROBOT_FRAME,2,0,0,false)){
+    if (not lookAt(ROBOT_BASE_FRAME,2,0,0,false)){
         return 1;
     }
     // Mirar al primer punto de búsqueda de superficie
     for (int i = 0; i< HEAD_YAWS_SIZE; i++){
         ROS_INFO("Buscando en %f°",toGrad(HEAD_YAWS[i]));
-        lookAt(ROBOT_FRAME,HEAD_YAWS[i],0,0,true);
+        lookAt(ROBOT_BASE_FRAME,HEAD_YAWS[i],0,0,true);
+        ros::Duration(WAIT_LOOKAT).sleep();
         ros::spinOnce();
         if (surface_found){
-            ROS_INFO("Superficie encontrada");
+            ROS_INFO("Se almacena superficie encontrada.");
             break;
         }
     }
