@@ -1,13 +1,21 @@
 /*
 Este nodo se preocupa de los movimientos de cabeza del PR2
+Está implementado como un servicio de ROS.
+Recibe:
+    - Mensaje personalizado de ROS memoria/LookAtMsg, con:
+        string frame_id = Frame de las coordenadas siguientes
+        geometry_msgs/Vector3 vector = coordenadas, si rotate = 0, o (Yaw ,Pitch,NADA) si rotate = 1
+        int32 rotate = 0 o 1.
+Retorna:
+    - 0 si todo ok
+    - 1 si hubo error
+    - 2 si se produjo timeout
 
-Se queda atento escuchando a un tópico particular, mensajes de tipo geometry_msgs/PointStamped y hace que el robot mire exactamente a ese punto, respecto al frame entregado.
 
-La implementación correcta debiera ser usando Servicios de ROS.
-
-Declaración del servicio
-
-
+Mejoras:
+    - Reparar precisión del punto especificado
+    - Reparar "waitForResult" que retorna antes de terminar movimiento
+    - Reparar rotación en Pitch
 
 */
 
@@ -32,6 +40,7 @@ typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> Poi
 const string LOOKAT_TOPIC = "memoria/lookat";
 const string ROBOT_FRAME = "/base_footprint";
 const string CAMERA_FRAME = "high_def_frame";
+const string KINECT_FRAME = "head_mount_kinect_ir_optical_frame";
 const string POINT_HEAD_CONTROLLER = "/head_traj_controller/point_head_action";
 const float HEAD_MAX_VELOCITY = 0.8;
 const float HEAD_MIN_DURATION = 0.1;
@@ -54,10 +63,10 @@ int lookAt(string frame_id, double x, double y, double z){
     goal.target.header.frame_id = frame_id;
     goal.target.point = point;
     // Se quiere que el eje X de la cámara apunte al punto
-    goal.pointing_frame = CAMERA_FRAME; // podría ser otro si se quisiera.
-    goal.pointing_axis.x = 1;
+    goal.pointing_frame = KINECT_FRAME; // podría ser otro si se quisiera.
+    goal.pointing_axis.x = 0;
     goal.pointing_axis.y = 0;
-    goal.pointing_axis.z = 0;
+    goal.pointing_axis.z = 1;
     // Limitar velocidades
     goal.max_velocity = HEAD_MAX_VELOCITY; // rad/s
     goal.min_duration = ros::Duration(HEAD_MIN_DURATION);
@@ -90,8 +99,10 @@ bool callback(memoria::LookAt::Request& lookatmsg, memoria::LookAt::Response& re
             y = lastpoint.x*sin(yaw)+lastpoint.y*cos(yaw);
         }
         else{
-            x = 10*cos(yaw);
-            y = 10*sin(yaw);
+            // Vector base es: X=módulo de x y, Y=Z=0
+            double modulo = sqrt(lastpoint.x*lastpoint.x + lastpoint.y*lastpoint.y);
+            x = modulo*cos(yaw);
+            y = modulo*sin(yaw);
         }
         z = lastpoint.z;
         // Rotar respecto a Y
