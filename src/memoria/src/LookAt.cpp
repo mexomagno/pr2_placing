@@ -36,6 +36,7 @@ const string POINT_HEAD_CONTROLLER = "/head_traj_controller/point_head_action";
 const float HEAD_MAX_VELOCITY = 0.8;
 const float HEAD_MIN_DURATION = 0.1;
 const float HEAD_TIMEOUT = 15;
+const bool RELATIVE_ROTATION = false; // if true, rotación se mide desde última pose. Else, desde pose base (mirando al frente)
 // typedef para simplificar las cosas
 
 PointHeadClient *phc;
@@ -84,8 +85,14 @@ bool callback(memoria::LookAt::Request& lookatmsg, memoria::LookAt::Response& re
              | sinW cosW  0 |
              |   0    0   1 |
         */
-        x = lastpoint.x*cos(yaw)+lastpoint.y*-sin(yaw);
-        y = lastpoint.x*sin(yaw)+lastpoint.y*cos(yaw);
+        if (RELATIVE_ROTATION){
+            x = lastpoint.x*cos(yaw)+lastpoint.y*-sin(yaw);
+            y = lastpoint.x*sin(yaw)+lastpoint.y*cos(yaw);
+        }
+        else{
+            x = 10*cos(yaw);
+            y = 10*sin(yaw);
+        }
         z = lastpoint.z;
         // Rotar respecto a Y
         /*
