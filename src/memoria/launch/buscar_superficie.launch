@@ -7,13 +7,13 @@
         type="LookAt"
         name="look_at_server"
         />
-    <!-- Lanzar ejecutable de búsqueda de mesa -->
-    <node pkg="memoria"
-        type="buscar_superficie"
-        name="buscar_superficie">
     <!-- Lanzar rviz -->
     <node pkg="rviz"
         type="rviz"
         name="rviz"
         args="-d $(find memoria)/rviz/buscar_superficie.rviz"/>
+    <!-- Lanzar ejecutable de búsqueda de mesa -->
+    <node pkg="memoria"
+        type="buscar_superficie"
+        name="buscar_superficie">
 </launch>
