@@ -33,6 +33,7 @@ LIBRERÍAS
         pcl/features/normal_3d : Orientación de vectores hacia viewpoint
         // pcl_conversions/pcl_conversions & 
         pcl_ros/point_cloud: para trabajar con tipos de datos de pcl directamente
+        pcl/common/centroid : Para obtención de centroide de una nube de puntos.
 
     TF para transformaciones de frames
         tf/transform_listener : listener de transformaciones
@@ -40,7 +41,10 @@ LIBRERÍAS
         math : para operaciones matemáticas trigonométricas
         iostream : para usar <<
         string : Strings de más alto nivel que char *
-    
+
+TODO:
+    - Usar opciones de Sacsegmentation para filtrar normales desde un principio (setAxis, segEpsAngle)
+    - Evaluar la implementación de un mecanismo más exacto de detección de altura del plano.
 
 */
 #include <ros/ros.h>
@@ -55,6 +59,7 @@ LIBRERÍAS
 #include <pcl/filters/extract_indices.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl_ros/point_cloud.h>
+#include <pcl/common/centroid.h>
 //#include <pcl_conversions/pcl_conversions.h>
 #include <tf/transform_listener.h>
 #include <math.h>
@@ -76,6 +81,9 @@ const double pi = 3.14159;
 const float HEAD_YAWS[] = {-pi*2/4.0, -pi*1/4.0, 0, pi*1/4.0, pi*2/4}; // Posiciones de cabeza hardcodeadas para búsqueda de superficies.
 const int HEAD_YAWS_SIZE = (int)(sizeof(HEAD_YAWS)/sizeof(*HEAD_YAWS));
 const float WAIT_LOOKAT = 1;
+const float PITCH_THRESHOLD = 0.09; // Holgura de inclinación de superficie, en radianes
+const float DESIRED_PITCH = -3.14159/2.0; // Inclinación deseada del plano (normal vertical)
+const float MIN_SURFACE_HEIGHT = 0.3; // Altura mínima de la superficie al suelo, en metros.
 // Parámetros
 //      de submuestreo
 const double LEAFSIZEX = 0.05, LEAFSIZEY = 0.05, LEAFSIZEZ = 0.05; 
@@ -83,9 +91,6 @@ const double LEAFSIZEX = 0.05, LEAFSIZEY = 0.05, LEAFSIZEZ = 0.05;
 const float SEG_THRESHOLD = 0.01; // Radio para considerarse inlier
 const float MIN_CLOUD_LEFT_RATIO = 10; // Mínimo porcentaje de nube restante para seguir buscando una superficie
 const float MIN_SEGMENTED_SURFACE_PERCENT = 10; // Tamaño mínimo de superficie en términos de porcentaje de puntos versus puntos totales de la escena inicialmente capturada
-const float MIN_SURFACE_HEIGHT = 0.5; // Altura mínima de la superficie al suelo, en metros.
-const float PITCH_THRESHOLD = 0.09; // Holgura de inclinación de superficie, en radianes
-const float DESIRED_PITCH = -3.14159/2.0; // Inclinación deseada del plano (normal vertical)
 //      de transformaciones TF
 const float WAIT_TRANSFORM_TIMEOUT = 1.0;
 
@@ -140,7 +145,10 @@ geometry_msgs::Quaternion coefsToQuaternionMsg(float a, float b, float c){
     float yaw = (a==0?toRad(90):atan(b/a)) + (a>=0?0:toRad(180));
     return tf::createQuaternionMsgFromRollPitchYaw(0,pitch,yaw);
 }
-
+/*tf::Vector3 PlaneNormalToCoefs(geometry_msgs::Pose normal){
+    double a=
+}
+*/
 void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     ROS_INFO("Nube recibida");
     // ********* Obtener transformación de este momento con TF
@@ -165,7 +173,6 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     PointCloud::Ptr in_cloud_subsampled(new PointCloud), // Subsampleada
                     segmented(new PointCloud),           // Nube inliers
                     remaining_cloud (new PointCloud);
-
     pcl::VoxelGrid<pcl::PointXYZ> subsampler;
     subsampler.setInputCloud(in_cloud);
     subsampler.setLeafSize (LEAFSIZEX,LEAFSIZEY,LEAFSIZEZ);
@@ -217,41 +224,76 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
             - Altura del punto más alto
                 Pros: none
                 Contras: Todos.
-            - Existencia de suficientes puntos sobre cierta altura deseada
+            [ELEGIDA]- Existencia de suficientes puntos sobre cierta altura deseada
                 Pros: Asegura superficie de apoyo. Manera más correcta.
                 Contras: Cómo se implementa? Hay que transformar TODOS los inliers al frame de la base.
+                Implementación propuesta (luego de googlear opciones http://www.pcl-users.org/Filtering-points-above-below-a-plane-td4037613.html):
+                    - Crear nueva nube
+                    - Crear coefs de planos que restrinjan eje Z según FRAME_ROBOT
+                    - Transformar estos coefs a FRAME_KINECT
+                    - Iterar sobre los puntos segmentados
+                        - if punto entre los planos, añadir a la nueva nube
+                    - comprobar nube resultante
+                        - if superficie es de buen tamaño, ok.
+
+                Implementación Fácil pero lenta:
+                    - Transformar nube segmentada a ROBOT_FRAME
+                    - Iterar sobre puntos
+                        - if punto bajo Z, remover
+                Implementación Fácil, rápida pero poco exacta
+                    - Obtener centroide nube segmentada (o cualquier punto)
+                    - Transformar centroide a ROBOT_FRAME
+                    - if pose > min z, aceptada.
 
         */
-        // Obtener la normal del plano
-        geometry_msgs::QuaternionStamped normal_quat,normal_quat_baseframe;
-        normal_quat.quaternion = coefsToQuaternionMsg(coefs->values[0],coefs->values[1],coefs->values[2]);
-        normal_quat.header.frame_id = in_cloud->header.frame_id;
-        //normal_quat.header.stamp = ros::Time(in_cloud->header.stamp/1000000.0);//stamped_transform.stamp_;
-        normal_quat.header.stamp = stamped_transform.stamp_;
-        //      Transformar normal a frame de la base
-        transform_listener.transformQuaternion(ROBOT_BASE_FRAME,normal_quat,normal_quat_baseframe);
-        //      Expresarla en términos de RPY
-        tf::Quaternion tf_quaternion;
-        tf::quaternionMsgToTF(normal_quat_baseframe.quaternion,tf_quaternion);
-        double roll,pitch,yaw;
-        tf::Matrix3x3(tf_quaternion).getRPY(roll,pitch,yaw);
-        ROS_INFO("Normal en RPY (ROBOT_BASE_FRAME): (%f°, %f°, %f°)",toGrad(roll),toGrad(pitch),toGrad(yaw));
-        // ********* VERIFICAR 2-DO CRITERIO ACEPTACIÓN: inclinación (pitch)
-        if (DESIRED_PITCH - PITCH_THRESHOLD < pitch and pitch < DESIRED_PITCH + PITCH_THRESHOLD ){
-            ROS_INFO("Superficie encontrada!");
-            // Guardar superficie encontrada
-            extractor.setInputCloud(in_cloud_subsampled);
-            extractor.setIndices(inliers);
-            extractor.setNegative(false);
-            extractor.filter(*selected_surface);
-            // Publicar para visualización
-            aux_pointcloud_publisher_2.publish(selected_surface);
-            surface_found = true;
-            // Terminar callback
-            return;
+        // Obtener centroide
+        Eigen::Vector4f centroid;
+        compute3DCentroid(*segmented,centroid);
+        // Transformarlo a ROBOT_FRAME
+        geometry_msgs::PointStamped centroid_msg,centroid_msg_baseframe;
+        centroid_msg.header.frame_id = in_cloud->header.frame_id;
+        centroid_msg.header.stamp = stamped_transform.stamp_;
+        centroid_msg.point.x = centroid(0);
+        centroid_msg.point.y = centroid(1);
+        centroid_msg.point.z = centroid(2);
+        transform_listener.transformPoint(ROBOT_BASE_FRAME, centroid_msg, centroid_msg_baseframe);
+        ROS_INFO("Centroide en (ROBOT_BASE_FRAME): (%f,%f,%f)",centroid_msg_baseframe.point.x,centroid_msg_baseframe.point.y,centroid_msg_baseframe.point.z);
+        // ********** VERIFICAR 1-ER CRITERIO ACEPTACIÓN: altura del plano
+        if (centroid_msg_baseframe.point.z > MIN_SURFACE_HEIGHT){
+            // Obtener la normal del plano
+            geometry_msgs::QuaternionStamped normal_quat,normal_quat_baseframe;
+            normal_quat.quaternion = coefsToQuaternionMsg(coefs->values[0],coefs->values[1],coefs->values[2]);
+            normal_quat.header.frame_id = in_cloud->header.frame_id;
+            //normal_quat.header.stamp = ros::Time(in_cloud->header.stamp/1000000.0);//stamped_transform.stamp_;
+            normal_quat.header.stamp = stamped_transform.stamp_;
+            //      Transformar normal a frame de la base
+            transform_listener.transformQuaternion(ROBOT_BASE_FRAME,normal_quat,normal_quat_baseframe);
+            //      Expresarla en términos de RPY
+            tf::Quaternion tf_quaternion;
+            tf::quaternionMsgToTF(normal_quat_baseframe.quaternion,tf_quaternion);
+            double roll,pitch,yaw;
+            tf::Matrix3x3(tf_quaternion).getRPY(roll,pitch,yaw);
+            ROS_INFO("Normal en RPY (ROBOT_BASE_FRAME): (%f°, %f°, %f°)",toGrad(roll),toGrad(pitch),toGrad(yaw));
+            // ********* VERIFICAR 2-DO CRITERIO ACEPTACIÓN: inclinación (pitch)
+            if (DESIRED_PITCH - PITCH_THRESHOLD < pitch and pitch < DESIRED_PITCH + PITCH_THRESHOLD ){
+                ROS_INFO("Superficie encontrada!");
+                // Guardar superficie encontrada
+                extractor.setInputCloud(in_cloud_subsampled);
+                extractor.setIndices(inliers);
+                extractor.setNegative(false);
+                extractor.filter(*selected_surface);
+                // Publicar para visualización
+                aux_pointcloud_publisher_2.publish(selected_surface);
+                surface_found = true;
+                // Terminar callback
+                return;
+            }
+            else{
+                ROS_INFO("Superficie demasiado inclinada (%frad demás)",(pitch - DESIRED_PITCH));
+            }
         }
-        else{
-            ROS_INFO("Superficie demasiado inclinada (%frad demás)",(pitch - DESIRED_PITCH));
+        else {
+            ROS_INFO("Plano demasiado bajo (altura: %f, mín: $f)",centroid_msg_baseframe.point.z,MIN_SURFACE_HEIGHT);
         }
         // Quitar inliers rechazados para la siguiente iteración
         // "in_cloud -= inliers"
