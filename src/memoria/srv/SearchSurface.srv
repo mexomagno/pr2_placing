@@ -1,0 +1,8 @@
+# No recibe nada
+# std_msgs/Empty
+---
+# Retorna:
+# PointCloud
+sensor_msgs/PointCloud2 pointcloud
+# Información de error
+memoria/ErrorMsg error

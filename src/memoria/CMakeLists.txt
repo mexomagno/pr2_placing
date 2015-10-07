@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
     actionlib
     pr2_controllers_msgs
     message_generation
+    moveit_ros_planning_interface
 )
 
 ## System dependencies are found with CMake's conventions
@@ -50,14 +51,14 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   LookAtMsg.msg
-#   Message2.msg
+  ErrorMsg.msg
 )
 
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
   LookAt.srv
-#   Service2.srv
+  SearchSurface.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -72,6 +73,7 @@ add_service_files(
   DEPENDENCIES
   std_msgs  # Or other packages containing msgs
   geometry_msgs
+  sensor_msgs
 )
 
 ###################################
@@ -120,12 +122,18 @@ include_directories(
 
 #########################
 
-#### EJECUTABLE LOOKAT
+#### EJECUTABLE SERVICIO LOOKAT
 
 add_executable(LookAt src/LookAt.cpp)
 add_dependencies(LookAt memoria_generate_messages_cpp)
 target_link_libraries(LookAt ${catkin_LIBRARIES})
 #add_dependencies(LookAt memoria_gencpp)
+
+#### EJECUTABLE SERVICIO SEARCHSURFACE
+
+add_executable(SearchSurface src/SearchSurface.cpp)
+add_dependencies(SearchSurface memoria_generate_messages_cpp)
+target_link_libraries(SearchSurface ${catkin_LIBRARIES})
 
 #### EJECUTABLE BUSCAR SUPERFICIE
 
@@ -134,7 +142,11 @@ add_dependencies(buscar_superficie memoria_generate_messages_cpp)
 target_link_libraries(buscar_superficie ${catkin_LIBRARIES})
 #add_dependencies(buscar_superficie memoria_gencpp)
 
+#### EJECUTABLE PLACING
 
+add_executable(placing src/placing.cpp)
+add_dependencies(placing memoria_generate_messages_cpp)
+target_link_libraries(placing ${catkin_LIBRARIES})
 
 
 #############
