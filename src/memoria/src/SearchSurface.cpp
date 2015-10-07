@@ -27,8 +27,9 @@ void getDummyCloud(PointCloud::Ptr& pointcloud){
         double factor = 0.1;
         cloud->points[i].x = (i%5)*factor;
         cloud->points[i].y = floor(i/5)*factor;
-        cloud->points[i].z = rand()/RAND_MAX*factor*(int)cloud->points.size();
+        cloud->points[i].z = 1 + 1.0*(rand()/RAND_MAX)*factor;
     }
+    ROS_INFO("Construí nube dummy de %d puntos", (int)cloud->size());
     pointcloud = cloud;
 }
 
@@ -37,6 +38,7 @@ bool callback(memoria::SearchSurface::Request& request, memoria::SearchSurface::
     // Obtener Pointcloud
     PointCloud::Ptr pointcloud;
     getDummyCloud(pointcloud);
+    ROS_INFO("Obtenida nube de %d puntos",(int)pointcloud->size());
     memoria::ErrorMsg errormsg;
     pcl::toROSMsg(*pointcloud, response.pointcloud);
     

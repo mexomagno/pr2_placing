@@ -102,6 +102,7 @@ void searchSurface(){
         }
         ROS_INFO("Almacenando superficie encontrada");
         surface = search_surface_srv.response.pointcloud;
+        //ROS_INFO("nube: Tamaño=%d",surface)
         aux_pointcloud_pub.publish(surface);
     }
     else{
@@ -126,14 +127,14 @@ int main(int argc, char **argv){
     spinner.start();
     ROS_INFO("Comenzando ejecución");
     ros::NodeHandle nh;
+    ROS_INFO("Creando cliente para 'search_surface'");
+    search_surface_client = nh.serviceClient<memoria::SearchSurface>(SEARCH_SURFACE_SRV_NAME);
+    aux_pointcloud_pub = nh.advertise<PointCloud> ("plano_dummy",1);
     signal(SIGINT, signalHandler);
     ROS_INFO("Inicializando %s",ACTIVE_ARM.c_str());
     moveit::planning_interface::MoveGroup active_arm(ACTIVE_ARM);
     ROS_INFO("Frame del planning: %s; end effector: %s",active_arm.getPlanningFrame().c_str(), active_arm.getEndEffectorLink().c_str());
     moveit::planning_interface::MoveGroup::Plan plan;
-    ROS_INFO("Creando cliente para 'search_surface'");
-    search_surface_client = nh.serviceClient<memoria::SearchSurface>(SEARCH_SURFACE_SRV_NAME);
-    aux_pointcloud_pub = nh.advertise<PointCloud> ("plano_dummy",1);
     // Comienza ejecución del megaprograma
     ROS_INFO("Iniciando búsqueda de superficie");
     searchSurface();
