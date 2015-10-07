@@ -1,3 +1,10 @@
+/*
+Servicio encargado de encontrar superficie de placing
+Recibe: Nada
+Retorna: - sensor_msgs/PointCloud2
+         - memoria/ErrorMsg
+*/
+
 #include <string>
 #include <vector>
 #include <ros/ros.h>
@@ -12,6 +19,9 @@
 using namespace std;
 
 // CONSTANTES
+
+// VARIABLES GLOBALES
+sensor_msgs::PointCloud2 selected_surface;
 // Códigos de error
 vector<string> errors(4);
 
@@ -32,28 +42,31 @@ void getDummyCloud(PointCloud::Ptr& pointcloud){
     ROS_INFO("Construí nube dummy de %d puntos", (int)cloud->size());
     pointcloud = cloud;
 }
-
+int searchSurface(){
+    // Buscar superficie
+    ROS_INFO("Buscando superficie");
+    // Guardar superficie encontrada
+    ROS_INFO("Encontrada. Guardando...");
+    PointCloud::Ptr cloud (new PointCloud);
+    getDummyCloud(cloud);
+    pcl::toROSMsg(*cloud, selected_surface);
+    ROS_INFO("Obtenida nube de %d puntos",(int)cloud->size());
+    return 0;
+}
 bool callback(memoria::SearchSurface::Request& request, memoria::SearchSurface::Response& response){
     ROS_INFO("Request entrante");
-    // Obtener Pointcloud
-    PointCloud::Ptr pointcloud;
-    getDummyCloud(pointcloud);
-    ROS_INFO("Obtenida nube de %d puntos",(int)pointcloud->size());
-    memoria::ErrorMsg errormsg;
-    pcl::toROSMsg(*pointcloud, response.pointcloud);
-    
+    // Buscar superficie
+    int retcode = searchSurface();
+    // Almacenar superficie
+    response.pointcloud = selected_surface;
     // Crear código de error
-    errormsg.retcode = 0;
-
+    memoria::ErrorMsg errormsg;
+    errormsg.retcode = retcode;
     errormsg.what = errors[errormsg.retcode];
     response.error = errormsg;
     return true;
 }
 int main(int argc, char **argv){
-    /*errors = {  "",
-                "Superficie no encontrada",
-                "Servicio 'LookAt' no disponible",
-                "Error desconocido"};*/
     errors[0]="";
     errors[1]="Superficie no encontrada";
     errors[2]="Servicio 'LookAt' no disponible";

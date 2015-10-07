@@ -59,6 +59,7 @@ add_service_files(
   FILES
   LookAt.srv
   SearchSurface.srv
+  GoToPose.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -142,11 +143,20 @@ add_dependencies(buscar_superficie memoria_generate_messages_cpp)
 target_link_libraries(buscar_superficie ${catkin_LIBRARIES})
 #add_dependencies(buscar_superficie memoria_gencpp)
 
+#### EJECUTABLE GOTOPOSE
+
+add_executable(GoToPose src/GoToPose.cpp)
+add_dependencies(GoToPose memoria_generate_messages_cpp)
+target_link_libraries(GoToPose ${catkin_LIBRARIES})
+
 #### EJECUTABLE PLACING
 
 add_executable(placing src/placing.cpp)
 add_dependencies(placing memoria_generate_messages_cpp)
 target_link_libraries(placing ${catkin_LIBRARIES})
+
+
+
 
 
 #############

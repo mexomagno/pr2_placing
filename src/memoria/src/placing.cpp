@@ -58,6 +58,7 @@ TODO:
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <memoria/SearchSurface.h>
+#include <memoria/GoToPose.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/move_group_interface/move_group.h>
@@ -71,15 +72,19 @@ using namespace std;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 // CONSTANTES
 const string SEARCH_SURFACE_SRV_NAME = "search_surface";
+const string GO_TO_POSE_SRV_NAME = "go_to_pose";
 // Dummies, para recrear condiciones iniciales
 sensor_msgs::PointCloud2 surface;
-geometry_msgs::PoseStamped final_pose;
+geometry_msgs::PoseStamped final_object_pose;
 const string ACTIVE_ARM = "right_arm";
 // Variables auxiliares
 ros::Publisher aux_pointcloud_pub;
+ros::Publisher aux_posestamped_pub;
 // VARIABLES GLOBALES
 ros::ServiceClient search_surface_client;
+ros::ServiceClient go_to_pose_client;
 memoria::SearchSurface search_surface_srv;
+memoria::GoToPose go_to_pose_srv;
 
 // MÉTODOS
 void endProgram(int retcode){
@@ -111,7 +116,31 @@ void searchSurface(){
     }
 }
 void moveToSurface(){
-
+    // Elegir punto cerca de la superficie
+    geometry_msgs::PoseStamped pose_goal;
+    pose_goal.header.frame_id = "head_mount_kinect_ir_optical_frame";
+    pose_goal.pose.position.x = 0;
+    pose_goal.pose.position.y = 0;
+    pose_goal.pose.position.z = 1;
+    pose_goal.pose.orientation.x = 0;
+    pose_goal.pose.orientation.y = 0;
+    pose_goal.pose.orientation.z = 0;
+    pose_goal.pose.orientation.w = 1;
+    // Ir a la superficie
+    ROS_INFO("Construí pose dummy en (%f,%f,%f), frame %s", pose_goal.pose.position.x,pose_goal.pose.position.y,pose_goal.pose.position.z,pose_goal.header.frame_id.c_str());
+    go_to_pose_srv.request.pose = pose_goal;
+    if (go_to_pose_client.call(go_to_pose_srv)){
+        // Verificar qué se obtuvo
+        if (go_to_pose_srv.response.error.retcode != 0){
+            ROS_ERROR("Error '%d' en ir a la pose: '%s'",go_to_pose_srv.response.error.retcode, go_to_pose_srv.response.error.what.c_str());
+            endProgram(1);
+        }
+        ROS_INFO("PR2 se ha movido con éxito a la pose solicitada");
+    }
+    else{
+        ROS_ERROR("Error al llamar al servicio %s",GO_TO_POSE_SRV_NAME.c_str());
+        endProgram(1);
+    }
 }
 void getPlacingPose(){
 
@@ -127,9 +156,17 @@ int main(int argc, char **argv){
     spinner.start();
     ROS_INFO("Comenzando ejecución");
     ros::NodeHandle nh;
-    ROS_INFO("Creando cliente para 'search_surface'");
+    
+    // Conectar a los servicios
+    ROS_INFO("Creando cliente para '%s'",SEARCH_SURFACE_SRV_NAME.c_str());
     search_surface_client = nh.serviceClient<memoria::SearchSurface>(SEARCH_SURFACE_SRV_NAME);
+    ROS_INFO("Creando cliente para '%s'",GO_TO_POSE_SRV_NAME.c_str());
+    go_to_pose_client = nh.serviceClient<memoria::GoToPose>(GO_TO_POSE_SRV_NAME);
+
+    // Publicar dummies
     aux_pointcloud_pub = nh.advertise<PointCloud> ("plano_dummy",1);
+    aux_posestamped_pub = nh.advertise<geometry_msgs::PoseStamped> ("pose_dummy",1);
+    
     signal(SIGINT, signalHandler);
     ROS_INFO("Inicializando %s",ACTIVE_ARM.c_str());
     moveit::planning_interface::MoveGroup active_arm(ACTIVE_ARM);
