@@ -76,7 +76,7 @@ const string KINECT_TOPIC = "head_mount_kinect/depth/points";
 const string KINECT_FRAME = "head_mount_kinect_ir_optical_frame";
 const string QUERY_TOPIC = "memoria/lookat";
 const string WORLD_FRAME = "/odom_combined";
-const string ROBOT_BASE_FRAME = "/base_footprint";
+const string ROBOT_FRAME = "/base_footprint";
 const double pi = 3.14159;
 const float HEAD_YAWS[] = {-pi*2/4.0, -pi*1/4.0, 0, pi*1/4.0, pi*2/4}; // Posiciones de cabeza hardcodeadas para búsqueda de superficies.
 const int HEAD_YAWS_SIZE = (int)(sizeof(HEAD_YAWS)/sizeof(*HEAD_YAWS));
@@ -159,12 +159,12 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     // Intentar obtener transformación actual
     try{
         ROS_INFO("Esperando transformación disponible...");
-        if (not tf_listener.waitForTransform(in_cloud->header.frame_id, ROBOT_BASE_FRAME, transform_time, ros::Duration(WAIT_TF_TIMEOUT))){
+        if (not tf_listener.waitForTransform(in_cloud->header.frame_id, ROBOT_FRAME, transform_time, ros::Duration(WAIT_TF_TIMEOUT))){
             ROS_ERROR("Transformación no pudo ser obtenida en %f segundos",WAIT_TF_TIMEOUT);
             // Salir del callback
             return;
         }
-        tf_listener.lookupTransform(in_cloud->header.frame_id, ROBOT_BASE_FRAME, ros::Time(0), stamped_tf);
+        tf_listener.lookupTransform(in_cloud->header.frame_id, ROBOT_FRAME, ros::Time(0), stamped_tf);
     }
     catch (tf::TransformException ex){
         ROS_ERROR("Excepción al obtener transformación: %s",ex.what());
@@ -256,8 +256,8 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
         centroid_msg.point.x = centroid(0);
         centroid_msg.point.y = centroid(1);
         centroid_msg.point.z = centroid(2);
-        tf_listener.transformPoint(ROBOT_BASE_FRAME, centroid_msg, centroid_msg_baseframe);
-        ROS_INFO("Centroide en (ROBOT_BASE_FRAME): (%f,%f,%f)",centroid_msg_baseframe.point.x,centroid_msg_baseframe.point.y,centroid_msg_baseframe.point.z);
+        tf_listener.transformPoint(ROBOT_FRAME, centroid_msg, centroid_msg_baseframe);
+        ROS_INFO("Centroide en (ROBOT_FRAME): (%f,%f,%f)",centroid_msg_baseframe.point.x,centroid_msg_baseframe.point.y,centroid_msg_baseframe.point.z);
         // ********** VERIFICAR 1-ER CRITERIO ACEPTACIÓN: altura del plano
         if (centroid_msg_baseframe.point.z > MIN_SURFACE_HEIGHT){
             // Obtener la normal del plano
@@ -267,13 +267,13 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
             //normal_quat.header.stamp = ros::Time(in_cloud->header.stamp/1000000.0);//stamped_tf.stamp_;
             normal_quat.header.stamp = stamped_tf.stamp_;
             //      Transformar normal a frame de la base
-            tf_listener.transformQuaternion(ROBOT_BASE_FRAME,normal_quat,normal_quat_baseframe);
+            tf_listener.transformQuaternion(ROBOT_FRAME,normal_quat,normal_quat_baseframe);
             //      Expresarla en términos de RPY
             tf::Quaternion tf_quaternion;
             tf::quaternionMsgToTF(normal_quat_baseframe.quaternion,tf_quaternion);
             double roll,pitch,yaw;
             tf::Matrix3x3(tf_quaternion).getRPY(roll,pitch,yaw);
-            ROS_INFO("Normal en RPY (ROBOT_BASE_FRAME): (%f°, %f°, %f°)",toGrad(roll),toGrad(pitch),toGrad(yaw));
+            ROS_INFO("Normal en RPY (ROBOT_FRAME): (%f°, %f°, %f°)",toGrad(roll),toGrad(pitch),toGrad(yaw));
             // ********* VERIFICAR 2-DO CRITERIO ACEPTACIÓN: inclinación (pitch)
             if (DESIRED_PITCH - PITCH_THRESHOLD < pitch and pitch < DESIRED_PITCH + PITCH_THRESHOLD ){
                 ROS_INFO("Superficie encontrada!");
@@ -321,13 +321,13 @@ int main(int argc, char **argv){
     aux_pose_publisher = nh.advertise<PointCloud> ("normal_plano", 1);
     // Mirar un poco al suelo (por ahi por 5,0,0 respecto al robot)
     ROS_INFO("Mirando un poco hacia el suelo");
-    if (not lookAt(ROBOT_BASE_FRAME,2,0,0,false)){
+    if (not lookAt(ROBOT_FRAME,2,0,0,false)){
         return 1;
     }
     // Mirar al primer punto de búsqueda de superficie
     for (int i = 0; i< HEAD_YAWS_SIZE; i++){
         ROS_INFO("Buscando en %f°",toGrad(HEAD_YAWS[i]));
-        lookAt(ROBOT_BASE_FRAME,HEAD_YAWS[i],0,0,true);
+        lookAt(ROBOT_FRAME,HEAD_YAWS[i],0,0,true);
         ros::Duration(WAIT_LOOKAT).sleep();
         ros::spinOnce();
         if (surface_found){

@@ -114,10 +114,10 @@ void searchSurface(){
 void moveToSurface(){
     // Elegir punto cerca de la superficie
     geometry_msgs::PoseStamped pose_goal;
-    pose_goal.header.frame_id = "head_mount_kinect_ir_optical_frame";
-    pose_goal.pose.position.x = 0;
+    pose_goal.header.frame_id = "base_footprint";//"head_mount_kinect_ir_optical_frame";
+    pose_goal.pose.position.x = 0.5;
     pose_goal.pose.position.y = 0;
-    pose_goal.pose.position.z = 1;
+    pose_goal.pose.position.z = 0;
     pose_goal.pose.orientation.x = 0;
     pose_goal.pose.orientation.y = 0;
     pose_goal.pose.orientation.z = 0;
@@ -170,14 +170,14 @@ int main(int argc, char **argv){
     ROS_INFO("Frame del planning: %s; end effector: %s",active_arm.getPlanningFrame().c_str(), active_arm.getEndEffectorLink().c_str());
     moveit::planning_interface::MoveGroup::Plan plan;
     // Comienza ejecución del megaprograma
-    ROS_INFO("Iniciando búsqueda de superficie");
-    searchSurface();
+    //ROS_INFO("Iniciando búsqueda de superficie");
+    //searchSurface();
     ROS_INFO("Iniciando desplazamiento hacia superficie");
     moveToSurface();
-    ROS_INFO("Iniciando cálculo de pose para objeto");
+    /*ROS_INFO("Iniciando cálculo de pose para objeto");
     getPlacingPose();
     ROS_INFO("Iniciando placing");
-    placeObject();
+    placeObject();*/
     ROS_INFO("Placing finalizado con éxito.");
 
     return 0;
