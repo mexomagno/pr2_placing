@@ -46,8 +46,7 @@
   <node name="sor_pgs_w" pkg="dynamic_reconfigure" type="dynparam" args="set gazebo sor_pgs_w 1.0"/>
   <node name="time_step" pkg="dynamic_reconfigure" type="dynparam" args="set gazebo time_step 0.001"/>
   <!---->
-
-  <!---->
+  <!-- No se qué hace esto pero tira error siempre-->
   <node name="move_pr2" pkg="pr2_gazebo" type="move_pr2"/>
   <!---->
 

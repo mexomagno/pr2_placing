@@ -52,6 +52,7 @@ add_message_files(
   FILES
   LookAtMsg.msg
   ErrorMsg.msg
+#  BaseDriverMsg.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -60,6 +61,7 @@ add_service_files(
   LookAt.srv
   SearchSurface.srv
   GoToPose.srv
+  BaseDriver.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -148,6 +150,12 @@ target_link_libraries(buscar_superficie ${catkin_LIBRARIES})
 add_executable(GoToPose src/GoToPose.cpp)
 add_dependencies(GoToPose memoria_generate_messages_cpp)
 target_link_libraries(GoToPose ${catkin_LIBRARIES})
+
+#### EJECUTABLE BASEDRIVER
+
+add_executable(BaseDriver src/BaseDriver.cpp)
+add_dependencies(BaseDriver memoria_generate_messages_cpp)
+target_link_libraries(BaseDriver ${catkin_LIBRARIES})
 
 #### EJECUTABLE PLACING
 

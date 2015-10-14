@@ -92,7 +92,7 @@ const float SEG_THRESHOLD = 0.01; // Radio para considerarse inlier
 const float MIN_CLOUD_LEFT_RATIO = 10; // Mínimo porcentaje de nube restante para seguir buscando una superficie
 const float MIN_SEGMENTED_SURFACE_PERCENT = 10; // Tamaño mínimo de superficie en términos de porcentaje de puntos versus puntos totales de la escena inicialmente capturada
 //      de transformaciones TF
-const float WAIT_TRANSFORM_TIMEOUT = 1.0;
+const float WAIT_TF_TIMEOUT = 1.0;
 
 // VARIABLES GLOBALES
 ros::ServiceClient lookat_client;
@@ -153,18 +153,18 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
     ROS_INFO("Nube recibida");
     // ********* Obtener transformación de este momento con TF
     // Crear objetos
-    tf::TransformListener transform_listener;
-    tf::StampedTransform stamped_transform;
+    tf::TransformListener tf_listener;
+    tf::StampedTransform stamped_tf;
     ros::Time transform_time = ros::Time(0);
     // Intentar obtener transformación actual
     try{
         ROS_INFO("Esperando transformación disponible...");
-        if (not transform_listener.waitForTransform(in_cloud->header.frame_id, ROBOT_BASE_FRAME, transform_time, ros::Duration(WAIT_TRANSFORM_TIMEOUT))){
-            ROS_ERROR("Transformación no pudo ser obtenida en %f segundos",WAIT_TRANSFORM_TIMEOUT);
+        if (not tf_listener.waitForTransform(in_cloud->header.frame_id, ROBOT_BASE_FRAME, transform_time, ros::Duration(WAIT_TF_TIMEOUT))){
+            ROS_ERROR("Transformación no pudo ser obtenida en %f segundos",WAIT_TF_TIMEOUT);
             // Salir del callback
             return;
         }
-        transform_listener.lookupTransform(in_cloud->header.frame_id, ROBOT_BASE_FRAME, ros::Time(0), stamped_transform);
+        tf_listener.lookupTransform(in_cloud->header.frame_id, ROBOT_BASE_FRAME, ros::Time(0), stamped_tf);
     }
     catch (tf::TransformException ex){
         ROS_ERROR("Excepción al obtener transformación: %s",ex.what());
@@ -252,11 +252,11 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
         // Transformarlo a ROBOT_FRAME
         geometry_msgs::PointStamped centroid_msg,centroid_msg_baseframe;
         centroid_msg.header.frame_id = in_cloud->header.frame_id;
-        centroid_msg.header.stamp = stamped_transform.stamp_;
+        centroid_msg.header.stamp = stamped_tf.stamp_;
         centroid_msg.point.x = centroid(0);
         centroid_msg.point.y = centroid(1);
         centroid_msg.point.z = centroid(2);
-        transform_listener.transformPoint(ROBOT_BASE_FRAME, centroid_msg, centroid_msg_baseframe);
+        tf_listener.transformPoint(ROBOT_BASE_FRAME, centroid_msg, centroid_msg_baseframe);
         ROS_INFO("Centroide en (ROBOT_BASE_FRAME): (%f,%f,%f)",centroid_msg_baseframe.point.x,centroid_msg_baseframe.point.y,centroid_msg_baseframe.point.z);
         // ********** VERIFICAR 1-ER CRITERIO ACEPTACIÓN: altura del plano
         if (centroid_msg_baseframe.point.z > MIN_SURFACE_HEIGHT){
@@ -264,10 +264,10 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
             geometry_msgs::QuaternionStamped normal_quat,normal_quat_baseframe;
             normal_quat.quaternion = coefsToQuaternionMsg(coefs->values[0],coefs->values[1],coefs->values[2]);
             normal_quat.header.frame_id = in_cloud->header.frame_id;
-            //normal_quat.header.stamp = ros::Time(in_cloud->header.stamp/1000000.0);//stamped_transform.stamp_;
-            normal_quat.header.stamp = stamped_transform.stamp_;
+            //normal_quat.header.stamp = ros::Time(in_cloud->header.stamp/1000000.0);//stamped_tf.stamp_;
+            normal_quat.header.stamp = stamped_tf.stamp_;
             //      Transformar normal a frame de la base
-            transform_listener.transformQuaternion(ROBOT_BASE_FRAME,normal_quat,normal_quat_baseframe);
+            tf_listener.transformQuaternion(ROBOT_BASE_FRAME,normal_quat,normal_quat_baseframe);
             //      Expresarla en términos de RPY
             tf::Quaternion tf_quaternion;
             tf::quaternionMsgToTF(normal_quat_baseframe.quaternion,tf_quaternion);

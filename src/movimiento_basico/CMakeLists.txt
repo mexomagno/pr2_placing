@@ -119,6 +119,11 @@ target_link_libraries(testeando_cabeza ${catkin_LIBRARIES})
 add_executable(testeando_base src/testeando_base.cpp)
 target_link_libraries(testeando_base ${catkin_LIBRARIES})
 
+######### EJECUTABLE BASE 2
+
+add_executable(testeando_base2 src/testeando_base2.cpp)
+target_link_libraries(testeando_base2 ${catkin_LIBRARIES})
+
 ######### EJECUTABLE BASE LOW LEVEL
 
 add_executable(testeando_base_lowlevel src/testeando_base_lowlevel.cpp)

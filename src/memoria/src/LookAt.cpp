@@ -139,7 +139,7 @@ int main(int argc,char** argv){
     lookAt(ROBOT_FRAME,10,0,1.5); // Aproximadamente mirar al frente
     // Crear servicio
     ros::ServiceServer service = nh.advertiseService("look_at", callback);
-    ROS_INFO("Listo para recibir requests de look_at");
+    ROS_INFO("Listo para recibir requests en look_at");
     // Suscriptor peticiones lookat
     ros::spin();
     delete phc;

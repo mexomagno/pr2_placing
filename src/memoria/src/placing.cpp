@@ -43,16 +43,12 @@ LIBRERÍAS
         csignal : Para salir con ctrl+C
 
 TODO:
-    - Definir bien la arquitectura de la memoria. Es éste el nodo principal?
-        Puede pensarse como que es este el nodo principal, y los demás son simples servicios. 
-        Osea, primero se obtiene superficie con servicio buscar_superficie, que retorna el pointcloud.
-        Luego, se mueve el robot con el servicio para movimiento, según ubicación de la superficie
-        A continuación, se obtiene pose ideal de placing usando servicio destinado a esto. 
-        Quizás el mismo servicio anterior hace al robot mirar a este punto, o podemos hacerlo dentro de este archivo.
-        En este punto se tiene superficie, se está situado al lado, y se tiene pose deseada para el objeto y se la está mirando.
-        Con lo anterior tenemos bien recreadas las condiciones iniciales necesarias para proceder al placing.
         - Actualizar diagramas de flujo con arquitectura anterior
     - Cambiar diagrama de flujo en parte de Tuck Arms. Debe tuckearse sólo el brazo que no tiene el objeto. Esto debe saberse de antemano.
+    - Implementar servicio SearchSurface
+    - Implementar servicio GoToPose
+    - Implementar servicio (o método) getPlacingPose
+    - Implementar placeObject
 */
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -136,6 +132,7 @@ void moveToSurface(){
             endProgram(1);
         }
         ROS_INFO("PR2 se ha movido con éxito a la pose solicitada");
+        aux_posestamped_pub.publish(pose_goal);
     }
     else{
         ROS_ERROR("Error al llamar al servicio %s",GO_TO_POSE_SRV_NAME.c_str());
