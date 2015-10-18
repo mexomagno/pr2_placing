@@ -12,6 +12,7 @@ TODO:
     - Terminar ejecución si nodo que envía la orden muere en plena ejecución.
     - Retornar error cuando se recibe request en medio de una petición en curso
     - Implementar rebote para corrección al pasarse de posición o ángulo.
+    - Refinar, calibrar velocidades de giro usando constantes y frecuencias de ros::rate
 */
 #include <string>
 #include <vector>
@@ -64,7 +65,6 @@ int turn(double angle){
     double real_angle = 0;
     double traveled_angle;
     while (!done and ros::ok()){
-        ROS_INFO("Ciclo giro");
         base_cmd_pub.publish(base_cmd);
         rate.sleep();
         // Actualizar posición odométrica
@@ -106,7 +106,6 @@ int travel(double distance, double angle){
     double real_distance = 0;
     double traveled_dist;
     while (!done and ros::ok()){
-        ROS_INFO("Ciclo");
         // Enviar comando (ponderado)
         base_cmd_pub.publish(base_cmd);
         rate.sleep();

@@ -50,8 +50,11 @@ TODO:
     - Implementar servicio (o método) getPlacingPose
     - Implementar placeObject
 */
+#include <vector>
+#include <csignal>
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PointStamped.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <memoria/SearchSurface.h>
 #include <memoria/GoToPose.h>
@@ -62,7 +65,10 @@ TODO:
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
-#include <csignal>
+#include <pcl/PCLPointCloud2.h>
+#include <pcl/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/kdtree/kdtree_flann.h>
 
 using namespace std;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
@@ -70,13 +76,14 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 const string SEARCH_SURFACE_SRV_NAME = "search_surface";
 const string GO_TO_POSE_SRV_NAME = "go_to_pose";
 // Dummies, para recrear condiciones iniciales
-sensor_msgs::PointCloud2 surface;
 geometry_msgs::PoseStamped final_object_pose;
 const string ACTIVE_ARM = "right_arm";
 // Variables auxiliares
 ros::Publisher aux_pointcloud_pub;
 ros::Publisher aux_posestamped_pub;
+ros::Publisher aux_point_pub;
 // VARIABLES GLOBALES
+sensor_msgs::PointCloud2 surface;
 ros::ServiceClient search_surface_client;
 ros::ServiceClient go_to_pose_client;
 memoria::SearchSurface search_surface_srv;
@@ -93,7 +100,9 @@ void signalHandler( int signum ){
 void searchSurface(){
     /*
     Llama al servicio memoria/SearchSurface y espera que termine.
-    Resultado de retorno es un pointcloud y un memoria/ErrorMsg.
+    Resultado de retorno:
+        - PointCloud2 con superficie, en frame_id del kinect
+        - memoria/ErrorMsg con código de error.
     */
     if (search_surface_client.call(search_surface_srv)){
         // Verificar información obtenida   
@@ -112,17 +121,35 @@ void searchSurface(){
     }
 }
 void moveToSurface(){
-    // Elegir punto cerca de la superficie
+    // ****** Elegir punto cerca de la superficie
+    ROS_INFO("1");
     geometry_msgs::PoseStamped pose_goal;
-    pose_goal.header.frame_id = "base_footprint";//"head_mount_kinect_ir_optical_frame";
-    pose_goal.pose.position.x = 0.5;
-    pose_goal.pose.position.y = 0;
-    pose_goal.pose.position.z = 0;
-    pose_goal.pose.orientation.x = 0;
-    pose_goal.pose.orientation.y = 0;
-    pose_goal.pose.orientation.z = 0;
-    pose_goal.pose.orientation.w = 1;
-    // Ir a la superficie
+    ROS_INFO("2");
+    // Convertir nube de ROS a PCL
+    PointCloud pcl_surface;
+    ROS_INFO("3");
+    pcl::fromROSMsg(surface, pcl_surface);
+    ROS_INFO("4");
+    // Crear elemento KdTree
+    pcl::KdTree<pcl::PointXYZ>::Ptr kdtree (new pcl::KdTreeFLANN<pcl::PointXYZ>);
+    ROS_INFO("6");
+    kdtree->setInputCloud(pcl_surface.makeShared()); // NO ELIMINAR EL MAKESHARED POR NINGUN MOTIVO
+    ROS_INFO("7");
+    vector<int> nearest_index(1);
+    ROS_INFO("8");
+    vector<float> nearest_dist(1);
+    ROS_INFO("Buscando punto más cercano...");
+    kdtree->nearestKSearch(pcl::PointXYZ(0,0,0), 1, nearest_index, nearest_dist);
+    ROS_INFO("Punto más cercano es (%f, %f, %f) a distancia %f", pcl_surface.points[nearest_index[0]].x,pcl_surface.points[nearest_index[0]].y, pcl_surface.points[nearest_index[0]].z, nearest_dist[0]);
+    // publicar punto más cercano
+    geometry_msgs::PointStamped punto_mas_cercano;
+    punto_mas_cercano.header.frame_id =  "head_mount_kinect_ir_optical_frame";
+    punto_mas_cercano.point.x = pcl_surface.points[nearest_index[0]].x;
+    punto_mas_cercano.point.y = pcl_surface.points[nearest_index[0]].y;
+    punto_mas_cercano.point.z = pcl_surface.points[nearest_index[0]].z;
+    aux_point_pub.publish(punto_mas_cercano);
+    return;
+    // ****** Ir a la superficie
     ROS_INFO("Construí pose dummy en (%f,%f,%f), frame %s", pose_goal.pose.position.x,pose_goal.pose.position.y,pose_goal.pose.position.z,pose_goal.header.frame_id.c_str());
     go_to_pose_srv.request.pose = pose_goal;
     if (go_to_pose_client.call(go_to_pose_srv)){
@@ -163,6 +190,7 @@ int main(int argc, char **argv){
     // Publicar dummies
     aux_pointcloud_pub = nh.advertise<PointCloud> ("plano_dummy",1);
     aux_posestamped_pub = nh.advertise<geometry_msgs::PoseStamped> ("pose_dummy",1);
+    aux_point_pub = nh.advertise<geometry_msgs::PointStamped> ("punto_mas_cercano",1);
     
     signal(SIGINT, signalHandler);
     ROS_INFO("Inicializando %s",ACTIVE_ARM.c_str());
@@ -170,15 +198,15 @@ int main(int argc, char **argv){
     ROS_INFO("Frame del planning: %s; end effector: %s",active_arm.getPlanningFrame().c_str(), active_arm.getEndEffectorLink().c_str());
     moveit::planning_interface::MoveGroup::Plan plan;
     // Comienza ejecución del megaprograma
-    //ROS_INFO("Iniciando búsqueda de superficie");
-    //searchSurface();
+    ROS_INFO("Iniciando búsqueda de superficie");
+    searchSurface();
     ROS_INFO("Iniciando desplazamiento hacia superficie");
     moveToSurface();
     /*ROS_INFO("Iniciando cálculo de pose para objeto");
     getPlacingPose();
     ROS_INFO("Iniciando placing");
-    placeObject();*/
-    ROS_INFO("Placing finalizado con éxito.");
+    placeObject();
+    // ROS_INFO("Placing finalizado con éxito.");*/
 
     return 0;
 }

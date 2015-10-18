@@ -286,6 +286,7 @@ int getSurface(PointCloud::Ptr& pointcloud){
         ros::spinOnce();
         if (surface_found){
             ROS_INFO("Se almacena superficie encontrada.");
+            pointcloud = selected_surface;
             break;
         }
     }
@@ -299,7 +300,7 @@ int getSurface(PointCloud::Ptr& pointcloud){
         return 0;
     }
 }
-/*void getDummyCloud(PointCloud::Ptr& pointcloud){
+int getDummyCloud(PointCloud::Ptr& pointcloud){
     PointCloud::Ptr cloud (new PointCloud);
     cloud->header.frame_id = "head_mount_kinect_ir_optical_frame";
     cloud->width = 20;
@@ -307,13 +308,14 @@ int getSurface(PointCloud::Ptr& pointcloud){
     cloud->points.resize(cloud->width * cloud->height);
     for (size_t i = 0; i < cloud->points.size(); i++){
         double factor = 0.1;
-        cloud->points[i].x = (i%5)*factor;
-        cloud->points[i].y = floor(i/5)*factor;
-        cloud->points[i].z = 1 + 1.0*(rand()/RAND_MAX)*factor;
+        cloud->points[i].x = 10+(i%5)*factor;
+        cloud->points[i].z = 10+floor(i/5)*factor;
+        cloud->points[i].y = 5+1 + 1.0*(rand()/RAND_MAX)*factor;
     }
     ROS_INFO("Construí nube dummy de %d puntos", (int)cloud->size());
     pointcloud = cloud;
-}*/
+    return 0;
+}
 
 // ---------------------------------------------
 int searchSurface(){
@@ -322,6 +324,7 @@ int searchSurface(){
     ROS_INFO("Buscando superficie");
     PointCloud::Ptr cloud (new PointCloud);
     retcode = getSurface(cloud);
+    //retcode = getDummyCloud(cloud);
     if (retcode != 0){
         return retcode;
     }
