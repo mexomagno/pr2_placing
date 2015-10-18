@@ -11,6 +11,7 @@ Retorna: memoria/ErrorMsg
 TODO:
     - Terminar ejecución si nodo que envía la orden muere en plena ejecución.
     - Retornar error cuando se recibe request en medio de una petición en curso
+    - Implementar rebote para corrección al pasarse de posición o ángulo.
 */
 #include <string>
 #include <vector>
@@ -33,37 +34,63 @@ const float WAIT_TF_TIMEOUT = 1.0;
 const string ROBOT_FRAME = "/base_footprint";
 const string WORLD_FRAME = "/odom_combined";
 const float LOOP_FREQ = 10.0;
-const float TWIST_VELOCITY = 1;
+const float TWIST_VELOCITY = 1.5;
+const float ANGULAR_VELOCITY = 3;
 const double PI = 3.1415;
 // VARIABLES GLOBALES
 vector<string> errors(4);
 bool store_odom = false;
 tf::Vector3 last_position(0,0,0);
+tf::Quaternion last_orientation(0,0,0,1);
 // Variables auxiliares
 
 // METODOS
 void signalHandler( int signum ){
     ROS_INFO("Recibí CTRL+C. Terminando...");
-    ros::spinOnce();
     ros::shutdown();
     exit (EXIT_SUCCESS);
 }
 int turn(double angle){
-    return 0;
+    ROS_INFO("Girar en %f radianes",angle);
+    ros::Rate rate(LOOP_FREQ);
+    store_odom = true;
+    rate.sleep();
+    // Actualizar última posición
+    ros::spinOnce();
+    tf::Quaternion start_orientation = last_orientation;
+    geometry_msgs::Twist base_cmd;
+    base_cmd.angular.z = (angle<0?-1:1)*ANGULAR_VELOCITY;
+    bool done = false;
+    double real_angle = 0;
+    double traveled_angle;
+    while (!done and ros::ok()){
+        ROS_INFO("Ciclo giro");
+        base_cmd_pub.publish(base_cmd);
+        rate.sleep();
+        // Actualizar posición odométrica
+        ros::spinOnce();
+        traveled_angle = 2*start_orientation.angle(last_orientation);
+        
+        ROS_INFO("Angulo barrido: %f rad",traveled_angle);
+        if (traveled_angle > (angle<0?-angle:angle)) done = true;
+    }
+    store_odom = false;
+    if (done){
+        ROS_INFO("Exito. Rotación real: %f rad", traveled_angle);
+        return 0;
+    }
+    else{
+        ROS_INFO("lol esto no debiera pasar.");
+        return 3;
+    }
 }
 int travel(double distance, double angle){
     ROS_INFO("Desplazar distancia=%f, angulo=%f",distance,angle);
-    // tf::TransformListener tf_listener;
-    // tf::StampedTransform start_tf, current_tf;
     ros::Rate rate(LOOP_FREQ);
     store_odom = true;
     rate.sleep();
     ros::spinOnce();
     tf::Vector3 start_position = last_position;
-    /*if (not tf_listener.waitForTransform(ROBOT_FRAME, WORLD_FRAME, ros::Time(0), ros::Duration(WAIT_TF_TIMEOUT))){
-        ROS_ERROR("Transformación no pudo ser obtenida en %f s",WAIT_TF_TIMEOUT);
-        return 2;
-    }*/
     // Mensaje a enviar a la base
     geometry_msgs::Twist base_cmd;
     // ****** Calcular comando a enviar
@@ -83,28 +110,15 @@ int travel(double distance, double angle){
         // Enviar comando (ponderado)
         base_cmd_pub.publish(base_cmd);
         rate.sleep();
+        // Actualizar posición odométrica
         ros::spinOnce();
         traveled_dist = start_position.distance(last_position);
-        ROS_INFO("Traveled_dist = %f",traveled_dist);
+        ROS_INFO("Distancia navegada = %f m",traveled_dist);
         if (traveled_dist > (distance<0 ? -distance:distance)) done = true;
-        // Obtener transformación actual
-       /* try{
-            tf_listener.lookupTransform(ROBOT_FRAME, WORLD_FRAME, ros::Time(0), current_tf);
-        }
-        catch (tf::TransformException ex){
-            ROS_ERROR("Excepción al obtener transformación: %s", ex.what());
-            return 2;
-        }
-        // Checkear distancia viajada
-        tf::Transform relative_tf = start_tf.inverse() * current_tf;
-        double traveled_dist = relative_tf.getOrigin().length();
-        real_distance += traveled_dist;
-        ROS_INFO("Avanzamos %f hasta ahora (paso de %f)",real_distance, traveled_dist);
-        if (traveled_dist > distance) done = true;*/
     }
     store_odom = false;
     if (done){
-        ROS_INFO("Exito. Desplazamiento real: %fm", traveled_dist);
+        ROS_INFO("Exito. Desplazamiento real: %f m", traveled_dist);
         return 0;
     }
     else{
@@ -115,11 +129,17 @@ int travel(double distance, double angle){
 void odomCallback(const nav_msgs::Odometry::ConstPtr& odom){
     if (not store_odom)
         return;
-    ROS_INFO("Recibida odometría: (%f,%f,%f)",odom->pose.pose.position.x,odom->pose.pose.position.y,odom->pose.pose.position.z);
-    // Actualizar última pose
+    ROS_INFO("Recibida odometría: (%f,%f,%f) (%f,%f,%f,%f)",odom->pose.pose.position.x,odom->pose.pose.position.y,odom->pose.pose.position.z,odom->pose.pose.orientation.x,odom->pose.pose.orientation.y,odom->pose.pose.orientation.z,odom->pose.pose.orientation.w);
+    // Actualizar última posición
     last_position.setX(odom->pose.pose.position.x);
     last_position.setY(odom->pose.pose.position.y);
     last_position.setZ(odom->pose.pose.position.z);
+
+    // Actualizar última orientación
+    last_orientation.setX(odom->pose.pose.orientation.x);
+    last_orientation.setY(odom->pose.pose.orientation.y);
+    last_orientation.setZ(odom->pose.pose.orientation.z);
+    last_orientation.setW(odom->pose.pose.orientation.w);
 }
 
 bool callback(memoria::BaseDriver::Request &request, memoria::BaseDriver::Response& response){
