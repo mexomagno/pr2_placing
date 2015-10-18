@@ -44,7 +44,7 @@ Problemas:
 using namespace std;
 
 // CONSTANTES
-const string ROBOT_FRAME = "/base_frame";
+const string ROBOT_FRAME = "base_footprint";
 const float WAIT_TF_TIMEOUT = 1.0;
 // VARIABLES GLOBALES
 ros::ServiceClient basedriver_client;
@@ -63,7 +63,7 @@ int goToPose(geometry_msgs::PoseStamped& pose_goal){
     */
     geometry_msgs::Pose robot_pose;
     // Transformar pose recibida al frame del robot
-    if (pose_goal.header.frame_id != ROBOT_FRAME){
+    if (ROBOT_FRAME.compare(pose_goal.header.frame_id) != 0){
         tf::TransformListener tf_listener;
         tf::StampedTransform stamped_tf;
         ros::Time tf_time = ros::Time(0);

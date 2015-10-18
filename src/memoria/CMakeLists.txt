@@ -164,7 +164,12 @@ add_dependencies(placing memoria_generate_messages_cpp)
 target_link_libraries(placing ${catkin_LIBRARIES})
 
 
+# ***** Ejecutables de test
+#### EJECUTABLE TEST BASEDRIVER
 
+add_executable(basedrivertest src/basedrivertest.cpp)
+add_dependencies(basedrivertest memoria_generate_messages_cpp)
+target_link_libraries(basedrivertest ${catkin_LIBRARIES})
 
 
 #############
