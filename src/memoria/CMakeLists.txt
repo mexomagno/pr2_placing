@@ -171,6 +171,11 @@ add_executable(basedrivertest src/basedrivertest.cpp)
 add_dependencies(basedrivertest memoria_generate_messages_cpp)
 target_link_libraries(basedrivertest ${catkin_LIBRARIES})
 
+#### EJECUTABLE TEST GOTOPOSE
+
+add_executable(gotoposetest src/gotoposetest.cpp)
+add_dependencies(gotoposetest memoria_generate_messages_cpp)
+target_link_libraries(gotoposetest ${catkin_LIBRARIES})
 
 #############
 ## Install ##

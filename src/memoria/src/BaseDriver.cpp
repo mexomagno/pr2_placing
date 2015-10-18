@@ -34,7 +34,7 @@ const float WAIT_TF_TIMEOUT = 1.0;
 const string ROBOT_FRAME = "/base_footprint";
 const string WORLD_FRAME = "/odom_combined";
 const float LOOP_FREQ = 10.0;
-const float TWIST_VELOCITY = 1.5;
+const float TWIST_VELOCITY = 2.5;
 const float ANGULAR_VELOCITY = 3;
 const double PI = 3.1415;
 // VARIABLES GLOBALES
@@ -47,7 +47,7 @@ tf::Quaternion last_orientation(0,0,0,1);
 // METODOS
 void signalHandler( int signum ){
     ROS_INFO("Recibí CTRL+C. Terminando...");
-    ros::shutdown();
+    //ros::shutdown();
     exit (EXIT_SUCCESS);
 }
 int turn(double angle){

@@ -4,15 +4,6 @@ Recibe:   geometry_msgs/PoseStamped
 Retorna:  memoria/ErrorMsg
 
 
-
-
-
-
-
-
-
-
-
 TODO:
     - Implementar navegación real
 
@@ -46,6 +37,7 @@ using namespace std;
 // CONSTANTES
 const string ROBOT_FRAME = "base_footprint";
 const float WAIT_TF_TIMEOUT = 1.0;
+const float PI = 3.1415;
 // VARIABLES GLOBALES
 ros::ServiceClient basedriver_client;
 memoria::BaseDriver basedriver_srv;
@@ -87,25 +79,36 @@ int goToPose(geometry_msgs::PoseStamped& pose_goal){
     else{
         robot_pose = pose_goal.pose;
     }
-    ROS_INFO("Pose Robot: (%f,%f,%f)",robot_pose.position.x,robot_pose.position.y,robot_pose.position.z);
-    // Calcular distancia
-    double distance = sqrt(robot_pose.position.x*robot_pose.position.x + robot_pose.position.y*robot_pose.position.y);
-    // Calcular ángulo (a partir de quaternion)
+    ROS_INFO("Pose respecto al robot: (%f,%f,%f)",robot_pose.position.x,robot_pose.position.y,robot_pose.position.z);
+    if (robot_pose.position.x != 0 or robot_pose.position.y != 0){
+        // Calcular distancia desde robot a nueva pose
+        double distance = sqrt(robot_pose.position.x*robot_pose.position.x + robot_pose.position.y*robot_pose.position.y);
+        // Calcular ángulo de pose actual a nueva pose
+        //tf::Quaternion quat_angle(robot_pose.orientation.x, robot_pose.orientation.y, robot_pose.orientation.z, robot_pose.orientation.w);
+        //double angle = quat_angle.getAngle();
+        //ROS_INFO("Angulo nueva pose respecto a pose actual: %f",angle);
+        // ***** Mover hacia pose
+        ROS_INFO("Trasladando base");
+        tf::Vector3 xend (robot_pose.position.x, robot_pose.position.y,robot_pose.position.z);
+        tf::Vector3 anglestart (1,0,0);
+        double angle = anglestart.angle(xend) * (robot_pose.position.y < 0 ? -1 : 1); // Problema: Angulo entregado es siempre positivo
+        ROS_INFO("Angulo dirección desplazamiento: %f",angle*180.0/PI);
+        basedriver_srv.request.distance = distance;
+        basedriver_srv.request.angle = angle;
+        if (not basedriver_client.call(basedriver_srv)){
+            return 3;
+        }
+    }
+    else{
+        ROS_INFO("Recibida pose en misma posición");
+    }
+    ROS_INFO("Rotando base");
+    // Rotar robot usando servicio BaseDriver
     tf::Quaternion quat_angle(robot_pose.orientation.x, robot_pose.orientation.y, robot_pose.orientation.z, robot_pose.orientation.w);
     double angle = quat_angle.getAngle();
-    ROS_INFO("Angulo Pose: %f",angle);
-    // ***** Mover hacia pose
-    ROS_INFO("1) Rotando base");
-    // Rotar robot usando servicio BaseDriver
+    ROS_INFO("Angulo pose respecto a pose inicial: %f", angle*180.0/PI);
     basedriver_srv.request.distance = 0;
     basedriver_srv.request.angle = angle;
-    if (not basedriver_client.call(basedriver_srv)){
-        return 3;
-    }
-    ROS_INFO("2) Trasladando base");
-    // Desplazar robot usando servicio BaseDriver
-    basedriver_srv.request.distance = distance;
-    basedriver_srv.request.angle = 0;
     if (not basedriver_client.call(basedriver_srv)){
         return 3;
     }
@@ -121,6 +124,9 @@ bool callback(memoria::GoToPose::Request& request, memoria::GoToPose::Response& 
     errormsg.retcode = retcode;
     errormsg.what = errors[errormsg.retcode];
     response.error = errormsg;
+    if (retcode != 0){
+        ROS_ERROR("Error: '%s'",errormsg.what.c_str());
+    }
     return true;
 }
 int main(int argc, char **argv){
