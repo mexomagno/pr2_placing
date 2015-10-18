@@ -17,7 +17,7 @@ int main(int argc, char **argv){
 
     // Enviar cosas al basedriver
     bool run=true;
-    float distance = atof(argv[1]), angle = atof(argv[2]);
+    float distance = atof(argv[1]), angle = PI*atof(argv[2])/180.0;
     // while (run){
         basedriver_srv.request.distance = distance;
         basedriver_srv.request.angle = angle;

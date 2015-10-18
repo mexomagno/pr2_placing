@@ -10,7 +10,7 @@ Retorna: memoria/ErrorMsg
 
 TODO:
     - Terminar ejecución si nodo que envía la orden muere en plena ejecución.
-
+    - Retornar error cuando se recibe request en medio de una petición en curso
 */
 #include <string>
 #include <vector>
@@ -33,7 +33,7 @@ const float WAIT_TF_TIMEOUT = 1.0;
 const string ROBOT_FRAME = "/base_footprint";
 const string WORLD_FRAME = "/odom_combined";
 const float LOOP_FREQ = 10.0;
-const float TWIST_PONDERATOR = 0.25;
+const float TWIST_VELOCITY = 1;
 const double PI = 3.1415;
 // VARIABLES GLOBALES
 vector<string> errors(4);
@@ -67,13 +67,13 @@ int travel(double distance, double angle){
     // Mensaje a enviar a la base
     geometry_msgs::Twist base_cmd;
     // ****** Calcular comando a enviar
-    tf::Vector3 itongo(distance,0,0),zaxis(0,0,1);
+    tf::Vector3 itongo((distance < 0 ? -1 : 1)*TWIST_VELOCITY,0,0),zaxis(0,0,1);
     // Rotar vector unitario
     itongo = itongo.rotate(zaxis, angle);
     ROS_INFO("Vector (%f,0,0) rotado en %f es (%f,%f,%f)",distance,angle,itongo.x(), itongo.y(), itongo.z());
     // Guardar en Twist
-    base_cmd.linear.x = itongo.x()*TWIST_PONDERATOR;
-    base_cmd.linear.y = itongo.y()*TWIST_PONDERATOR;
+    base_cmd.linear.x = itongo.x();
+    base_cmd.linear.y = itongo.y();
     base_cmd.linear.z = 0   ;//itongo.z()*TWIST_PONDERATOR;
     bool done = false;
     double real_distance = 0;
