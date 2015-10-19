@@ -43,10 +43,9 @@ LIBRERÍAS
         csignal : Para salir con ctrl+C
 
 TODO:
-        - Actualizar diagramas de flujo con arquitectura anterior
+    - Actualizar diagramas de flujo con arquitectura anterior
     - Cambiar diagrama de flujo en parte de Tuck Arms. Debe tuckearse sólo el brazo que no tiene el objeto. Esto debe saberse de antemano.
-    - Implementar servicio SearchSurface
-    - Implementar servicio GoToPose
+    - Terminar moveToSurface mirando centroide de superficie
     - Implementar servicio (o método) getPlacingPose
     - Implementar placeObject
 */
@@ -69,18 +68,23 @@ TODO:
 #include <pcl/conversions.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <tf/transform_listener.h>
 
 using namespace std;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 // CONSTANTES
 const string SEARCH_SURFACE_SRV_NAME = "search_surface";
 const string GO_TO_POSE_SRV_NAME = "go_to_pose";
+const string ROBOT_FRAME = "base_footprint";
+const float ROBOT_FRONT_MARGIN = 0.5; // delta de distancia para no chocar
+const float WAIT_TF_TIMEOUT = 1.0;
 // Dummies, para recrear condiciones iniciales
 geometry_msgs::PoseStamped final_object_pose;
 const string ACTIVE_ARM = "right_arm";
 // Variables auxiliares
 ros::Publisher aux_pointcloud_pub;
 ros::Publisher aux_posestamped_pub;
+ros::Publisher aux_posestamped2_pub;
 ros::Publisher aux_point_pub;
 // VARIABLES GLOBALES
 sensor_msgs::PointCloud2 surface;
@@ -122,36 +126,63 @@ void searchSurface(){
 }
 void moveToSurface(){
     // ****** Elegir punto cerca de la superficie
-    ROS_INFO("1");
     geometry_msgs::PoseStamped pose_goal;
-    ROS_INFO("2");
     // Convertir nube de ROS a PCL
     PointCloud pcl_surface;
-    ROS_INFO("3");
     pcl::fromROSMsg(surface, pcl_surface);
-    ROS_INFO("4");
     // Crear elemento KdTree
     pcl::KdTree<pcl::PointXYZ>::Ptr kdtree (new pcl::KdTreeFLANN<pcl::PointXYZ>);
-    ROS_INFO("6");
     kdtree->setInputCloud(pcl_surface.makeShared()); // NO ELIMINAR EL MAKESHARED POR NINGUN MOTIVO
-    ROS_INFO("7");
     vector<int> nearest_index(1);
-    ROS_INFO("8");
     vector<float> nearest_dist(1);
     ROS_INFO("Buscando punto más cercano...");
     kdtree->nearestKSearch(pcl::PointXYZ(0,0,0), 1, nearest_index, nearest_dist);
     ROS_INFO("Punto más cercano es (%f, %f, %f) a distancia %f", pcl_surface.points[nearest_index[0]].x,pcl_surface.points[nearest_index[0]].y, pcl_surface.points[nearest_index[0]].z, nearest_dist[0]);
     // publicar punto más cercano
-    geometry_msgs::PointStamped punto_mas_cercano;
-    punto_mas_cercano.header.frame_id =  "head_mount_kinect_ir_optical_frame";
-    punto_mas_cercano.point.x = pcl_surface.points[nearest_index[0]].x;
-    punto_mas_cercano.point.y = pcl_surface.points[nearest_index[0]].y;
-    punto_mas_cercano.point.z = pcl_surface.points[nearest_index[0]].z;
-    aux_point_pub.publish(punto_mas_cercano);
-    return;
+    geometry_msgs::PointStamped closest_point_kinect;
+    closest_point_kinect.header.frame_id =  "head_mount_kinect_ir_optical_frame";
+    closest_point_kinect.point.x = pcl_surface.points[nearest_index[0]].x;
+    closest_point_kinect.point.y = pcl_surface.points[nearest_index[0]].y;
+    closest_point_kinect.point.z = pcl_surface.points[nearest_index[0]].z;
+    aux_point_pub.publish(closest_point_kinect);
     // ****** Ir a la superficie
-    ROS_INFO("Construí pose dummy en (%f,%f,%f), frame %s", pose_goal.pose.position.x,pose_goal.pose.position.y,pose_goal.pose.position.z,pose_goal.header.frame_id.c_str());
-    go_to_pose_srv.request.pose = pose_goal;
+    // Transformar punto de pose más cercana desde kinect frame hasta robot frame
+    tf::TransformListener tf_listener;
+    tf::StampedTransform stamped_tf;
+    try{
+        ROS_INFO("Esperando transformación disponible...");
+        while (not tf_listener.waitForTransform(closest_point_kinect.header.frame_id, ROBOT_FRAME, ros::Time(0), ros::Duration(WAIT_TF_TIMEOUT))){
+            ROS_ERROR("Transformación no pudo ser obtenida en %f segundos",WAIT_TF_TIMEOUT);
+            //iterar
+        }
+        ROS_INFO("Transformación obtenida");
+        tf_listener.lookupTransform(closest_point_kinect.header.frame_id, ROBOT_FRAME, ros::Time(0), stamped_tf);
+    }
+    catch(tf::TransformException ex){
+        ROS_ERROR("Excepción al obtener transformación: '%s'", ex.what());
+    }
+    geometry_msgs::PointStamped closest_point;
+    tf_listener.transformPoint(ROBOT_FRAME, closest_point_kinect, closest_point);
+    // Obtener pose_goal con pose cercana - delta
+    tf::Vector3 closest_point_floor_vector (closest_point.point.x,closest_point.point.y,0);
+    double closest_point_floor_distance = closest_point_floor_vector.length();
+    ROS_INFO("Distancia punto más cercano: %f (%f)",closest_point_floor_distance,nearest_dist[0]);
+    closest_point_floor_vector.normalize();
+    closest_point_floor_vector*=closest_point_floor_distance-ROBOT_FRONT_MARGIN;
+    ROS_INFO("Distancia pose factible (resté %f): %f",ROBOT_FRONT_MARGIN,closest_point_floor_vector.length());
+    geometry_msgs::PoseStamped closest_pose;
+    closest_pose.header.frame_id = closest_point.header.frame_id;
+    closest_pose.pose.position.x = closest_point_floor_vector.x();
+    closest_pose.pose.position.y = closest_point_floor_vector.y();
+    closest_pose.pose.position.z = closest_point_floor_vector.z();
+    tf::Vector3 start_angle (1,0,0), zaxis (0,0,1);
+    double rotation_angle = (closest_point_floor_vector.y() < 0 ? -1 : 1)* start_angle.angle(closest_point_floor_vector);
+    ROS_INFO("Angulo rotación: %f",rotation_angle);
+    tf::Quaternion tf_orientation (zaxis,rotation_angle);
+    tf::quaternionTFToMsg(tf_orientation, closest_pose.pose.orientation);
+    aux_posestamped2_pub.publish(closest_pose);
+    // Mover 
+    go_to_pose_srv.request.pose = closest_pose;
     if (go_to_pose_client.call(go_to_pose_srv)){
         // Verificar qué se obtuvo
         if (go_to_pose_srv.response.error.retcode != 0){
@@ -190,6 +221,7 @@ int main(int argc, char **argv){
     // Publicar dummies
     aux_pointcloud_pub = nh.advertise<PointCloud> ("plano_dummy",1);
     aux_posestamped_pub = nh.advertise<geometry_msgs::PoseStamped> ("pose_dummy",1);
+    aux_posestamped2_pub = nh.advertise<geometry_msgs::PoseStamped> ("pose_mas_cercana",1);
     aux_point_pub = nh.advertise<geometry_msgs::PointStamped> ("punto_mas_cercano",1);
     
     signal(SIGINT, signalHandler);

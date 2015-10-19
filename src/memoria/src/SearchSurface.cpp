@@ -7,6 +7,7 @@ Retorna: - sensor_msgs/PointCloud2
 
 #include <string>
 #include <vector>
+#include <csignal>
 //#include <iostream>
 #include <math.h>
 #include <ros/ros.h>
@@ -70,6 +71,9 @@ ros::Publisher aux_pose_publisher;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
 // Métodos
+void signalHandler( int signum ){
+    exit(0);
+}
 float toGrad(float rad){
     return rad*360/(2*3.1415);
 }
@@ -279,7 +283,9 @@ int getSurface(PointCloud::Ptr& pointcloud){
         return 4;
     }
     // Mirar al primer punto de búsqueda de superficie
-    for (int i = 0; i< HEAD_YAWS_SIZE; i++){
+    int i=0;
+    bool vuelta = false;
+    while (i>=0){//for (int i = 0; i< HEAD_YAWS_SIZE; i++){
         ROS_INFO("Buscando en %f°",toGrad(HEAD_YAWS[i]));
         lookAt(ROBOT_FRAME,HEAD_YAWS[i],0,0,true);
         ros::Duration(WAIT_LOOKAT).sleep();
@@ -289,6 +295,14 @@ int getSurface(PointCloud::Ptr& pointcloud){
             pointcloud = selected_surface;
             break;
         }
+        i = vuelta ? i-1 : i+1;
+        if (i==HEAD_YAWS_SIZE){
+            ROS_INFO("Primera vuelta infructuosa. Elevando la cabeza y reintentando...");
+            vuelta = true;
+            i--;
+            lookAt(ROBOT_FRAME,0,1,1.1,false);
+        }
+
     }
     if (not surface_found){
         ROS_INFO("No se encontró ninguna superficie adecuada. Abortando...");
@@ -359,6 +373,7 @@ int main(int argc, char **argv){
     ROS_INFO("Iniciando servicio '%s'",SERVICE_NAME.c_str());
     ros::init(argc, argv, "search_surface_server");
     ros::NodeHandle nh;
+    signal(SIGINT, signalHandler);
     // "Subscribirse" al servicio look_at
     lookat_client = nh.serviceClient<memoria::LookAt>("look_at");
     // Publicadores auxiliares
