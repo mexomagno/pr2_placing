@@ -84,7 +84,18 @@ public:
 
 
 */
+/*
+Mucho del comportamiento de los grippers depende de parámetros en el servidor de parámetros de ROS.
 
+/x_gripper_controller/gripper_action_node/stall_timeout : Cantidad de tiempo que debe permaneceer estacionaria para ser considerada como en "stall"
+ "                         "             /stall_velocity_threshold : Parámetro usado cuando stall velocity oscila (simulation jitter).
+
+ También se pueden modificar valores del archivo $(rospack find pr2_controller_configuration_gazebo/config/pr2_gripper_controllers.yaml para la simulación)
+
+TODO:
+  - Añadir información de posición y effort de gripper en pleno movimiento
+  - Añadir funciones no-bloqueantes para abrir y cerrar grippers
+*/
 
 
 // CONSTANTES
