@@ -62,6 +62,7 @@ add_service_files(
   SearchSurface.srv
   GoToPose.srv
   BaseDriver.srv
+  GripperDriver.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -157,6 +158,12 @@ add_executable(BaseDriver src/BaseDriver.cpp)
 add_dependencies(BaseDriver memoria_generate_messages_cpp)
 target_link_libraries(BaseDriver ${catkin_LIBRARIES})
 
+#### EJECUTABLE GRIPPERDRIVER
+
+add_executable(GripperDriver src/GripperDriver.cpp)
+add_dependencies(GripperDriver memoria_generate_messages_cpp)
+target_link_libraries(GripperDriver ${catkin_LIBRARIES})
+
 #### EJECUTABLE PLACING
 
 add_executable(placing src/placing.cpp)
@@ -176,6 +183,12 @@ target_link_libraries(basedrivertest ${catkin_LIBRARIES})
 add_executable(gotoposetest src/gotoposetest.cpp)
 add_dependencies(gotoposetest memoria_generate_messages_cpp)
 target_link_libraries(gotoposetest ${catkin_LIBRARIES})
+
+#### EJECUTABLE TEST GRIPPERDRIVER
+
+add_executable(gripperdrivertest src/gripperdrivertest.cpp)
+add_dependencies(gripperdrivertest memoria_generate_messages_cpp)
+target_link_libraries(gripperdrivertest ${catkin_LIBRARIES})
 
 #############
 ## Install ##

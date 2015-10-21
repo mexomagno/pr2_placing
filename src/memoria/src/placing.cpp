@@ -46,6 +46,8 @@ TODO:
     - Actualizar diagramas de flujo con arquitectura anterior
     - Cambiar diagrama de flujo en parte de Tuck Arms. Debe tuckearse sólo el brazo que no tiene el objeto. Esto debe saberse de antemano.
     - Terminar moveToSurface mirando centroide de superficie
+    - Considerar altura del torso al llegar a la superficie
+    - Considerar cambiar servicios por métodos en una clase auxiliar
     - Implementar servicio (o método) getPlacingPose
     - Implementar placeObject
 */
@@ -200,8 +202,21 @@ void moveToSurface(){
 void getPlacingPose(){
 
 }
-void placeObject(){
+void placeObject(geometry_msgs::PoseStamped pose_goal){
+    /* Función encargada de posicionar objeto en cierta mano, en cierta pose.
+    Estrictamente, lo que esta función hace es:
+        - Planea trayectoria de cierto gripper (conocido) a pose de placing obtenida
+        - Mueve gripper a esa pose
+        - Suelta el objeto
+        - Retira gripper sin botar el objeto (Quizás moviéndose en misma dirección en que apunta el gripper en pose de placing)
 
+    Recibe:
+        - Pose deseada
+        - grupo*/
+    // Creando pose dummy
+
+
+    // Planear 
 }
 int main(int argc, char **argv){
     // Inicializar nodo ROS

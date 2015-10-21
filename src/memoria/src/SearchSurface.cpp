@@ -300,7 +300,7 @@ int getSurface(PointCloud::Ptr& pointcloud){
             ROS_INFO("Primera vuelta infructuosa. Elevando la cabeza y reintentando...");
             vuelta = true;
             i--;
-            lookAt(ROBOT_FRAME,0,1,1.1,false);
+            lookAt(ROBOT_FRAME,0,1,1.3,false);
         }
 
     }
