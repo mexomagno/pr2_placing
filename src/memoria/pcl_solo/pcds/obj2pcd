@@ -1,0 +1,48 @@
+#!/usr/bin/python
+# -*- coding:UTF-8 -*-
+###############################
+## Script para convertir .obj a pcd
+###############################
+import sys, os.path
+def panic(mensaje):
+    print "Error: "+mensaje
+    exit(1)
+# Recoger input
+if len(sys.argv) < 2:
+    panic ("Debe ingresar nombre de archivo")
+filename = sys.argv[1];
+# Chequear extensión
+ext = os.path.splitext(filename)[1]
+if ext not in ".obj.OBJ":
+    panic("Debe ser extensión .obj")
+# Obtener número de puntos y añadir a string
+archivo = open(filename, "r")
+vertices = ""
+npuntos = 0
+for line in archivo:
+    if line[0]=="v":
+        vertices += line[2:]
+        npuntos+=1
+    if npuntos > 1 and line[0] != "v":
+        # no hay más puntos
+        break
+archivo.close()
+pcd_content = """# .PCD v.7 - Point Cloud Data file format
+VERSION .7
+FIELDS x y z
+SIZE 4 4 4
+TYPE F F F
+COUNT 1 1 1
+WIDTH {}
+HEIGHT 1
+VIEWPOINT 0 0 0 1 0 0 0
+POINTS {}
+DATA ascii\n{}""".format(npuntos,npuntos,vertices)
+# Escribir a archivo
+filename = os.path.splitext(filename)[0] + ".pcd"
+print "Guardando como {}".format(filename)
+archivo = open(filename,"w")
+archivo.write(pcd_content)
+archivo.close()
+print "Listo"
+
