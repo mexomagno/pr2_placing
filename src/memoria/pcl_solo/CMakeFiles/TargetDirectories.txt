@@ -1,3 +1,0 @@
-/home/mexomagno/catkin_ws/src/memoria/pcl_solo/CMakeFiles/cloud_viewer.dir
-/home/mexomagno/catkin_ws/src/memoria/pcl_solo/CMakeFiles/simple_objects.dir
-/home/mexomagno/catkin_ws/src/memoria/pcl_solo/CMakeFiles/viewer.dir
