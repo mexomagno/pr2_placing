@@ -120,13 +120,13 @@ void signalHandler( int signum ){
     //ros::shutdown();
     exit (EXIT_SUCCESS);
 }
-int setOpening(bool right, double opening){
+int setOpening(bool right, double opening, double max_effort){
   // Valor de 0 a 1 se mapea de MIN a MAX seteado
   double position = (MAX_GRIPPER_OPENING - MIN_GRIPPER_OPENING)*opening + MIN_GRIPPER_OPENING;
   // Crear mensaje a enviar
   pr2_controllers_msgs::Pr2GripperCommandActionGoal action_goal;
   action_goal.goal.command.position = position;
-  action_goal.goal.command.max_effort = MAX_GRIPPER_EFFORT;
+  action_goal.goal.command.max_effort = (max_effort != 0 ? (max_effort < MAX_GRIPPER_EFFORT ? max_effort : MAX_GRIPPER_EFFORT) : MAX_GRIPPER_EFFORT);
   if (not right){
     left_goal_reached = false;
     while (left_pub.getNumSubscribers() == 0)
@@ -157,10 +157,10 @@ void rGripperCallback(const pr2_controllers_msgs::Pr2GripperCommandActionResult:
   right_goal_reached = result->result.reached_goal;
 }
 bool callback(memoria::GripperDriver::Request &request, memoria::GripperDriver::Response &response){
-  ROS_INFO("Recibido Request: Gripper: %s, apertura: %f", (request.right ? "right" : "left"), request.opening);
+  ROS_INFO("Recibido Request: Gripper: %s, apertura: %f, max_effort: %f", (request.right ? "right" : "left"), request.opening, request.max_effort);
   int retcode = 0;
   // Enviar instrucción a gripper adecuado
-  retcode = setOpening(request.right, request.opening);
+  retcode = setOpening(request.right, request.opening, request.max_effort);
   memoria::ErrorMsg errormsg;
   errormsg.retcode = retcode;
   errormsg.what = errors[errormsg.retcode];
