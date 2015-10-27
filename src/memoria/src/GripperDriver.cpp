@@ -116,7 +116,7 @@ ros::Publisher left_pub, right_pub;
 bool left_goal_reached = false,right_goal_reached = false;
 vector<string> errors(2);
 void signalHandler( int signum ){
-    ROS_INFO("Recibí CTRL+C. Terminando...");
+    ROS_INFO("Recibi CTRL+C. Terminando...");
     //ros::shutdown();
     exit (EXIT_SUCCESS);
 }
