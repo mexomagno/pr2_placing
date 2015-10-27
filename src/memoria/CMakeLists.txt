@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
     pr2_controllers_msgs
     message_generation
     moveit_ros_planning_interface
+    gazebo_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -189,6 +190,12 @@ target_link_libraries(gotoposetest ${catkin_LIBRARIES})
 add_executable(gripperdrivertest src/gripperdrivertest.cpp)
 add_dependencies(gripperdrivertest memoria_generate_messages_cpp)
 target_link_libraries(gripperdrivertest ${catkin_LIBRARIES})
+
+#### EJECUTABLE TEST GRASPING
+
+add_executable(graspingtest src/graspingtest.cpp)
+add_dependencies(graspingtest memoria_generate_messages_cpp)
+target_link_libraries(graspingtest ${catkin_LIBRARIES})
 
 #############
 ## Install ##

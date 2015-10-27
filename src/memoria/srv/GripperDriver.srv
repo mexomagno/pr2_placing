@@ -1,4 +1,5 @@
 bool right
 float32 opening
+float32 max_effort
 ---
 memoria/ErrorMsg error

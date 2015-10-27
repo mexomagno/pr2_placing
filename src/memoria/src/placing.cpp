@@ -43,13 +43,13 @@ LIBRERÍAS
         csignal : Para salir con ctrl+C
 
 TODO:
+    - Implementar servicio (o método) getPlacingPose
+    - Implementar placeObject
     - Actualizar diagramas de flujo con arquitectura anterior
     - Cambiar diagrama de flujo en parte de Tuck Arms. Debe tuckearse sólo el brazo que no tiene el objeto. Esto debe saberse de antemano.
     - Terminar moveToSurface mirando centroide de superficie
     - Considerar altura del torso al llegar a la superficie
     - Considerar cambiar servicios por métodos en una clase auxiliar
-    - Implementar servicio (o método) getPlacingPose
-    - Implementar placeObject
 */
 #include <vector>
 #include <csignal>
@@ -214,7 +214,7 @@ void placeObject(geometry_msgs::PoseStamped pose_goal){
         - Pose deseada
         - grupo*/
     // Creando pose dummy
-
+    
 
     // Planear 
 }
