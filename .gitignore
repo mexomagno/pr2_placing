@@ -1,0 +1,26 @@
+# Ignorar el .gitignore
+#.gitignore
+
+.catkin_workspace
+tortugaparams.yaml
+robot_description_semantic
+
+# Ignorar carpetas autogeneradas
+build/
+devel/
+
+src/baxter_common/
+src/gazebo_ros_pkgs/
+src/paquetito/
+src/randomwalker/
+# Ignorar modelos pcd
+src/memoria/pcl_solo/pcds/
+src/memoria/pcl_solo/pcds
+# Ignorar binarios CMakeLists
+src/memoria/pcl_solo/CMakeFiles/
+src/memoria/pcl_solo/Makefile
+src/memoria/pcl_solo/CMakeCache.txt
+src/memoria/pcl_solo/cmake_install.cmake
+src/memoria/pcl_solo/simple_objects.cpp
+src/memoria/pcl_solo/viewer
+src/memoria/pcl_solo/src/simple_objects.cpp

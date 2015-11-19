@@ -18,7 +18,7 @@ Relevante: http://www.pcl-users.org/Calculating-plane-normals-td4033575.html
 //#include <pcl/filters/passthrough.h>
 //#include <pcl/filters/project_inliers.h>
 //#include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/segmentation/extract_polygonal_prism_data.h>
+#include <pcl/segmentation/extract_polygonal_prism_data.h> // para isPointIn2DPolygon()
 #include <pcl/surface/convex_hull.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/filters/project_inliers.h>
@@ -27,6 +27,16 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 using namespace std;
 
 // CONSTANTES
+/* --- Formatos de visualización --- */
+int FONT_SIZE = 15;
+float BG_COLOR[] = {0.0, 0.0, 0.0};
+float CM_COLOR[] = {1.0, 0.5, 0.0};
+float CT_COLOR[] = {0.0, 1.0, 0.0};
+float LIGHT_FACTOR = 0.5;
+float DARK_FACTOR = 0.5;
+int BOTTOM_MARGIN = 35;
+int LEFT_MARGIN = 10;
+
 
 // VARIABLES GLOBALES
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
@@ -39,7 +49,7 @@ boost::shared_ptr<pcl::visualization::PCLVisualizer> simpleVis (PointCloud::Cons
     // -----Open 3D viewer and add point cloud-----
     // --------------------------------------------
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-    viewer->setBackgroundColor (0.7,0.7,0.7);
+    viewer->setBackgroundColor (BG_COLOR[0], BG_COLOR[1], BG_COLOR[2]);
     viewer->addPointCloud<pcl::PointXYZ> (cloud, "sample cloud");
     viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud");
     viewer->addCoordinateSystem (1.0);
@@ -51,7 +61,7 @@ boost::shared_ptr<pcl::visualization::PCLVisualizer> meshVis (){
     // -----Open 3D viewer and add mesh-----
     // --------------------------------------------
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-    viewer->setBackgroundColor (0.7,0.7,0.7);
+    viewer->setBackgroundColor (BG_COLOR[0], BG_COLOR[1], BG_COLOR[2]);
     viewer->addCoordinateSystem (1.0);
     viewer->initCameraParameters ();
     return (viewer);
@@ -105,6 +115,7 @@ void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3,
     // printf("Area: %f, normal: (%f,%f,%f)\n", area, normal[0], normal[1], normal[2]);
     //return sqrt(pow(x2*y3-x3*y2,2)+pow(x3*y1-x1*y3,2)+pow(x1*y2-x2*y1,2))/2;
 }
+
 void biggestPolygon(pcl::PolygonMesh mesh, pcl::Vertices &polygon, Eigen::Vector3f &normal, double &area){
     /* Recibe polygonmesh, recorre exhaustivamente los polígonos y retorna el más grande */
     // Contenedor de la solución. Variará a medida que avanza el algoritmo
@@ -250,10 +261,14 @@ int main(int argc, char **argv){
         exit(1);
     }
     // Cargar nube de puntos
-    PointCloud::Ptr cloud (new PointCloud), cloud_filt (new PointCloud);
+    PointCloud::Ptr cloud (new PointCloud);//, cloud_filt (new PointCloud);
     pcl::io::loadPCDFile(argv[1],*cloud);
     // Crear visualizador
     viewer = meshVis();
+    // Visualizar nube de puntos
+    viewer->addPointCloud<pcl::PointXYZ>(cloud, "pointcloud");
+    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "pointcloud");
+    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 1.0, 1.0, "pointcloud");
 
     // Crear convex hull alrededor de nube
     pcl::PolygonMesh hull = getConvexHull(cloud);
@@ -273,15 +288,18 @@ int main(int argc, char **argv){
     // Obtener centro de masa
     pcl::PointXYZ ct = getCentroid(hull), cm = getMassCenter(hull, b_area);
     // Mostrar centroide
-    drawPoint(ct, "Centroide", 0.0, 1.0, 0.0);
+    drawPoint(ct, "Centroide", CT_COLOR[0], CT_COLOR[1], CT_COLOR[2]);
     // Mostrar centro de masa
-    drawPoint(cm, "Centro de Masa", 1.0, 0.5, 0.0);
+    drawPoint(cm, "Centro de Masa", CM_COLOR[0], CM_COLOR[1], CM_COLOR[2]);
     // Proyectar ambos sobre plano del polígono
     pcl::PointXYZ ct_projected = projectPointOverPolygon(ct, b_normal, biggest, hull);
     pcl::PointXYZ cm_projected = projectPointOverPolygon(cm, b_normal, biggest, hull);
     // Mostrar ambas proyecciones
-    drawPoint(ct_projected, "ct proyectado", 0.5, 1.0, 0.5);
-    drawPoint(cm_projected, "cm proyectado", 1.0, 0.75, 0.5);
+    drawPoint(ct_projected, "ct proyectado", CT_COLOR[0]+(1.0-CT_COLOR[0])*LIGHT_FACTOR, CT_COLOR[1]+(1.0-CT_COLOR[1])*LIGHT_FACTOR, CT_COLOR[2]+(1.0-CT_COLOR[2])*LIGHT_FACTOR);
+    drawPoint(cm_projected, "cm proyectado", CM_COLOR[0]+(1.0-CM_COLOR[0])*LIGHT_FACTOR, CM_COLOR[1]+(1.0-CM_COLOR[1])*LIGHT_FACTOR, CM_COLOR[2]+(1.0-CM_COLOR[2])*LIGHT_FACTOR);
+    // Mostrar texto explicativo
+    viewer->addText("Centroide", LEFT_MARGIN, BOTTOM_MARGIN, FONT_SIZE, CT_COLOR[0], CT_COLOR[1], CT_COLOR[2], "ct_text", 0);
+    viewer->addText("Centro de masa", LEFT_MARGIN, BOTTOM_MARGIN-FONT_SIZE-1, FONT_SIZE, CM_COLOR[0], CM_COLOR[1], CM_COLOR[2], "cm_text", 0);
     // Ver posición de las proyecciones
     printf("Centroide está %s del polígono\n", (pointInPolygon(ct_projected, biggest, hull) ? "DENTRO":"FUERA"));
     printf("Centro de Masa está %s del polígono\n", (pointInPolygon(cm_projected, biggest, hull) ? "DENTRO":"FUERA"));
