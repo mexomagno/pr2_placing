@@ -19,3 +19,9 @@ target_link_libraries (viewer ${PCL_LIBRARIES})
 
 add_executable (segmentarplano  src/segmentarplano.cpp)
 target_link_libraries (segmentarplano ${PCL_LIBRARIES})
+
+add_executable (convexhull  src/convexhull.cpp)
+target_link_libraries (convexhull ${PCL_LIBRARIES})
+
+add_executable (concavehull  src/concavehull.cpp)
+target_link_libraries (concavehull ${PCL_LIBRARIES})
