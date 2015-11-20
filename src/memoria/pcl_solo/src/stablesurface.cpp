@@ -31,13 +31,17 @@ using namespace std;
 int FONT_SIZE = 15;
 float BG_COLOR[] = {0.0, 0.0, 0.0};
 float CM_COLOR[] = {1.0, 0.5, 0.0};
-float CT_COLOR[] = {0.0, 1.0, 0.0};
+float CT_COLOR[] = {1.0, 0.0, 0.0};
+float FLAT_SURFACE_COLOR[] = {0.0, 1.0, 0.0};
+float FLAT_SURFACE_WIRE_COLOR[] = {0.0, 0.0, 1.0};
+float FLAT_SURFACE_WIRE_WIDTH = 3;
 float LIGHT_FACTOR = 0.5;
 float DARK_FACTOR = 0.5;
-int BOTTOM_MARGIN = 35;
+int BOTTOM_MARGIN = 15;
 int LEFT_MARGIN = 10;
-
-
+/* --- Constantes para el algoritmo --- */
+double PATCH_ANGLE_THRESHOLD = 0.2;
+double PI = 3.1415;
 // VARIABLES GLOBALES
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
@@ -82,46 +86,53 @@ void drawPoint(pcl::PointXYZ p, const string nombre, float r, float g, float b){
     viewer->addSphere(p, 2, r, g, b, nombre, 0);
 }
 
-void drawPolygon(pcl::PolygonMesh mesh, pcl::Vertices poly, float r, float g, float b){
+void drawPolygon(pcl::PolygonMesh mesh, pcl::Vertices poly, float r, float g, float b, const string name, bool filled = true){
     PointCloud cloudhull;
     pcl::fromPCLPointCloud2(mesh.cloud, cloudhull);
     // Crear nueva nube de puntos que represente al polígono
     //cout << "Dibujando polígono de " << poly.vertices.size() << " vértices" << endl;
     PointCloud::Ptr polygon (new PointCloud);
-    polygon->width = 3;//(int)poly.vertices.size();
+    polygon->width  = 3;//(int)poly.vertices.size();
     polygon->height = 1;
     for (int i=0; i<(int)poly.vertices.size(); i++){
         polygon->points.push_back(cloudhull.points[poly.vertices[i]]);
     }
     // Visualizar polígono
-    const string nombre="Poligono";
     PointCloud::ConstPtr const_polygon = polygon;
-    viewer->addPolygon<pcl::PointXYZ>(const_polygon, r, g, b, nombre, 0);
+    viewer->addPolygon<pcl::PointXYZ>(const_polygon, r, g, b, name, 0);
     // Mostrar como polígono relleno
-    setVisualizationType(nombre, 2);
+    setVisualizationType(name, (filled ? 2 : 1));
 }
 //--------- END VISUALIZADOR -----------
-void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3, double &area, Eigen::Vector3f &normal){
-    /* Calcula el área de un triángulo definido por tres puntos */
+void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3, pcl::PointXYZ test, double &area, Eigen::Vector3f &normal){
+    /* Calcula el área de un triángulo definido por tres puntos
+        
+    TODO:
+        - Cuidar orientación de las normales
+    */
     // Lo siguiente es una implementación de la fórmula del half-cross product: S=|ABxAC|/2
-    // printf("p1: (%f,%f,%f), p2: (%f,%f,%f), p3: (%f,%f,%f)\n", p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
     Eigen::Vector3f ab (p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
     Eigen::Vector3f bc (p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
-    // printf("ab: (%f,%f,%f), bc: (%f,%f,%f)\n", ab[0], ab[1], ab[2], bc[0], bc[1], bc[2]);
     Eigen::Vector3f cross = ab.cross(bc);
-    // printf("ab x bc: (%f,%f,%f)\n",cross[0], cross[1], cross[2]);
-    area = cross.norm();
+    area   = cross.norm();
     normal = cross.normalized();
-    // printf("Area: %f, normal: (%f,%f,%f)\n", area, normal[0], normal[1], normal[2]);
-    //return sqrt(pow(x2*y3-x3*y2,2)+pow(x3*y1-x1*y3,2)+pow(x1*y2-x2*y1,2))/2;
+    // Chequear orientación de la normal usando el punto Test
+    Eigen::Vector3f delta = Eigen::Vector3f (p1.x, p1.y, p1.z) - Eigen::Vector3f (test.x, test.y, test.z);
+    if (acos(normal.dot(delta)) > PI/2){
+        normal*= -1;
+    }
 }
 
 void biggestPolygon(pcl::PolygonMesh mesh, pcl::Vertices &polygon, Eigen::Vector3f &normal, double &area){
-    /* Recibe polygonmesh, recorre exhaustivamente los polígonos y retorna el más grande */
+    /* Recibe polygonmesh, recorre exhaustivamente los polígonos y retorna el más grande.
+
+    TODO:
+        - Cuidar orientación de normales, para eso, cuidar el orden con que se pasan los puntos.
+    */
     // Contenedor de la solución. Variará a medida que avanza el algoritmo
     pcl::Vertices biggest_polygon;
     double biggest_area = 0;
-    pcl::PointXYZ p1, p2, p3;
+    pcl::PointXYZ p1, p2, p3, ptest;
     // Contenedor de la nube de puntos del polygonmesh
     Eigen::Vector3f biggest_normal;
     PointCloud cloud;
@@ -130,9 +141,14 @@ void biggestPolygon(pcl::PolygonMesh mesh, pcl::Vertices &polygon, Eigen::Vector
         p1 = cloud[mesh.polygons[pol_index].vertices[0]];
         p2 = cloud[mesh.polygons[pol_index].vertices[1]];
         p3 = cloud[mesh.polygons[pol_index].vertices[2]];
+        // obtener índice de un polígono cualquiera
+        int randint = pol_index;
+        while (randint == pol_index)
+            randint = (int)rand() % mesh.polygons.size();
+        ptest = cloud[mesh.polygons[randint].vertices[0]]; // primer punto de un polígono escogido al azar
         Eigen::Vector3f current_normal;
         double current_area = 0;
-        triangleAreaAndNormal(p1, p2, p3, current_area, current_normal);
+        triangleAreaAndNormal(p1, p2, p3, ptest, current_area, current_normal);
         if (current_area > biggest_area){
             biggest_area = current_area;
             biggest_polygon = mesh.polygons[pol_index];
@@ -183,7 +199,11 @@ pcl::PointXYZ getMassCenter(pcl::PolygonMesh mesh, double biggest_area){
         double area;
         Eigen::Vector3f normal; //de relleno, no se usará.
         // Asumiendo que son triángulos
-        triangleAreaAndNormal(meshcloud->points[mesh.polygons[i].vertices[0]], meshcloud->points[mesh.polygons[i].vertices[1]], meshcloud->points[mesh.polygons[i].vertices[2]], area, normal);
+        // obtener índice de un polígono cualquiera
+        int randint = i;
+        while (randint == i)
+            randint = (int)rand() % mesh.polygons.size();
+        triangleAreaAndNormal(meshcloud->points[mesh.polygons[i].vertices[0]], meshcloud->points[mesh.polygons[i].vertices[1]], meshcloud->points[mesh.polygons[i].vertices[2]], meshcloud->points[mesh.polygons[randint].vertices[0]], area, normal);
         // Añadir para centroide ponderado (centro de masa)
         suma+=Eigen::Vector3f(centroid[0],centroid[1],centroid[2])*area;
         areas_sum+=area;
@@ -255,10 +275,125 @@ bool pointInPolygon(pcl::PointXYZ punto, pcl::Vertices polygon, pcl::PolygonMesh
     return pcl::isPointIn2DPolygon(punto, *polygon_cloud);
 }
 
+void biggestFlatPatch(pcl::PolygonMesh mesh){
+    /* 
+        Esta función tiene como fin buscar el mayor parche plano del convex hull.
+        Es importante tener en cuenta que en un objeto no convexo, podría darse la situación
+        en que dos grupos distintos de polígonos podrían tener normales similares pero ser disconexos.
+        En el caso del convex hull esto NO es posible.
+        Para esto:
+            - Recorre polígonos de convex hull
+            - Los separa por diferencia de normales (si tienen normales muy distintas, son de grupos distintos)
+            - Escoge grupo con mayor área
+
+        Detalle:
+            Hull tiene N polígonos
+            - Crear matriz vacía tamaño N x ? para almacenar grupos (? es variable)
+            - crear vector en 0 tamaño N para almacenar area total para cada grupo
+            - Para cada polígono:
+                - Iniciar nuevo grupo vacío tamaño variable.
+                - Iniciar contador de area total
+                - Para cada otro polígono:
+                    - Si tiene normal similar:
+                        - añadir su índice al grupo
+                        - Sumar su área al area total
+                - Añadir grupo a lista de grupos
+                - Añadir area a lista de areas de grupos
+            - Buscar area mas grande, retornar grupo asociado
+
+        Los grupos: 
+            Los grupos son unidades que almacenan N polígonos y representan un "parche" plano. Además tienen asociada un área total, almacenada en otro arreglo.
+            La estructura de cada grupo es un vector de tamaño variable con los polígonos, representados por su índice dentro del mesh.polygons.
+            Las areas totales están en otro vector, de tamaño igual a la cantidad de grupos.
+
+            IMPORTANTE: Existe una correspondencia 1:1 entre los índices de: "patches", "areas" y mesh.polygons
+
+        TODO:
+            - Reparar problemas por orientación de normales (Polígonos caras opuestas, polígonos ignorados)
+            - Revisar que centro de masa se proyecte dentro del grupo
+            - Revisar que el grupo sea factible de posicionar según agarre del gripper
+            - Aplicar optimizaciones propuestas
+    */
+    // Constantes
+    int n_polygons = mesh.polygons.size(); // Número de polígonos en el mesh
+
+    // Obtener pointcloud del mesh
+    PointCloud::Ptr meshcloud (new PointCloud);
+    fromPCLPointCloud2(mesh.cloud,*meshcloud);
+
+    // Crear contenedor de grupos y contenedor de areas totales
+    vector< vector<int> > patches; // Almacena "parches". Cada "parche" es un arreglo de índices de polígonos
+    vector<double> areas;      // Almacena area acumulada para cada "parche"
+
+    // Procesar polígonos: Obtener sus normales y areas primero que todo
+    vector<Eigen::Vector3f> poly_normals;
+    vector<double> poly_areas;
+    for (int i=0; i<n_polygons; i++){
+        Eigen::Vector3f normal;
+        double area;
+        // obtener índice de un polígono cualquiera
+        int randint = i;
+        while (randint == i)
+            randint = (int)rand() % n_polygons;
+        triangleAreaAndNormal(meshcloud->points[mesh.polygons[i].vertices[0]], meshcloud->points[mesh.polygons[i].vertices[1]], meshcloud->points[mesh.polygons[i].vertices[2]], meshcloud->points[mesh.polygons[randint].vertices[0]], area, normal);
+        poly_normals.push_back(normal);
+        poly_areas.push_back(area);
+    }
+    // En este punto, "poly_normals" y "poly_areas" debieran tener tamaño "n_polygons".
+    // Recorrer polígonos y crear patch para cada uno
+    for (int i=0; i<n_polygons; i++){
+        // Crear su grupo y añadirse a si mismo
+        vector<int> patch;
+        patch.push_back(i);
+        double patch_area = poly_areas[i];
+        // Añadir todos los parches de normal similar
+        for (int j=0; j<n_polygons; j++){
+            // Descartarse a si mismo
+            if (i==j)
+                continue;
+            // Comparar diferencia de normal. Notar que ya vienen normalizadas
+            double anglediff = acos(poly_normals[i].dot(poly_normals[j]));
+            if (anglediff < PATCH_ANGLE_THRESHOLD){
+                // Agregar al parche
+                patch.push_back(j);
+                patch_area += poly_areas[j];
+            }
+        }
+        // Añadir grupo y area a arreglos externos
+        patches.push_back(patch);
+        areas.push_back(patch_area);
+    }
+    // En este punto, "patches" y "areas" son de tamaño "n_polygons"
+    // Buscar area más grande
+    double biggest_area = 0;
+    int biggest_index = 0;
+    for (int i=0; i<n_polygons; i++){
+        if (areas[i] > biggest_area){
+            biggest_area = areas[i];
+            biggest_index = i;
+        } 
+    }
+    // Retornar parche más grande
+    // Por ahora lo dibujamos en verde
+    for (int i=0; i<patches[biggest_index].size(); i++){
+        stringstream surface_name, wire_name;
+        surface_name << "parche_" << i;
+        wire_name << "parche_" << i << "wire";
+        drawPolygon(mesh, mesh.polygons[patches[biggest_index][i]],FLAT_SURFACE_COLOR[0], FLAT_SURFACE_COLOR[1], FLAT_SURFACE_COLOR[2], surface_name.str());
+        drawPolygon(mesh, mesh.polygons[patches[biggest_index][i]],FLAT_SURFACE_WIRE_COLOR[0], FLAT_SURFACE_WIRE_COLOR[1], FLAT_SURFACE_WIRE_COLOR[2], wire_name.str(), false);
+        // Engrosar línea de borde de polígono
+        viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, FLAT_SURFACE_WIRE_WIDTH, wire_name.str(), 0);
+    }
+}
+
 int main(int argc, char **argv){
     if (argc < 2){
         printf("Error: Debe especificar un archivo .pcd\n");
         exit(1);
+    }
+    if (argc == 3){
+        // Se cae solo si entrega valor inválido
+        PATCH_ANGLE_THRESHOLD = atof(argv[2]);
     }
     // Cargar nube de puntos
     PointCloud::Ptr cloud (new PointCloud);//, cloud_filt (new PointCloud);
@@ -284,7 +419,7 @@ int main(int argc, char **argv){
     //printf("Normal: (%f, %f, %f)\n", b_normal[0], b_normal[1], b_normal[2]);
 
     // Visualizar polígono
-    drawPolygon(hull, biggest, 1.0, 0.0, 0.0);
+    drawPolygon(hull, biggest, 1.0, 0.0, 0.0, "biggest_polygon");
     // Obtener centro de masa
     pcl::PointXYZ ct = getCentroid(hull), cm = getMassCenter(hull, b_area);
     // Mostrar centroide
@@ -299,10 +434,15 @@ int main(int argc, char **argv){
     drawPoint(cm_projected, "cm proyectado", CM_COLOR[0]+(1.0-CM_COLOR[0])*LIGHT_FACTOR, CM_COLOR[1]+(1.0-CM_COLOR[1])*LIGHT_FACTOR, CM_COLOR[2]+(1.0-CM_COLOR[2])*LIGHT_FACTOR);
     // Mostrar texto explicativo
     viewer->addText("Centroide", LEFT_MARGIN, BOTTOM_MARGIN, FONT_SIZE, CT_COLOR[0], CT_COLOR[1], CT_COLOR[2], "ct_text", 0);
-    viewer->addText("Centro de masa", LEFT_MARGIN, BOTTOM_MARGIN-FONT_SIZE-1, FONT_SIZE, CM_COLOR[0], CM_COLOR[1], CM_COLOR[2], "cm_text", 0);
+    viewer->addText("Centro de masa", LEFT_MARGIN, BOTTOM_MARGIN+FONT_SIZE+1, FONT_SIZE, CM_COLOR[0], CM_COLOR[1], CM_COLOR[2], "cm_text", 0);
+    stringstream thres_text;
+    thres_text << "Threshold: " << PATCH_ANGLE_THRESHOLD << " rad";
+    viewer->addText(thres_text.str(), LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*2, FONT_SIZE, 1, 1, 1, "thres_text", 0);
     // Ver posición de las proyecciones
     printf("Centroide está %s del polígono\n", (pointInPolygon(ct_projected, biggest, hull) ? "DENTRO":"FUERA"));
     printf("Centro de Masa está %s del polígono\n", (pointInPolygon(cm_projected, biggest, hull) ? "DENTRO":"FUERA"));
+    // Ver parche plano más grande
+    biggestFlatPatch(hull);
     while (!viewer->wasStopped()){
         viewer->spinOnce(100);
         boost::this_thread::sleep (boost::posix_time::microseconds (100000));

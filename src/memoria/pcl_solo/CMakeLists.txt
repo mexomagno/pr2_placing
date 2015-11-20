@@ -28,3 +28,9 @@ target_link_libraries (build/concavehull ${PCL_LIBRARIES})
 
 add_executable (build/stablesurface src/stablesurface.cpp)
 target_link_libraries (build/stablesurface ${PCL_LIBRARIES})
+
+add_executable (build/regiongrowing src/regiongrowing.cpp)
+target_link_libraries (build/regiongrowing ${PCL_LIBRARIES})
+
+add_executable (build/convexhullregiongrowing src/convexhullregiongrowing.cpp)
+target_link_libraries (build/convexhullregiongrowing ${PCL_LIBRARIES})

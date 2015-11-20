@@ -1,0 +1,32 @@
+Forma correcta de abordar los chunks de polígonos:
+Los polígonos serán separados en grupos según sus diferencias de normales.
+Cada grupo está delimitado (en sus extremos) por polígonos de normales no más diferentes que lo que se establezca.
+Ojo que podría darse el caso en que un polígono esté en diferentes grupos al mismo tiempo, por ejemplo al analizar una superficie redondeada (trozo de esfera), 
+en cierta vecindad se podría tener un grupo que termine siendo un parche de la esfera (no se pueden agregar más polígonos porque el siguiente polígono tiene
+una normal que se pasa de ángulo respecto al polígono del otro extremo), pero este parche puede ser tomado de arbitrarias formas en la esfera.
+Asumamos que tenemos un listado con todas las normales de cada polígono.
+Para cada normal podemos definir un grupo de normales similares. En este caso, hay tantos grupos como polígonos.En el peor caso podrían haber unos N/2 polígonos
+en cada grupo, osea, N*N/2 elementos. 
+Por supuesto se puede dar que existan dos grupos exactamente iguales. Sin embargo, si no tenemos tantos polígonos, esto podría no importarnos mucho.
+Con todo esto, una implementación poco eficiente (Orden de N^2) sería:
+	- Crear un listado de normales y areas de polígonos
+	- Para cada polígono (para cada índice):
+		- Crear un nuevo grupo (Area = 0)
+		- Para cada otro polígono restante:
+			- Si normal es similar a la principal (la dueña del grupo): añadir al grupo, sumar area
+	- // En este punto tenemos N grupos, cada uno con una vecindad de polígonos para cada normal y con el área total sumada.
+	- Recorrer grupos y escoger el de mayor área
+
+Optimizaciones posibles:
+	- Hacer algo más como RANSAC: Tomar un sample cualquiera y buscar polígonos uno a uno. Detenerse tras X intentos, y retornar el más grande.
+	- Recordar que se pueden descartar automáticamente todos los con inclinación mayor a la que puede alcanzar el gripper. Esto está definido
+		por si los puntos del gripper (o los puntos donde debería estar el gripper) están por encima o por debajo del plano definido por el 
+		polígono.
+	- Otra opción sería construir a partir del listado de polígonos, una estructura de datos donde cada nodo tiene el polígono, y links a los polígonos adyacentes.
+		Quizás con esta estructura se puede tener alguna ventaja
+	- Notar que si polígono X está en el parche de polígono Y, Y estará en el de X.
+
+
+RELATED:
+	Existe tutorial de Region Growing Segmentation. Su funcionamiento es muy similar a lo que decíamos antes. 
+	El principal problema de usar esto es que 
