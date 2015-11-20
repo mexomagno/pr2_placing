@@ -104,6 +104,7 @@ void drawPolygon(pcl::PolygonMesh mesh, pcl::Vertices poly, float r, float g, fl
     // Mostrar como polígono relleno
     setVisualizationType(name, (filled ? 2 : 1));
 }
+/* Declaración para que pueda ser usada por drawPolygonMeshNormals. PÉSIMA PRÁCTICA. */
 void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3, pcl::PointXYZ test, double &area, Eigen::Vector3f &normal);
 void drawPolygonMeshNormals(pcl::PolygonMesh mesh){
     // Obtener nube de puntos
@@ -139,13 +140,20 @@ void drawPolygonMeshNormals(pcl::PolygonMesh mesh){
     pcl::PointCloud<pcl::Normal>::ConstPtr constnormals = normals;
     viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal> (constcloud, constnormals, 1, 10, "normals", 0);
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2], "normals", 0);
+/*  
+    // Dibujar puntos en centroides de los polígonos
     for (int i=0; i<centroidcloud->points.size(); i++){
         stringstream pointname;
         pointname << "centroid_nr_" << i;
         drawPoint(centroidcloud->points[i], pointname.str(), NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2]);
-    } 
+    }*/ 
 }
 //--------- END VISUALIZADOR -----------
+//--------- BEGIN MATEMATICAS ----------
+double toGrad(double rads){
+    return rads*180.0/PI;
+}
+//--------- END MATEMATICAS ------------
 void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3, pcl::PointXYZ test, double &area, Eigen::Vector3f &normal){
     /* Calcula el área de un triángulo definido por tres puntos
         
@@ -158,12 +166,20 @@ void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3,
     Eigen::Vector3f cross = ab.cross(bc);
     area   = cross.norm();
     normal = cross.normalized();
+
     // Chequear orientación de la normal usando el punto Test
     Eigen::Vector3f delta = Eigen::Vector3f (p1.x, p1.y, p1.z) - Eigen::Vector3f (test.x, test.y, test.z);
-    if (acos(normal.dot(delta)) > PI/2){
-        cout << "Invirtiendo normal. Antes:" << normal << endl;
+    delta.normalize();
+    double angle = acos(normal.dot(delta));
+    if (angle > PI/2){
         normal*= -1;
-        cout << "Ahora: " << normal << endl;
+        cout << "Angulo era " << toGrad(angle) << "° por lo que se invierte la normal" << endl;
+
+        // Dibujar punto donde se invirtió la normal
+        Eigen::Vector3f centroid = (Eigen::Vector3f(p1.x,p1.y,p1.z) + Eigen::Vector3f(p2.x,p2.y,p2.z)+ Eigen::Vector3f(p3.x,p3.y,p3.z))/3;
+        stringstream point_name;
+        point_name << "inverted_normal_point_" << area;
+        drawPoint(pcl::PointXYZ(centroid[0], centroid[1], centroid[2]), point_name.str(), 1, 0, 0);
     }
 }
 
@@ -457,7 +473,7 @@ int main(int argc, char **argv){
     
     // Visualizar normales
     drawPolygonMeshNormals(hull);
-    viewer->addText("Normales", LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*3, FONT_SIZE, CT_COLOR[0], CT_COLOR[1], CT_COLOR[2], "ct_text", 0);
+    viewer->addText("Normales", LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*3, FONT_SIZE, NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2], "ct_text", 0);
 
 
     /*// Obtener polígono más grande y su normal
