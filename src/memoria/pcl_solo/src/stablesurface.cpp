@@ -28,17 +28,18 @@ using namespace std;
 
 // CONSTANTES
 /* --- Formatos de visualización --- */
-int FONT_SIZE = 15;
-float BG_COLOR[] = {0.0, 0.0, 0.0};
-float CM_COLOR[] = {1.0, 0.5, 0.0};
-float CT_COLOR[] = {1.0, 0.0, 0.0};
-float FLAT_SURFACE_COLOR[] = {0.0, 1.0, 0.0};
+int FONT_SIZE                   = 15;
+float BG_COLOR[]                = {0.0, 0.0, 0.0};
+float CM_COLOR[]                = {1.0, 0.5, 0.0};
+float CT_COLOR[]                = {1.0, 0.0, 0.0};
+float FLAT_SURFACE_COLOR[]      = {0.0, 1.0, 0.0};
 float FLAT_SURFACE_WIRE_COLOR[] = {0.0, 0.0, 1.0};
-float FLAT_SURFACE_WIRE_WIDTH = 3;
-float LIGHT_FACTOR = 0.5;
-float DARK_FACTOR = 0.5;
-int BOTTOM_MARGIN = 15;
-int LEFT_MARGIN = 10;
+float FLAT_SURFACE_WIRE_WIDTH   = 3;
+float LIGHT_FACTOR              = 0.5;
+float DARK_FACTOR               = 0.5;
+int BOTTOM_MARGIN               = 15;
+int LEFT_MARGIN                 = 10;
+int NORMALS_COLOR[]             = {1.0, 0.0, 1.0};
 /* --- Constantes para el algoritmo --- */
 double PATCH_ANGLE_THRESHOLD = 0.2;
 double PI = 3.1415;
@@ -103,6 +104,47 @@ void drawPolygon(pcl::PolygonMesh mesh, pcl::Vertices poly, float r, float g, fl
     // Mostrar como polígono relleno
     setVisualizationType(name, (filled ? 2 : 1));
 }
+void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3, pcl::PointXYZ test, double &area, Eigen::Vector3f &normal);
+void drawPolygonMeshNormals(pcl::PolygonMesh mesh){
+    // Obtener nube de puntos
+    PointCloud::Ptr meshcloud (new PointCloud()), centroidcloud (new PointCloud());
+    fromPCLPointCloud2(mesh.cloud, *meshcloud);
+    centroidcloud->height = 1;
+    centroidcloud->width = mesh.polygons.size();
+    // Crear contenedor de normales
+    pcl::PointCloud<pcl::Normal>::Ptr normals (new pcl::PointCloud<pcl::Normal>());
+    normals->height = 1;
+    normals->width = mesh.polygons.size();
+    pcl::PointXYZ p1, p2, p3, ptest;
+    // Rellenar contenedor con normales
+    for (int i=0; i< mesh.polygons.size(); i++){
+        double area;
+        p1 = meshcloud->points[mesh.polygons[i].vertices[0]];
+        p2 = meshcloud->points[mesh.polygons[i].vertices[1]];
+        p3 = meshcloud->points[mesh.polygons[i].vertices[2]];
+        Eigen::Vector3f eigen_normal, centroid, p1_eigen(p1.x,p1.y,p1.z), p2_eigen(p2.x,p2.y,p2.z), p3_eigen(p3.x,p3.y,p3.z);
+        int randint = i;
+        while (randint == i)
+            randint = (int)rand() % mesh.polygons.size();
+        ptest = meshcloud->points[mesh.polygons[randint].vertices[0]];
+        triangleAreaAndNormal(p1, p2, p3, ptest, area, eigen_normal);
+        // Añadir centroide
+        centroid = (p1_eigen + p2_eigen + p3_eigen)/3;
+        centroidcloud->points.push_back(pcl::PointXYZ(centroid[0], centroid[1], centroid[2]));
+        // añadir normal a normales
+        normals->points.push_back(pcl::Normal(eigen_normal[0], eigen_normal[1], eigen_normal[2]));
+    }
+    // agregar normales al visualizador
+    PointCloud::ConstPtr constcloud = centroidcloud;
+    pcl::PointCloud<pcl::Normal>::ConstPtr constnormals = normals;
+    viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal> (constcloud, constnormals, 1, 10, "normals", 0);
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2], "normals", 0);
+    for (int i=0; i<centroidcloud->points.size(); i++){
+        stringstream pointname;
+        pointname << "centroid_nr_" << i;
+        drawPoint(centroidcloud->points[i], pointname.str(), NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2]);
+    } 
+}
 //--------- END VISUALIZADOR -----------
 void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3, pcl::PointXYZ test, double &area, Eigen::Vector3f &normal){
     /* Calcula el área de un triángulo definido por tres puntos
@@ -119,7 +161,9 @@ void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3,
     // Chequear orientación de la normal usando el punto Test
     Eigen::Vector3f delta = Eigen::Vector3f (p1.x, p1.y, p1.z) - Eigen::Vector3f (test.x, test.y, test.z);
     if (acos(normal.dot(delta)) > PI/2){
+        cout << "Invirtiendo normal. Antes:" << normal << endl;
         normal*= -1;
+        cout << "Ahora: " << normal << endl;
     }
 }
 
@@ -135,17 +179,17 @@ void biggestPolygon(pcl::PolygonMesh mesh, pcl::Vertices &polygon, Eigen::Vector
     pcl::PointXYZ p1, p2, p3, ptest;
     // Contenedor de la nube de puntos del polygonmesh
     Eigen::Vector3f biggest_normal;
-    PointCloud cloud;
-    pcl::fromPCLPointCloud2(mesh.cloud, cloud);
+    PointCloud::Ptr cloud (new PointCloud());
+    pcl::fromPCLPointCloud2(mesh.cloud, *cloud);
     for (int pol_index = 0; pol_index < mesh.polygons.size(); pol_index++){
-        p1 = cloud[mesh.polygons[pol_index].vertices[0]];
-        p2 = cloud[mesh.polygons[pol_index].vertices[1]];
-        p3 = cloud[mesh.polygons[pol_index].vertices[2]];
+        p1 = cloud->points[mesh.polygons[pol_index].vertices[0]];
+        p2 = cloud->points[mesh.polygons[pol_index].vertices[1]];
+        p3 = cloud->points[mesh.polygons[pol_index].vertices[2]];
         // obtener índice de un polígono cualquiera
         int randint = pol_index;
         while (randint == pol_index)
             randint = (int)rand() % mesh.polygons.size();
-        ptest = cloud[mesh.polygons[randint].vertices[0]]; // primer punto de un polígono escogido al azar
+        ptest = cloud->points[mesh.polygons[randint].vertices[0]]; // primer punto de un polígono escogido al azar
         Eigen::Vector3f current_normal;
         double current_area = 0;
         triangleAreaAndNormal(p1, p2, p3, ptest, current_area, current_normal);
@@ -172,7 +216,7 @@ pcl::PointXYZ getCentroid(pcl::PolygonMesh mesh){
     return pcl::PointXYZ(centroid(0), centroid(1), centroid(2));
 }
 
-pcl::PointXYZ getMassCenter(pcl::PolygonMesh mesh, double biggest_area){
+pcl::PointXYZ getCenterOfMass(pcl::PolygonMesh mesh, double biggest_area){
     /* Algoritmo:
             - Calcular centro para cada polígono
             - Calcular centroide de estos puntos, ponderado por área de los polígonos
@@ -410,7 +454,13 @@ int main(int argc, char **argv){
     // Visualizar convex hull como wireframe
     viewer->addPolygonMesh (hull, "hull",0);
     viewer->setRepresentationToWireframeForAllActors();
-    // Obtener polígono más grande y su normal
+    
+    // Visualizar normales
+    drawPolygonMeshNormals(hull);
+    viewer->addText("Normales", LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*3, FONT_SIZE, CT_COLOR[0], CT_COLOR[1], CT_COLOR[2], "ct_text", 0);
+
+
+    /*// Obtener polígono más grande y su normal
     pcl::Vertices biggest;
     Eigen::Vector3f b_normal;
     double b_area;
@@ -420,8 +470,9 @@ int main(int argc, char **argv){
 
     // Visualizar polígono
     drawPolygon(hull, biggest, 1.0, 0.0, 0.0, "biggest_polygon");
+
     // Obtener centro de masa
-    pcl::PointXYZ ct = getCentroid(hull), cm = getMassCenter(hull, b_area);
+    pcl::PointXYZ ct = getCentroid(hull), cm = getCenterOfMass(hull, b_area);
     // Mostrar centroide
     drawPoint(ct, "Centroide", CT_COLOR[0], CT_COLOR[1], CT_COLOR[2]);
     // Mostrar centro de masa
@@ -442,7 +493,7 @@ int main(int argc, char **argv){
     printf("Centroide está %s del polígono\n", (pointInPolygon(ct_projected, biggest, hull) ? "DENTRO":"FUERA"));
     printf("Centro de Masa está %s del polígono\n", (pointInPolygon(cm_projected, biggest, hull) ? "DENTRO":"FUERA"));
     // Ver parche plano más grande
-    biggestFlatPatch(hull);
+    biggestFlatPatch(hull);*/
     while (!viewer->wasStopped()){
         viewer->spinOnce(100);
         boost::this_thread::sleep (boost::posix_time::microseconds (100000));
