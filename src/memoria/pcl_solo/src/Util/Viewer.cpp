@@ -11,6 +11,7 @@ Viewer::Viewer(float r, float g, float b){
     visualizations_.push_back(pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME);
     visualizations_.push_back(pcl::visualization::PCL_VISUALIZER_REPRESENTATION_SURFACE);
     n_text_ = 0;
+    FONT_SIZE = 15;
 }
 
 // Setea puntos - wireframe - surfaces
@@ -22,7 +23,18 @@ void Viewer::setVisualizationMode(const string shape_id, int mode){
     */
    	viewer_->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, visualizations_[mode], shape_id, 0);  
 }
-
+void Viewer::setLineWidth(const string shape_id, int width){
+    viewer_->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, width, shape_id, 0);  
+}
+void Viewer::setFontSize(const string shape_id, int size){
+    FONT_SIZE = size;
+}
+void Viewer::setColor(const string shape_id, float r, float g, float b, bool iscloud){
+    if (iscloud)
+        viewer_->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, r, g, b, shape_id, 0);  
+    else
+        viewer_->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, r, g, b, shape_id, 0);  
+}
 // --- Métodos para dibujar --- //
 void Viewer::drawPoint(PointXYZ p, const string shape_id, float r, float g, float b, float size){
     viewer_->addSphere(p, size, r, g, b, shape_id, 0);

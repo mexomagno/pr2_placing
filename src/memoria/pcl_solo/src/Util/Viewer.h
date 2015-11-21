@@ -17,7 +17,7 @@ class Viewer{
 	/* --- Formato --- */
 	static const int BOTTOM_MARGIN = 15;
 	static const int LEFT_MARGIN   = 10;
-	static const int FONT_SIZE     = 15;
+	int FONT_SIZE;
 
 public:
 	// Constructor
@@ -25,7 +25,9 @@ public:
 
 	// Setea puntos - wireframe - surfaces
 	void setVisualizationMode(const string shape_id, int mode);
-
+	void setLineWidth(const string shape_id, int width);
+	void setFontSize(const string shape_id, int size);
+	void setColor(const string shape_id, float r, float g, float b, bool iscloud = false);
 	// --- Métodos para dibujar --- //
 	void drawPoint(PointXYZ p, const string shape_id, float r, float g, float b, float size);
 	void drawPointCloud(PointCloud<PointXYZ>::Ptr cloud, const string shape_id, float r, float g, float b, int point_size = 1);
