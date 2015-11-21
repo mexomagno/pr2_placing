@@ -42,7 +42,7 @@ int LEFT_MARGIN                 = 10;
 int NORMALS_COLOR[]             = {1.0, 0.0, 1.0};
 /* --- Constantes para el algoritmo --- */
 double PATCH_ANGLE_THRESHOLD = 0.2;
-double PI = 3.1415;
+double PI                    = 3.1415;
 // VARIABLES GLOBALES
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
@@ -173,13 +173,13 @@ void triangleAreaAndNormal(pcl::PointXYZ p1, pcl::PointXYZ p2, pcl::PointXYZ p3,
     double angle = acos(normal.dot(delta));
     if (angle > PI/2){
         normal*= -1;
-        cout << "Angulo era " << toGrad(angle) << "° por lo que se invierte la normal" << endl;
+/*        cout << "Angulo era " << toGrad(angle) << "° por lo que se invierte la normal" << endl;
 
         // Dibujar punto donde se invirtió la normal
         Eigen::Vector3f centroid = (Eigen::Vector3f(p1.x,p1.y,p1.z) + Eigen::Vector3f(p2.x,p2.y,p2.z)+ Eigen::Vector3f(p3.x,p3.y,p3.z))/3;
         stringstream point_name;
         point_name << "inverted_normal_point_" << area;
-        drawPoint(pcl::PointXYZ(centroid[0], centroid[1], centroid[2]), point_name.str(), 1, 0, 0);
+        drawPoint(pcl::PointXYZ(centroid[0], centroid[1], centroid[2]), point_name.str(), 1, 0, 0);*/
     }
 }
 
@@ -232,7 +232,7 @@ pcl::PointXYZ getCentroid(pcl::PolygonMesh mesh){
     return pcl::PointXYZ(centroid(0), centroid(1), centroid(2));
 }
 
-pcl::PointXYZ getCenterOfMass(pcl::PolygonMesh mesh, double biggest_area){
+pcl::PointXYZ getCenterOfMass(pcl::PolygonMesh mesh){
     /* Algoritmo:
             - Calcular centro para cada polígono
             - Calcular centroide de estos puntos, ponderado por área de los polígonos
@@ -473,7 +473,7 @@ int main(int argc, char **argv){
     
     // Visualizar normales
     drawPolygonMeshNormals(hull);
-    viewer->addText("Normales", LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*3, FONT_SIZE, NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2], "ct_text", 0);
+    viewer->addText("Normales", LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*3, FONT_SIZE, NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2], "normals_text", 0);
 
 
     /*// Obtener polígono más grande y su normal
@@ -482,34 +482,32 @@ int main(int argc, char **argv){
     double b_area;
     biggestPolygon(hull, biggest, b_normal, b_area);
 
-    //printf("Normal: (%f, %f, %f)\n", b_normal[0], b_normal[1], b_normal[2]);
-
     // Visualizar polígono
-    drawPolygon(hull, biggest, 1.0, 0.0, 0.0, "biggest_polygon");
+    drawPolygon(hull, biggest, 1.0, 0.0, 0.0, "biggest_polygon");*/
 
     // Obtener centro de masa
-    pcl::PointXYZ ct = getCentroid(hull), cm = getCenterOfMass(hull, b_area);
+    pcl::PointXYZ ct = getCentroid(hull), cm = getCenterOfMass(hull);
     // Mostrar centroide
     drawPoint(ct, "Centroide", CT_COLOR[0], CT_COLOR[1], CT_COLOR[2]);
     // Mostrar centro de masa
     drawPoint(cm, "Centro de Masa", CM_COLOR[0], CM_COLOR[1], CM_COLOR[2]);
-    // Proyectar ambos sobre plano del polígono
+    /*// Proyectar ambos sobre plano del polígono
     pcl::PointXYZ ct_projected = projectPointOverPolygon(ct, b_normal, biggest, hull);
     pcl::PointXYZ cm_projected = projectPointOverPolygon(cm, b_normal, biggest, hull);
     // Mostrar ambas proyecciones
     drawPoint(ct_projected, "ct proyectado", CT_COLOR[0]+(1.0-CT_COLOR[0])*LIGHT_FACTOR, CT_COLOR[1]+(1.0-CT_COLOR[1])*LIGHT_FACTOR, CT_COLOR[2]+(1.0-CT_COLOR[2])*LIGHT_FACTOR);
-    drawPoint(cm_projected, "cm proyectado", CM_COLOR[0]+(1.0-CM_COLOR[0])*LIGHT_FACTOR, CM_COLOR[1]+(1.0-CM_COLOR[1])*LIGHT_FACTOR, CM_COLOR[2]+(1.0-CM_COLOR[2])*LIGHT_FACTOR);
+    drawPoint(cm_projected, "cm proyectado", CM_COLOR[0]+(1.0-CM_COLOR[0])*LIGHT_FACTOR, CM_COLOR[1]+(1.0-CM_COLOR[1])*LIGHT_FACTOR, CM_COLOR[2]+(1.0-CM_COLOR[2])*LIGHT_FACTOR);*/
     // Mostrar texto explicativo
     viewer->addText("Centroide", LEFT_MARGIN, BOTTOM_MARGIN, FONT_SIZE, CT_COLOR[0], CT_COLOR[1], CT_COLOR[2], "ct_text", 0);
     viewer->addText("Centro de masa", LEFT_MARGIN, BOTTOM_MARGIN+FONT_SIZE+1, FONT_SIZE, CM_COLOR[0], CM_COLOR[1], CM_COLOR[2], "cm_text", 0);
     stringstream thres_text;
     thres_text << "Threshold: " << PATCH_ANGLE_THRESHOLD << " rad";
     viewer->addText(thres_text.str(), LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*2, FONT_SIZE, 1, 1, 1, "thres_text", 0);
-    // Ver posición de las proyecciones
+    /*// Ver posición de las proyecciones
     printf("Centroide está %s del polígono\n", (pointInPolygon(ct_projected, biggest, hull) ? "DENTRO":"FUERA"));
-    printf("Centro de Masa está %s del polígono\n", (pointInPolygon(cm_projected, biggest, hull) ? "DENTRO":"FUERA"));
+    printf("Centro de Masa está %s del polígono\n", (pointInPolygon(cm_projected, biggest, hull) ? "DENTRO":"FUERA"));*/
     // Ver parche plano más grande
-    biggestFlatPatch(hull);*/
+    biggestFlatPatch(hull);
     while (!viewer->wasStopped()){
         viewer->spinOnce(100);
         boost::this_thread::sleep (boost::posix_time::microseconds (100000));

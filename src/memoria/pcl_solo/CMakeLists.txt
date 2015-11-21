@@ -34,3 +34,13 @@ target_link_libraries (build/regiongrowing ${PCL_LIBRARIES})
 
 add_executable (build/convexhullregiongrowing src/convexhullregiongrowing.cpp)
 target_link_libraries (build/convexhullregiongrowing ${PCL_LIBRARIES})
+
+include_directories(${CMAKE_SOURCE_DIR}/src/Util)
+set(SOURCES ${CMAKE_SOURCE_DIR}/src/Util/Util.cpp 
+			${CMAKE_SOURCE_DIR}/src/Util/Viewer.cpp 
+			${CMAKE_SOURCE_DIR}/src/Util/Polymesh.cpp
+			${CMAKE_SOURCE_DIR}/src/Util/Util.h 
+			${CMAKE_SOURCE_DIR}/src/Util/Viewer.h 
+			${CMAKE_SOURCE_DIR}/src/Util/Polymesh.h)
+add_executable(build/stablesurface2 src/stablesurface.cpp ${SOURCES})
+target_link_libraries (build/stablesurface2 ${PCL_LIBRARIES})

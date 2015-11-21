@@ -28,5 +28,4 @@ Optimizaciones posibles:
 
 
 RELATED:
-	Existe tutorial de Region Growing Segmentation. Su funcionamiento es muy similar a lo que decíamos antes. 
-	El principal problema de usar esto es que 
+	Existe tutorial de Region Growing Segmentation. Su funcionamiento es muy similar a lo que decíamos antes. NO se usará.
