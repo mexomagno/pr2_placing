@@ -18,6 +18,7 @@ Polymesh::Polymesh(PolygonMesh mesh){
 		p3 = meshcloud_->points[mesh_.polygons[i].vertices[2]];
 		ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
         while (not triangleAreaNormalCentroid(p1, p2, p3, ptest, poly_area, poly_normal, poly_centroid)){
+            // printf("Se obtuvo una normal no confiable. Reintentando con otro punto de test...\n");
             ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
         }
 		// Añadir al listado
@@ -25,6 +26,8 @@ Polymesh::Polymesh(PolygonMesh mesh){
 		poly_normals_.push_back(poly_normal);
 		poly_centroids_.push_back(poly_centroid);
 	}
+    // Obtener centro de masa
+    cm_ = getCenterOfMass();
 }
 void Polymesh::getCentroid(PointXYZ &p){
 	Eigen::Vector3f accum (0,0,0);
@@ -35,49 +38,26 @@ void Polymesh::getCentroid(PointXYZ &p){
 	accum /= poly_number_;
 	p = PointXYZ(accum[0], accum[1], accum[2]);
 }
-void Polymesh::getCenterOfMass(PointXYZ &p){
-	/* Algoritmo:
-            - Calcular centro para cada polígono
-            - Calcular centroide de estos puntos, ponderado por área de los polígonos
-
-    http://www.gamedev.net/topic/533590-how-to-find-the-center-point-of-a-convex-hull/
-    */
-    // obtener pointcloud del mesh y crear contenedor de centros ponderados
-    Eigen::Vector3f suma(0,0,0);
-    double areas_sum = 0;
-    // calcular centro para cada polígono, ponderado por su área, y añadirlo a nube de centros ponderados
-    for (int i=0; i<poly_number_; i++){
-    	int n_vertices = mesh_.polygons[i].vertices.size();
-        if (n_vertices != 3)
-            printf("WARNING: polígono no es un triángulo! puede suceder cualquier cosa... (%d lados)\n",(int)mesh_.polygons[i].vertices.size());
-        // Añadir para centroide ponderado (centro de masa)
-        suma += Eigen::Vector3f(poly_centroids_[i].x,poly_centroids_[i].y,poly_centroids_[i].z)*poly_areas_[i];
-        areas_sum += poly_areas_[i];
-    }
-    // Calcular centroide de centros ponderados
-    suma /= areas_sum;
-    p = PointXYZ(suma[0],suma[1],suma[2]);
-}
 void Polymesh::getBiggestPolygon(Vertices &polygon, int &poly_index, double &area, Eigen::Vector3f &normal, PointXYZ &centroid){
-	/* Recibe polygonmesh, recorre exhaustivamente los polígonos y retorna el más grande.
+    /* Recibe polygonmesh, recorre exhaustivamente los polígonos y retorna el más grande.
     */
     // Contenedor de la solución. Variará a medida que avanza el algoritmo
-	double biggest_area = 0;
-	double biggest_index = 0;
-	for (int i=0; i<poly_number_; i++){
-		if (poly_areas_[i] > biggest_area){
-			biggest_area = poly_areas_[i];
-			biggest_index = i;
-		}
-	}
-	polygon    = mesh_.polygons[biggest_index];
-	area       = poly_areas_[biggest_index];
-	normal     = poly_normals_[biggest_index];
-	centroid   = poly_centroids_[biggest_index];
-	poly_index = biggest_index;
+    double biggest_area = 0;
+    double biggest_index = 0;
+    for (int i=0; i<poly_number_; i++){
+        if (poly_areas_[i] > biggest_area){
+            biggest_area = poly_areas_[i];
+            biggest_index = i;
+        }
+    }
+    polygon    = mesh_.polygons[biggest_index];
+    area       = poly_areas_[biggest_index];
+    normal     = poly_normals_[biggest_index];
+    centroid   = poly_centroids_[biggest_index];
+    poly_index = biggest_index;
 }
-void Polymesh::getBiggestFlatPatch(double angle_threshold, vector<Vertices> &patch){
-	/* 
+void Polymesh::getBiggestFlatPatch(double angle_threshold, vector<int> &patch){
+    /* 
         Esta función tiene como fin buscar el mayor parche plano del convex hull.
         Es importante tener en cuenta que en un objeto no convexo, podría darse la situación
         en que dos grupos distintos de polígonos podrían tener normales similares pero ser disconexos.
@@ -158,37 +138,28 @@ void Polymesh::getBiggestFlatPatch(double angle_threshold, vector<Vertices> &pat
     }
     // Retornar parche más grande
     for (int i=0; i<patches[biggest_index].size(); i++){
-    	patch.push_back(mesh_.polygons[patches[biggest_index][i]]);
+        //patch.push_back(mesh_.polygons[patches[biggest_index][i]]);
+        patch.push_back(patches[biggest_index][i]);
     }
-/*    // Por ahora lo dibujamos en verde
-    for (int i=0; i<patches[biggest_index].size(); i++){
-        stringstream surface_name, wire_name;
-        surface_name << "parche_" << i;
-        wire_name << "parche_" << i << "wire";
-        drawPolygon(mesh, mesh.polygons[patches[biggest_index][i]],FLAT_SURFACE_COLOR[0], FLAT_SURFACE_COLOR[1], FLAT_SURFACE_COLOR[2], surface_name.str());
-        drawPolygon(mesh, mesh.polygons[patches[biggest_index][i]],FLAT_SURFACE_WIRE_COLOR[0], FLAT_SURFACE_WIRE_COLOR[1], FLAT_SURFACE_WIRE_COLOR[2], wire_name.str(), false);
-        // Engrosar línea de borde de polígono
-        viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, FLAT_SURFACE_WIRE_WIDTH, wire_name.str(), 0);
-    }
-*/}
+}
 PolygonMesh Polymesh::getPCLMesh(){
-	return mesh_;
+    return mesh_;
 }
 int Polymesh::getPolygonNumber(){
-	return poly_number_;
+    return poly_number_;
 }
 double Polymesh::getArea(int index){
-	return poly_areas_[index];
+    return poly_areas_[index];
 }
 Eigen::Vector3f Polymesh::getNormal(int index){
-	return poly_normals_[index];
+    return poly_normals_[index];
 }
 PointXYZ Polymesh::getCentroid(int index){
-	return poly_centroids_[index];
+    return poly_centroids_[index];
 }
 
 PointXYZ Polymesh::projectPointOverPolygon(PointXYZ p, int poly_index){
-	/*
+    /*
         Recibe punto a proyectar, y polígono, representado por su normal, el polígono mismo y la malla con los puntos indizados por el polígono.
         Los últimos tres parámetros se necesitan para definir completamente al plano del polígono.
     */
@@ -216,7 +187,7 @@ PointXYZ Polymesh::projectPointOverPolygon(PointXYZ p, int poly_index){
     return cm_cloud_projected->points[0];
 }
 bool Polymesh::pointInPolygon(PointXYZ p, int poly_index){
-	/* Revisa si el punto está encerrado por el polígono o no*/
+    /* Revisa si el punto está encerrado por el polígono o no*/
     // Crear nube de puntos con polígono
     Vertices polygon = mesh_.polygons[poly_index];
     int n_vertices = polygon.vertices.size();
@@ -229,6 +200,78 @@ bool Polymesh::pointInPolygon(PointXYZ p, int poly_index){
     // Verificar si está dentro o fuera del polígono
     return isPointIn2DPolygon(p, *polygon_cloud);
 }
+void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud){
+    /*
+    Esta función se encarga de transformar un parche de polígonos en un polígono bidimensional.
+    En definitiva, se obtiene el plano representado por el parche de polígonos.
+
+    Algoritmo:
+        - Obtener coeficientes del plano P representado por el parche p
+        - Proyectar todos los puntos del parche p sobre P y obtener p'
+        - Obtener convex hull 2D de p' y obtener nube de puntos q
+    */
+    // OBTENER PLANO REPRESENTADO POR PARCHE
+    // cttes
+    const double LEAFSIZE = 0.05;
+    double SEG_THRESHOLD = 0.01;
+    // 1) Crear nube de puntos que represente a los parches.
+    //     Esta nube está hecha de los puntos de cada polígono
+    PointCloud<PointXYZ>::Ptr patch_cloud (new PointCloud<PointXYZ>());
+    vector<int> already_added_index;
+    for (int i=0; i<patch.size(); i++){
+        // Generar lista de indices de puntos en el parche, sin repetir
+        for (int j=0; j<mesh_.polygons[patch[i]].vertices.size(); j++){
+            if (already_added_index.empty())
+                already_added_index.push_back(mesh_.polygons[patch[i]].vertices[j]);
+            if (already_added_index.end() == find(already_added_index.begin(), already_added_index.end(), mesh_.polygons[patch[i]].vertices[j]))
+                already_added_index.push_back(mesh_.polygons[patch[i]].vertices[j]);
+        }
+    }
+    // Agregar puntos a nube
+    for (int i=0; i<already_added_index.size(); i++)
+        patch_cloud->points.push_back(meshcloud_->points[already_added_index[i]]);
+    // 2) Ajustar un plano a esta nube de puntos
+    // 2.1) Obtener dimensiones del mesh
+    MomentOfInertiaEstimation<PointXYZ> feature_extractor;
+    feature_extractor.setInputCloud(patch_cloud);
+    feature_extractor.compute();
+    PointXYZ min_obb, max_obb;
+    PointXYZ position_obb;        // no se usará
+    Eigen::Matrix3f rotation_obb; // no se usará
+    feature_extractor.getOBB(min_obb, max_obb, position_obb, rotation_obb);
+    double dx = abs(min_obb.x - max_obb.x);
+    double dy = abs(min_obb.y - max_obb.y);
+    double dz = abs(min_obb.z - max_obb.z);
+    double dmin = min(dx, min(dy, dz));
+    SEG_THRESHOLD = (dmin/2.0 > SEG_THRESHOLD ? dmin/2.0 : SEG_THRESHOLD);
+    printf("dx:%f, dy:%f, dz:%f\n", dx, dy, dz);
+    printf("SEG_THRESHOLD fijado en %f\n", SEG_THRESHOLD);
+    // 2.2 segmentar
+    SACSegmentation<PointXYZ> segmentator;
+    //segmentator.setOptimizeCoefficients(true);
+    segmentator.setModelType(SACMODEL_PLANE);
+    segmentator.setMethodType(SAC_RANSAC);
+    segmentator.setDistanceThreshold(SEG_THRESHOLD);
+    segmentator.setInputCloud(patch_cloud);
+    ModelCoefficients::Ptr coefs (new ModelCoefficients());
+    PointIndices::Ptr inliers (new PointIndices()); // No se utilizarán
+    segmentator.segment(*inliers, *coefs);
+
+    // PROYECTAR PARCHE SOBRE EL PLANO
+    PointCloud<PointXYZ>::Ptr patch_cloud_projected (new PointCloud<PointXYZ>());
+    ProjectInliers<PointXYZ> projector;
+    projector.setModelType(SACMODEL_PLANE);
+    projector.setInputCloud(patch_cloud);
+    projector.setModelCoefficients(coefs);
+    projector.filter(*patch_cloud_projected);
+
+    // OBTENER CONVEX HULL 2D DE PROYECCIÓN
+    ConvexHull<PointXYZ> c_huller;
+    c_huller.setInputCloud(patch_cloud_projected);
+    c_huller.reconstruct(flatcloud);
+
+}
+
 
 // PRIVATE
 bool Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, PointXYZ ptest, double &area, Eigen::Vector3f &normal, PointXYZ &centroid){
@@ -247,7 +290,7 @@ bool Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3,
     delta.normalize();
     double angle = acos(normal_tmp.dot(delta));
     if (PI/2.0-ANGLE_RELAXATION < angle and angle < PI/2.0+ANGLE_RELAXATION){
-        printf("Angulo muy cercano a 90° (%f°) puede llevar a error!\n", toGrad(angle));
+        // printf("WARNING: Angulo muy cercano a 90° (%f°) puede llevar a error!\n", toGrad(angle));
         return false;
     }
     if (angle > PI/2){
@@ -259,10 +302,33 @@ bool Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3,
     return true;
 }
 int Polymesh::getAnyOtherIndex(int not_this){
-	int randint = not_this;
-	while (randint == not_this)
-		randint = (int)rand() % poly_number_;
-	return randint;
+    int randint = not_this;
+    while (randint == not_this)
+        randint = (int)rand() % poly_number_;
+    return randint;
+}
+PointXYZ Polymesh::getCenterOfMass(){
+	/* Algoritmo:
+            - Calcular centro para cada polígono
+            - Calcular centroide de estos puntos, ponderado por área de los polígonos
+
+    http://www.gamedev.net/topic/533590-how-to-find-the-center-point-of-a-convex-hull/
+    */
+    // obtener pointcloud del mesh y crear contenedor de centros ponderados
+    Eigen::Vector3f suma(0,0,0);
+    double areas_sum = 0;
+    // calcular centro para cada polígono, ponderado por su área, y añadirlo a nube de centros ponderados
+    for (int i=0; i<poly_number_; i++){
+    	int n_vertices = mesh_.polygons[i].vertices.size();
+        if (n_vertices != 3)
+            printf("WARNING: polígono no es un triángulo! puede suceder cualquier cosa... (%d lados)\n",(int)mesh_.polygons[i].vertices.size());
+        // Añadir para centroide ponderado (centro de masa)
+        suma += Eigen::Vector3f(poly_centroids_[i].x,poly_centroids_[i].y,poly_centroids_[i].z)*poly_areas_[i];
+        areas_sum += poly_areas_[i];
+    }
+    // Calcular centroide de centros ponderados
+    suma /= areas_sum;
+    return PointXYZ(suma[0],suma[1],suma[2]);
 }
 double Polymesh::toGrad(double rads){
     return 180.0*rads/PI;
