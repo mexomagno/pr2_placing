@@ -17,7 +17,9 @@ Polymesh::Polymesh(PolygonMesh mesh){
 		p2 = meshcloud_->points[mesh_.polygons[i].vertices[1]];
 		p3 = meshcloud_->points[mesh_.polygons[i].vertices[2]];
 		ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
-		triangleAreaNormalCentroid(p1, p2, p3, ptest, poly_area, poly_normal, poly_centroid);
+        while (not triangleAreaNormalCentroid(p1, p2, p3, ptest, poly_area, poly_normal, poly_centroid)){
+            ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
+        }
 		// Añadir al listado
 		poly_areas_.push_back(poly_area);
 		poly_normals_.push_back(poly_normal);
@@ -229,26 +231,39 @@ bool Polymesh::pointInPolygon(PointXYZ p, int poly_index){
 }
 
 // PRIVATE
-void Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, PointXYZ ptest, double &area, Eigen::Vector3f &normal, PointXYZ &centroid){
+bool Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, PointXYZ ptest, double &area, Eigen::Vector3f &normal, PointXYZ &centroid){
     // Lo siguiente es una implementación de la fórmula del half-cross product: S=|ABxAC|/2
     Eigen::Vector3f ab (p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
     Eigen::Vector3f bc (p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
     Eigen::Vector3f cross = ab.cross(bc);
-    area   = cross.norm();
-    normal = cross.normalized();
+    // Almacenadores temporales
+    double area_tmp = cross.norm();
+    Eigen::Vector3f normal_tmp = cross.normalized();
     Eigen::Vector3f eigen_centroid = (Eigen::Vector3f(p1.x, p1.y, p1.z) + Eigen::Vector3f(p2.x, p2.y, p2.z) + Eigen::Vector3f(p3.x, p3.y, p3.z))/3;
-    centroid = PointXYZ(eigen_centroid[0], eigen_centroid[1], eigen_centroid[2]);
+    PointXYZ centroid_tmp = PointXYZ(eigen_centroid[0], eigen_centroid[1], eigen_centroid[2]);
+
     // Chequear orientación de la normal usando el punto Test
     Eigen::Vector3f delta = Eigen::Vector3f (p1.x, p1.y, p1.z) - Eigen::Vector3f (ptest.x, ptest.y, ptest.z);
     delta.normalize();
-    double angle = acos(normal.dot(delta));
-    if (angle > PI/2){
-        normal*= -1;
+    double angle = acos(normal_tmp.dot(delta));
+    if (PI/2.0-ANGLE_RELAXATION < angle and angle < PI/2.0+ANGLE_RELAXATION){
+        printf("Angulo muy cercano a 90° (%f°) puede llevar a error!\n", toGrad(angle));
+        return false;
     }
+    if (angle > PI/2){
+        normal_tmp*= -1;
+    }
+    area     = area_tmp;
+    normal   = normal_tmp;
+    centroid = centroid_tmp;
+    return true;
 }
 int Polymesh::getAnyOtherIndex(int not_this){
 	int randint = not_this;
 	while (randint == not_this)
 		randint = (int)rand() % poly_number_;
 	return randint;
+}
+double Polymesh::toGrad(double rads){
+    return 180.0*rads/PI;
 }

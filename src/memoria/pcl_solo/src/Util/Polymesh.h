@@ -25,7 +25,8 @@ class Polymesh{
 	vector<PointXYZ> poly_centroids_;
 
 	// Constantes
-	static const double PI = 3.1415;
+	static const double PI = 3.1416;
+	static const double ANGLE_RELAXATION = 0.05; // para orientar normales
 
 public:
 	// Constructor
@@ -43,6 +44,7 @@ public:
 	PointXYZ projectPointOverPolygon(PointXYZ p, int poly_index);
 	bool pointInPolygon(PointXYZ p, int poly_index);
 private:
-	void triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, PointXYZ ptest, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
+	bool triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, PointXYZ ptest, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
 	int getAnyOtherIndex(int not_this);
+	double toGrad(double rads);
 };
