@@ -1,5 +1,6 @@
 #include <pcl/io/pcd_io.h>
 #include "Util/Util.h"
+//#include "Util/Polymesh.h"
 #include "Util/Viewer.h"
 
 using namespace std;
@@ -61,15 +62,20 @@ int main(int argc, char** argv){
 	// Obtener "sombra" del parche más grande y visualizarlo
 	PointCloud<PointXYZ>::Ptr patch_flat(new PointCloud<PointXYZ>());
 	mesh.flattenPatch(patch, *patch_flat);
-	viewer.drawPointCloud(patch_flat, "Parche aplanado", FLATTENED_PATCH_COLOR[0], FLATTENED_PATCH_COLOR[1], FLATTENED_PATCH_COLOR[2], 10);
+	viewer.drawPointCloud(patch_flat, "Parche aplanado", FLATTENED_PATCH_COLOR[0], FLATTENED_PATCH_COLOR[1], FLATTENED_PATCH_COLOR[2], 3);
 
+	// Obtener centro de masa, proyectarlo en sombra del parche y mostrarlo
+	PointXYZ cm = mesh.getCenterOfMass();
+	PointXYZ cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_flat);
+	void drawPoint(PointXYZ p, const string shape_id, float r, float g, float b, float size);
+	viewer.drawPoint(cm_proj, "Center of Mass projected", CM_COLOR[0], CM_COLOR[1], CM_COLOR[2], 5);
 	viewer.show();
 	return 0;
 }
 
 /* 
 TODO:
-	[DONE]- Reparar problema de normales: Algunas quedan invertidas (las menos!)
+	- Reparar problema de normales: Algunas quedan invertidas (las menos!)
 		ideas: 
 			* Enderezar normales, luego filtrar el disconexo
 			* Revisar condición de ángulo entre normal y delta: Pedir otro punto test si el angulo es muy cercano a PI/2 

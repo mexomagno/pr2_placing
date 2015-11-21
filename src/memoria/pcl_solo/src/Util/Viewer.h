@@ -1,6 +1,7 @@
 #include <boost/thread/thread.hpp>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/common/common_headers.h>
+#include <pcl/features/moment_of_inertia_estimation.h>
 #include <pcl/PolygonMesh.h>
 #include "Polymesh.h"
 

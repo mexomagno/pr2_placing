@@ -27,7 +27,7 @@ Polymesh::Polymesh(PolygonMesh mesh){
 		poly_centroids_.push_back(poly_centroid);
 	}
     // Obtener centro de masa
-    cm_ = getCenterOfMass();
+    cm_ = getCenterOfMassInternal();
 }
 void Polymesh::getCentroid(PointXYZ &p){
 	Eigen::Vector3f accum (0,0,0);
@@ -145,6 +145,10 @@ void Polymesh::getBiggestFlatPatch(double angle_threshold, vector<int> &patch){
 PolygonMesh Polymesh::getPCLMesh(){
     return mesh_;
 }
+PointCloud<PointXYZ>::Ptr Polymesh::getPointCloud(){
+    return meshcloud_;
+}
+
 int Polymesh::getPolygonNumber(){
     return poly_number_;
 }
@@ -156,6 +160,9 @@ Eigen::Vector3f Polymesh::getNormal(int index){
 }
 PointXYZ Polymesh::getCentroid(int index){
     return poly_centroids_[index];
+}
+PointXYZ Polymesh::getCenterOfMass(){
+    return cm_;
 }
 
 PointXYZ Polymesh::projectPointOverPolygon(PointXYZ p, int poly_index){
@@ -185,6 +192,32 @@ PointXYZ Polymesh::projectPointOverPolygon(PointXYZ p, int poly_index){
     proj.setModelCoefficients(coefs);
     proj.filter(*cm_cloud_projected);
     return cm_cloud_projected->points[0];
+}
+PointXYZ Polymesh::projectPointOverFlatPointCloud(PointXYZ p, PointCloud<PointXYZ>::Ptr cloud){
+    // 1- Tomar cualquier punto dentro del polígono
+    PointXYZ inlier = cloud->points[0];
+    // 2- Obtener coeficientes del plano representado por el cloud. Para eso, tomar un triángulo del cloud.
+    int index_0 = floor(cloud->points.size()/3)*1 - 1;
+    int index_1 = floor(cloud->points.size()/3)*2 - 1;
+    int index_2 = floor(cloud->points.size()/3)*3 - 1;
+    Eigen::Vector3f normal = triangleNormal(cloud->points[index_0], cloud->points[index_1], cloud->points[index_2]);
+    double d = -1*(normal[0]*inlier.x + normal[1]*inlier.y + normal[2]*inlier.z);
+    ModelCoefficients::Ptr coefs (new ModelCoefficients());
+    coefs->values.resize(4);
+    coefs->values[0] = normal[0];
+    coefs->values[1] = normal[1];
+    coefs->values[2] = normal[2];
+    coefs->values[3] = d;
+    // 3- Proyectar
+    PointCloud<PointXYZ>::Ptr p_cloud(new PointCloud<PointXYZ>()), p_cloud_projected(new PointCloud<PointXYZ>());
+    p_cloud->height = p_cloud->width = 1;
+    p_cloud->points.push_back(p);
+    ProjectInliers<PointXYZ> proj;
+    proj.setModelType(SACMODEL_PLANE);
+    proj.setInputCloud(p_cloud);
+    proj.setModelCoefficients(coefs);
+    proj.filter(*p_cloud_projected);
+    return p_cloud_projected->points[0];    
 }
 bool Polymesh::pointInPolygon(PointXYZ p, int poly_index){
     /* Revisa si el punto está encerrado por el polígono o no*/
@@ -256,7 +289,13 @@ void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud){
     ModelCoefficients::Ptr coefs (new ModelCoefficients());
     PointIndices::Ptr inliers (new PointIndices()); // No se utilizarán
     segmentator.segment(*inliers, *coefs);
-
+    // OJO: El segmentador se queja cuando encuentra menos de 4 inliers, sin embargo encontrar 3 es suficiente para nosotros.
+    // Tener esto en cuenta. Puede repararse agregando uno de los 3 puntos 2 veces.
+    // Por otro lado, esto no quita que funcione. El error lo lanza un llamado interno a optimizeModelCoefficients().
+    // Ver http://docs.pointclouds.org/1.7.0/sac__model__plane_8hpp_source.html, línea 224.
+    if (inliers->indices.size() == 3){
+        printf("(OJO:: El warning anterior no afecta en nada)\n");
+    }
     // PROYECTAR PARCHE SOBRE EL PLANO
     PointCloud<PointXYZ>::Ptr patch_cloud_projected (new PointCloud<PointXYZ>());
     ProjectInliers<PointXYZ> projector;
@@ -269,7 +308,6 @@ void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud){
     ConvexHull<PointXYZ> c_huller;
     c_huller.setInputCloud(patch_cloud_projected);
     c_huller.reconstruct(flatcloud);
-
 }
 
 
@@ -301,13 +339,21 @@ bool Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3,
     centroid = centroid_tmp;
     return true;
 }
+Eigen::Vector3f Polymesh::triangleNormal(PointXYZ p1, PointXYZ p2, PointXYZ p3){
+    /* Igual que el método anterior pero sin corrección de orientación. 
+        Diseñada para obtención de coeficientes de un plano definido por tres puntos. */
+    Eigen::Vector3f ab (p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
+    Eigen::Vector3f bc (p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
+    Eigen::Vector3f cross = ab.cross(bc);
+    return cross.normalized();
+}
 int Polymesh::getAnyOtherIndex(int not_this){
     int randint = not_this;
     while (randint == not_this)
         randint = (int)rand() % poly_number_;
     return randint;
 }
-PointXYZ Polymesh::getCenterOfMass(){
+PointXYZ Polymesh::getCenterOfMassInternal(){
 	/* Algoritmo:
             - Calcular centro para cada polígono
             - Calcular centroide de estos puntos, ponderado por área de los polígonos

@@ -40,18 +40,21 @@ public:
 	void getBiggestPolygon(Vertices &polygon, int &poly_index, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
 	void getBiggestFlatPatch(double angle_threshold, vector<int> &patch);
 	PolygonMesh getPCLMesh();
+	PointCloud<PointXYZ>::Ptr getPointCloud();
 	int getPolygonNumber();
 	double getArea(int index);
 	Eigen::Vector3f getNormal(int index);
 	PointXYZ getCentroid(int index);
-
+	PointXYZ getCenterOfMass();
 	// --- Utilidades ---
 	PointXYZ projectPointOverPolygon(PointXYZ p, int poly_index);
+	static PointXYZ projectPointOverFlatPointCloud(PointXYZ p, PointCloud<PointXYZ>::Ptr cloud);
 	bool pointInPolygon(PointXYZ p, int poly_index);
 	void flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud);
 private:
 	bool triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, PointXYZ ptest, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
+	static Eigen::Vector3f triangleNormal(PointXYZ p1, PointXYZ p2, PointXYZ p3);
 	int getAnyOtherIndex(int not_this);
-	PointXYZ getCenterOfMass();
+	PointXYZ getCenterOfMassInternal();
 	double toGrad(double rads);
 };

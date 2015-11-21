@@ -94,10 +94,22 @@ void Viewer::drawPolygonMeshNormals(Polymesh mesh, const string shape_id, float 
         // Añadir centroide
         centroidcloud->points.push_back(PointXYZ(centroid.x, centroid.y, centroid.z));
     }
+    // Calcular tamaño de normales, basado en tamaño total de la nube
+    MomentOfInertiaEstimation<PointXYZ> feature_extractor;
+    feature_extractor.setInputCloud(mesh.getPointCloud());
+    feature_extractor.compute();
+    PointXYZ min_obb, max_obb;
+    PointXYZ position_obb;        // no se usará
+    Eigen::Matrix3f rotation_obb; // no se usará
+    feature_extractor.getOBB(min_obb, max_obb, position_obb, rotation_obb);
+    double dx = abs(min_obb.x - max_obb.x);
+    double dy = abs(min_obb.y - max_obb.y);
+    double dz = abs(min_obb.z - max_obb.z);
+    double normal_size = (dx+dy+dz)/3.0*0.15;
     // agregar normales al visualizador
     PointCloud<PointXYZ>::ConstPtr constcloud = centroidcloud;
     PointCloud<Normal>::ConstPtr constnormals = normals;
-    viewer_->addPointCloudNormals<PointXYZ, Normal> (constcloud, constnormals, 1, 10, shape_id, 0);
+    viewer_->addPointCloudNormals<PointXYZ, Normal> (constcloud, constnormals, 1, normal_size, shape_id, 0);
     viewer_->setPointCloudRenderingProperties(visualization::PCL_VISUALIZER_COLOR, r, g, b, shape_id, 0);
 /*  
     // Dibujar puntos en centroides de los polígonos
