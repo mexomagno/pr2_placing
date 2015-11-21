@@ -42,5 +42,5 @@ set(SOURCES ${CMAKE_SOURCE_DIR}/src/Util/Util.cpp
 			${CMAKE_SOURCE_DIR}/src/Util/Util.h 
 			${CMAKE_SOURCE_DIR}/src/Util/Viewer.h 
 			${CMAKE_SOURCE_DIR}/src/Util/Polymesh.h)
-add_executable(build/stablesurface2 src/stablesurface.cpp ${SOURCES})
+add_executable(build/stablesurface2 src/stablesurface2.cpp ${SOURCES})
 target_link_libraries (build/stablesurface2 ${PCL_LIBRARIES})

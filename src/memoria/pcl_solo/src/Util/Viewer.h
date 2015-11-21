@@ -29,7 +29,7 @@ public:
 	// --- Métodos para dibujar --- //
 	void drawPoint(PointXYZ p, const string shape_id, float r, float g, float b, float size);
 	void drawPointCloud(PointCloud<PointXYZ>::Ptr cloud, const string shape_id, float r, float g, float b, int point_size = 1);
-	void drawPolygonMesh(PolygonMesh mesh, const string shape_id);
+	void drawPolygonMesh(PolygonMesh mesh, const string shape_id, float r, float g, float b);
 	void drawPolygon(Vertices polygon, PolygonMesh mesh, const string shape_id, float r, float g, float b, bool filled = true);
 	void drawPolygonMeshNormals(Polymesh mesh, const string shape_id, float r, float g, float b);
 	void addText(const string text, const string shape_id, float r, float g, float b);

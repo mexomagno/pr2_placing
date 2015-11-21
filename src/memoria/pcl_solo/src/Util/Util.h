@@ -8,6 +8,6 @@ using namespace pcl;
 
 class Util{
 public:
-	PointXYZ getCentroid(PointCloud<PointXYZ> pc);
-	PolygonMesh getConvexHull(PointCloud<PointXYZ>::Ptr cloud);
+	static PointXYZ getCentroid(PointCloud<PointXYZ> pc);
+	static PolygonMesh getConvexHull(PointCloud<PointXYZ>::Ptr cloud);
 };

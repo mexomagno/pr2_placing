@@ -2,7 +2,9 @@
 
 Viewer::Viewer(float r, float g, float b){
 	// viewer_ visualization::PCLVisualizer("3D Viewer");
-	viewer_->setBackgroundColor(r, g, b);
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> vw (new visualization::PCLVisualizer ("3D Viewer"));
+	viewer_ = vw;
+    viewer_->setBackgroundColor(r, g, b);
     viewer_->addCoordinateSystem(1.0);
     viewer_->initCameraParameters();
     visualizations_.push_back(pcl::visualization::PCL_VISUALIZER_REPRESENTATION_POINTS);
@@ -30,9 +32,10 @@ void Viewer::drawPointCloud(PointCloud<PointXYZ>::Ptr cloud, const string shape_
     viewer_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, point_size, shape_id);
     viewer_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, r, g, b, shape_id);
 }
-void Viewer::drawPolygonMesh(PolygonMesh mesh, const string shape_id){
+void Viewer::drawPolygonMesh(PolygonMesh mesh, const string shape_id, float r, float g, float b){
 	viewer_->addPolygonMesh(mesh, shape_id, 0);
     viewer_->setRepresentationToWireframeForAllActors();
+    viewer_->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, r, g, b, shape_id);
 }
 void Viewer::drawPolygon(Vertices polygon, PolygonMesh mesh, const string shape_id, float r, float g, float b, bool filled){
 	PointCloud<PointXYZ> cloudhull;
