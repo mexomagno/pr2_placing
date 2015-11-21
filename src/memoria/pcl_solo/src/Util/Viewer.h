@@ -33,6 +33,7 @@ public:
 	void drawPointCloud(PointCloud<PointXYZ>::Ptr cloud, const string shape_id, float r, float g, float b, int point_size = 1);
 	void drawPolygonMesh(PolygonMesh mesh, const string shape_id, float r, float g, float b);
 	void drawPolygon(Vertices polygon, PolygonMesh mesh, const string shape_id, float r, float g, float b, bool filled = true);
+	void drawPolygonVector(vector<Vertices> polygon, PolygonMesh mesh, const string shape_id_prefix, float in_r, float in_g, float in_b, float out_r, float out_g, float out_b, int width);
 	void drawPolygonMeshNormals(Polymesh mesh, const string shape_id, float r, float g, float b);
 	void addText(const string text, const string shape_id, float r, float g, float b);
 	void show();

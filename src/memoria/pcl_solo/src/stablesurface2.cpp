@@ -14,7 +14,7 @@ float CM_COLOR[]                = {1.0, 0.5, 0.0};
 float CT_COLOR[]                = {1.0, 0.0, 0.0};
 float FLAT_SURFACE_COLOR[]      = {0.0, 1.0, 0.0};
 float FLAT_SURFACE_WIRE_COLOR[] = {0.0, 0.0, 1.0};
-float FLAT_SURFACE_WIRE_WIDTH   = 3;
+int FLAT_SURFACE_WIRE_WIDTH   = 3;
 float LIGHT_FACTOR              = 0.5;
 float DARK_FACTOR               = 0.5;
 /* --- Constantes para el algoritmo --- */
@@ -52,14 +52,7 @@ int main(int argc, char** argv){
 	vector<Vertices> patch;
 	mesh.getBiggestFlatPatch(PATCH_ANGLE_THRESHOLD, patch);
 	printf("Se obtuvo parche de %d polígonos\n", (int)patch.size());
-	for (int i=0; i<patch.size(); i++){
-		stringstream patch_id, patch_wire_id;
-		patch_id << "patch_" << i;
-		patch_wire_id << "patch_wire_" << i;
-		viewer.drawPolygon(patch[i], mesh.getPCLMesh(), patch_id.str(), FLAT_SURFACE_COLOR[0], FLAT_SURFACE_COLOR[1], FLAT_SURFACE_COLOR[2]);
-		viewer.drawPolygon(patch[i], mesh.getPCLMesh(), patch_wire_id.str(), FLAT_SURFACE_WIRE_COLOR[0], FLAT_SURFACE_WIRE_COLOR[1], FLAT_SURFACE_WIRE_COLOR[2], false);
-		viewer.setLineWidth(patch_wire_id.str(),FLAT_SURFACE_WIRE_WIDTH);
-	}
+	viewer.drawPolygonVector(patch, mesh.getPCLMesh(), "flat_patch", FLAT_SURFACE_COLOR[0], FLAT_SURFACE_COLOR[1], FLAT_SURFACE_COLOR[2], FLAT_SURFACE_WIRE_COLOR[0], FLAT_SURFACE_WIRE_COLOR[1], FLAT_SURFACE_WIRE_COLOR[2], FLAT_SURFACE_WIRE_WIDTH);
 	// Añadir texto
 	stringstream thres_s;
 	thres_s << "Threshold: " << PATCH_ANGLE_THRESHOLD;
