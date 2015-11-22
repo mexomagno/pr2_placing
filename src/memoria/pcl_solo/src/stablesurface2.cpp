@@ -54,40 +54,46 @@ int main(int argc, char** argv){
 	viewer.drawPolygonMesh(mesh.getPCLMesh(), "Object ConvexHull", CONVEXHULL_COLOR[0], CONVEXHULL_COLOR[1], CONVEXHULL_COLOR[2], CONVEXHULL_ALPHA);
 
 	// Visualizar normales
-	viewer.drawPolygonMeshNormals(mesh, "ConvexHull Normals", NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2]);
+	//viewer.drawPolygonMeshNormals(mesh, "ConvexHull Normals", NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2]);
 
-	// Obtener parche más grande, convertirlo a polygonmesh y visualizarlo
-	vector<int> patch; // Indices a los polígonos del mesh
-	mesh.getBiggestFlatPatch(PATCH_ANGLE_THRESHOLD, patch);
-	printf("Se obtuvo parche de %d polígonos\n", (int)patch.size());
-	viewer.drawPolygonVector(patch, mesh.getPCLMesh(), "flat_patch", FLAT_SURFACE_COLOR[0], FLAT_SURFACE_COLOR[1], FLAT_SURFACE_COLOR[2], FLAT_SURFACE_WIRE_COLOR[0], FLAT_SURFACE_WIRE_COLOR[1], FLAT_SURFACE_WIRE_COLOR[2], FLAT_SURFACE_WIRE_WIDTH, FLAT_SURFACE_ALPHA);
-	
-	// Obtener "sombra" del parche más grande y visualizarlo
-	PointCloud<PointXYZ>::Ptr patch_flat(new PointCloud<PointXYZ>());
-	mesh.flattenPatch(patch, *patch_flat);
-	viewer.drawPointCloud(patch_flat, "Flattened Patch", 1, 0, 0, 7);
-
-	// Obtener polygonmesh del parche plano. Quizás debiera ser retornada directamente por flattenPatch().
-	// PolygonMesh patch_mesh = Util::getConvexHull(patch_flat);
-	// viewer.drawPolygonMesh(patch_mesh, "flat_patch_mesh", 0, 1, 1);
-
-	// Obtener centro de masa, proyectarlo en sombra del parche y mostrarlo
+	// Obtener listado de parches y de sus respectivas áreas
+	vector<vector<int> > patches; // todos los parches posibles, ORDENADOS desde el más grande al más pequeño
+	vector<double> patches_areas; // sus areas correspondientes, en el orden adecuado
+	mesh.getFlatPatches(PATCH_ANGLE_THRESHOLD, patches, patches_areas);
+	// Obtener centro de masa
 	PointXYZ cm = mesh.getCenterOfMass();
-	PointXYZ cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_flat);
+
+	// Iterar hasta encontrar un parche estable. Priorizar parches grandes
+	vector<int> best_patch;
+	double best_patch_area;
+	PointCloud<PointXYZ>::Ptr patch_plane(new PointCloud<PointXYZ>());
+	PointXYZ cm_proj;
+	bool plane_found = false;
+	for (int i=0; i<patches.size(); i++){
+		// Obtener plano representado por el parche
+		mesh.flattenPatch(patches[i], *patch_plane);
+		// proyectar centro de masa sobre plano
+		cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_plane);
+		// Verificar si proyección está dentro del plano del parche
+		if (isPointIn2DPolygon(cm_proj, *patch_plane)){
+			best_patch = patches[i];
+			best_patch_area = patches_areas[i];
+			printf("Se ha encontrado un plano estable (de area %f)\n", best_patch_area);
+			viewer.addText("Posicion estable encontrada", "posicion_estable_label", 0, 1, 0);
+			plane_found = true;
+			break;
+		}
+	}
+	if (not plane_found){
+		printf("No se ha podido encontrar un plano estable. Qué situación más rara!!\n");
+		exit(0);
+	}
+	viewer.drawPolygonVector(best_patch, mesh.getPCLMesh(), "flat_patch", FLAT_SURFACE_COLOR[0], FLAT_SURFACE_COLOR[1], FLAT_SURFACE_COLOR[2], FLAT_SURFACE_WIRE_COLOR[0], FLAT_SURFACE_WIRE_COLOR[1], FLAT_SURFACE_WIRE_COLOR[2], FLAT_SURFACE_WIRE_WIDTH, FLAT_SURFACE_ALPHA);
+	viewer.drawPointCloud(patch_plane, "Flattened Patch", 1, 0, 0, 7);
 	viewer.drawPoint(cm, mesh.getPointCloud(), "Center of Mass", CM_COLOR[0], CM_COLOR[1], CM_COLOR[2]);
 	viewer.drawPoint(cm_proj, mesh.getPointCloud(), "Center of Mass projected", CM_COLOR[0]+(1-CM_COLOR[0])*LIGHT_FACTOR, CM_COLOR[1]+(1-CM_COLOR[1])*LIGHT_FACTOR, CM_COLOR[2]+(1-CM_COLOR[2])*LIGHT_FACTOR);
 	viewer.addText("Centro de Masa proyectado", "centro_de_masa_proy_label", CM_COLOR[0]+(1-CM_COLOR[0])*LIGHT_FACTOR, CM_COLOR[1]+(1-CM_COLOR[1])*LIGHT_FACTOR, CM_COLOR[2]+(1-CM_COLOR[2])*LIGHT_FACTOR);
 	viewer.addText("Centro de Masa", "centro_de_masa_label", CM_COLOR[0], CM_COLOR[1], CM_COLOR[2]);
-
-	// Mostrar centroide de toda la mesh
-	//viewer.drawPoint(mesh.getMeshCentroid(), mesh.getPointCloud(), "Centroid", CT_COLOR[0], CT_COLOR[1], CT_COLOR[2]);
-	// Decidir si está dentro del parche plano o no
-	bool cm_in_patch = isPointIn2DPolygon(cm_proj, *patch_flat);
-	printf("Plano %s es estable: centro de masa %s en plano\n",(cm_in_patch ? "si" : "NO"), (cm_in_patch ? "se proyecta" : "NO SE PROYECTA"));
-//	if (cm_in_patch)
-//		viewer.addText("Posicion estable", "stable_position_label", 0, 1, 0);
-//	else
-//		viewer.addText("POSICION INESTABLE", "stable_position_label", 1, 0, 0);
 	viewer.show();
 	return 0;
 }
@@ -103,7 +109,8 @@ TODO:
 	[DONE]- Proyectar centro de masa sobre área encerrada por el parche
 	[DONE]- Reparar tamaño de parche aplanado
 		Al parecer es puramente un problema del convex hull. Sin embargo la proyección se hace sobre los puntos, que están correctos.
-	- Iterar parches si el seleccionado no es estable
+	[DONE]- Iterar parches si el seleccionado no es estable
+	- Revisar problema de isPointIn2DPolygon (ver "pcds/convertidos/trofeo.pcd" 0.01
 	- Aplicar optimizaciones al algoritmo de parches
 	- Filtrar parches según posición del gripper
 		- ¿Priorizar parches lejanos al gripper primero?

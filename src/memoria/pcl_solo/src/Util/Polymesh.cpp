@@ -1,4 +1,14 @@
 #include "Polymesh.h"
+// Structs para ordenar
+struct PatchAndArea{
+    vector<int> patch;
+    double area;
+    PatchAndArea(vector<int> p, double a) : patch(p), area(a) {}
+    bool operator <( const PatchAndArea &val) const{
+        return area < val.area;
+    }
+};
+
 
 // PUBLIC
 Polymesh::Polymesh(PolygonMesh mesh){
@@ -140,6 +150,22 @@ void Polymesh::getFlatPatches(double angle_threshold, vector<vector<int> > &patc
         areas.push_back(patch_area);
     }
     // En este punto, "patches" y "areas" son de tamaño "poly_number_"
+
+    // Ordenar de mayor a menor area
+    vector<PatchAndArea> v;
+    for (int i=0; i<patches.size(); i++){
+        v.push_back(PatchAndArea(patches[i], areas[i]));
+    }
+    sort(v.begin(), v.end());
+    // Reconsruir arreglos
+    vector<vector<int> > patches_s;
+    vector<double> areas_s;
+    for (int i=v.size()-1; i>=0; i--){
+        patches_s.push_back(v[i].patch);
+        areas_s.push_back(v[i].area);
+    }
+    patches = patches_s;
+    areas = areas_s;
 }
 PolygonMesh Polymesh::getPCLMesh(){
     return mesh_;
