@@ -28,15 +28,18 @@ class Polymesh{
 	vector<PointXYZ> poly_centroids_;
 	// Centro de masa
 	PointXYZ cm_;
+	// Centroide
+	PointXYZ ct_;
 	// Constantes
 	static const double PI = 3.1416;
-	static const double ANGLE_RELAXATION = 0.1; // para orientar normales
+	static const double ANGLE_RELAXATION = 0.01; // para orientar normales
 
 public:
 	// Constructor
 	Polymesh(PolygonMesh mesh);
 	// --- Setters Getters ---
-	void getCentroid(PointXYZ &p);
+	PointXYZ computeCentroid();
+	PointXYZ getMeshCentroid();
 	void getBiggestPolygon(Vertices &polygon, int &poly_index, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
 	void getBiggestFlatPatch(double angle_threshold, vector<int> &patch);
 	PolygonMesh getPCLMesh();
@@ -52,7 +55,7 @@ public:
 	bool pointInPolygon(PointXYZ p, int poly_index);
 	void flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud);
 private:
-	bool triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, PointXYZ ptest, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
+	bool triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
 	static Eigen::Vector3f triangleNormal(PointXYZ p1, PointXYZ p2, PointXYZ p3);
 	int getAnyOtherIndex(int not_this);
 	PointXYZ getCenterOfMassInternal();

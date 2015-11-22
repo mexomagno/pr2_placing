@@ -36,17 +36,35 @@ void Viewer::setColor(const string shape_id, float r, float g, float b, bool isc
         viewer_->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, r, g, b, shape_id, 0);  
 }
 // --- Métodos para dibujar --- //
-void Viewer::drawPoint(PointXYZ p, const string shape_id, float r, float g, float b, float size){
+void Viewer::drawPoint(PointXYZ p, PointCloud<PointXYZ>::Ptr cloud, const string shape_id, float r, float g, float b){
+    // Calcular tamaño de normales, basado en tamaño total de la nube
+    MomentOfInertiaEstimation<PointXYZ> feature_extractor;
+    feature_extractor.setInputCloud(cloud);
+    feature_extractor.compute();
+    PointXYZ min_obb, max_obb;
+    PointXYZ position_obb;        // no se usará
+    Eigen::Matrix3f rotation_obb; // no se usará
+    feature_extractor.getOBB(min_obb, max_obb, position_obb, rotation_obb);
+    double dx = abs(min_obb.x - max_obb.x);
+    double dy = abs(min_obb.y - max_obb.y);
+    double dz = abs(min_obb.z - max_obb.z);
+    double size = (dx+dy+dz)/3.0*POINT_SIZE_PONDERATOR;
     viewer_->addSphere(p, size, r, g, b, shape_id, 0);
+}
+void Viewer::drawPoint(PointXYZ p, const string shape_id, float r, float g, float b){
+    // Calcular tamaño de normales, basado en tamaño total de la nube
+    viewer_->addSphere(p, POINT_SIZE_PONDERATOR*20, r, g, b, shape_id, 0);
 }
 void Viewer::drawPointCloud(PointCloud<PointXYZ>::Ptr cloud, const string shape_id, float r, float g, float b, int point_size){
 	viewer_->addPointCloud<PointXYZ>(cloud, shape_id);
     viewer_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, point_size, shape_id);
     viewer_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, r, g, b, shape_id);
 }
-void Viewer::drawPolygonMesh(PolygonMesh mesh, const string shape_id, float r, float g, float b){
+
+void Viewer::drawPolygonMesh(PolygonMesh mesh, const string shape_id, float r, float g, float b, float a){
 	viewer_->addPolygonMesh(mesh, shape_id, 0);
-    viewer_->setRepresentationToWireframeForAllActors();
+    //viewer_->setRepresentationToWireframeForAllActors();
+    viewer_->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_OPACITY, a, shape_id);
     viewer_->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, r, g, b, shape_id);
 }
 void Viewer::drawPolygon(Vertices polygon, PolygonMesh mesh, const string shape_id, float r, float g, float b, bool filled){
@@ -105,7 +123,7 @@ void Viewer::drawPolygonMeshNormals(Polymesh mesh, const string shape_id, float 
     double dx = abs(min_obb.x - max_obb.x);
     double dy = abs(min_obb.y - max_obb.y);
     double dz = abs(min_obb.z - max_obb.z);
-    double normal_size = (dx+dy+dz)/3.0*0.15;
+    double normal_size = (dx+dy+dz)/3.0*NORMAL_SIZE_PONDERATOR;
     // agregar normales al visualizador
     PointCloud<PointXYZ>::ConstPtr constcloud = centroidcloud;
     PointCloud<Normal>::ConstPtr constnormals = normals;

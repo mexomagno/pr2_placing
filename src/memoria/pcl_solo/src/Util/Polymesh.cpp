@@ -8,6 +8,8 @@ Polymesh::Polymesh(PolygonMesh mesh){
 	PointCloud<PointXYZ>::Ptr cld (new PointCloud<PointXYZ>());
 	meshcloud_ = cld;
 	fromPCLPointCloud2(mesh.cloud, *meshcloud_);
+    // Obtener centroide de la nube
+    ct_ = this->computeCentroid();
 	// Obtener normales, areas y centroides
 	for (int i=0; i<poly_number_; i++){
 		double poly_area;
@@ -16,11 +18,12 @@ Polymesh::Polymesh(PolygonMesh mesh){
 		p1 = meshcloud_->points[mesh_.polygons[i].vertices[0]];
 		p2 = meshcloud_->points[mesh_.polygons[i].vertices[1]];
 		p3 = meshcloud_->points[mesh_.polygons[i].vertices[2]];
-		ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
-        while (not triangleAreaNormalCentroid(p1, p2, p3, ptest, poly_area, poly_normal, poly_centroid)){
+		triangleAreaNormalCentroid(p1, p2, p3, poly_area, poly_normal, poly_centroid);
+        // ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
+        // while (not triangleAreaNormalCentroid(p1, p2, p3, ptest, poly_area, poly_normal, poly_centroid)){
             // printf("Se obtuvo una normal no confiable. Reintentando con otro punto de test...\n");
-            ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
-        }
+            // ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
+        // }
 		// Añadir al listado
 		poly_areas_.push_back(poly_area);
 		poly_normals_.push_back(poly_normal);
@@ -29,14 +32,17 @@ Polymesh::Polymesh(PolygonMesh mesh){
     // Obtener centro de masa
     cm_ = getCenterOfMassInternal();
 }
-void Polymesh::getCentroid(PointXYZ &p){
+PointXYZ Polymesh::computeCentroid(){
 	Eigen::Vector3f accum (0,0,0);
 	for (int i=0; i<meshcloud_->points.size(); i++){
 		PointXYZ meshpoint = meshcloud_->points[i];
 		accum += Eigen::Vector3f(meshpoint.x, meshpoint.y, meshpoint.z);
 	}
-	accum /= poly_number_;
-	p = PointXYZ(accum[0], accum[1], accum[2]);
+	accum /= meshcloud_->points.size();
+	return PointXYZ(accum[0], accum[1], accum[2]);
+}
+PointXYZ Polymesh::getMeshCentroid(){
+    return ct_;
 }
 void Polymesh::getBiggestPolygon(Vertices &polygon, int &poly_index, double &area, Eigen::Vector3f &normal, PointXYZ &centroid){
     /* Recibe polygonmesh, recorre exhaustivamente los polígonos y retorna el más grande.
@@ -312,7 +318,7 @@ void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud){
 
 
 // PRIVATE
-bool Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, PointXYZ ptest, double &area, Eigen::Vector3f &normal, PointXYZ &centroid){
+bool Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, double &area, Eigen::Vector3f &normal, PointXYZ &centroid){
     // Lo siguiente es una implementación de la fórmula del half-cross product: S=|ABxAC|/2
     Eigen::Vector3f ab (p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
     Eigen::Vector3f bc (p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
@@ -324,12 +330,11 @@ bool Polymesh::triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3,
     PointXYZ centroid_tmp = PointXYZ(eigen_centroid[0], eigen_centroid[1], eigen_centroid[2]);
 
     // Chequear orientación de la normal usando el punto Test
-    Eigen::Vector3f delta = Eigen::Vector3f (p1.x, p1.y, p1.z) - Eigen::Vector3f (ptest.x, ptest.y, ptest.z);
+    Eigen::Vector3f delta = Eigen::Vector3f (p1.x, p1.y, p1.z) - Eigen::Vector3f (ct_.x, ct_.y, ct_.z);
     delta.normalize();
     double angle = acos(normal_tmp.dot(delta));
     if (PI/2.0-ANGLE_RELAXATION < angle and angle < PI/2.0+ANGLE_RELAXATION){
-        // printf("WARNING: Angulo muy cercano a 90° (%f°) puede llevar a error!\n", toGrad(angle));
-        return false;
+        printf("WARNING: Angulo muy cercano a 90° (%f°) puede llevar a error!\n", toGrad(angle));
     }
     if (angle > PI/2){
         normal_tmp*= -1;

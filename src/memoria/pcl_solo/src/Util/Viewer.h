@@ -19,6 +19,8 @@ class Viewer{
 	static const int BOTTOM_MARGIN = 15;
 	static const int LEFT_MARGIN   = 10;
 	int FONT_SIZE;
+	static const float POINT_SIZE_PONDERATOR = 0.05;
+	static const float NORMAL_SIZE_PONDERATOR = 0.15;
 
 public:
 	// Constructor
@@ -30,9 +32,10 @@ public:
 	void setFontSize(const string shape_id, int size);
 	void setColor(const string shape_id, float r, float g, float b, bool iscloud = false);
 	// --- Métodos para dibujar --- //
-	void drawPoint(PointXYZ p, const string shape_id, float r, float g, float b, float size);
+	void drawPoint(PointXYZ p, const string shape_id, float r, float g, float b);
+	void drawPoint(PointXYZ p, PointCloud<PointXYZ>::Ptr cloud, const string shape_id, float r, float g, float b);
 	void drawPointCloud(PointCloud<PointXYZ>::Ptr cloud, const string shape_id, float r, float g, float b, int point_size = 1);
-	void drawPolygonMesh(PolygonMesh mesh, const string shape_id, float r, float g, float b);
+	void drawPolygonMesh(PolygonMesh mesh, const string shape_id, float r, float g, float b, float a = 1);
 	void drawPolygon(Vertices polygon, PolygonMesh mesh, const string shape_id, float r, float g, float b, bool filled = true);
 	void drawPolygonVector(vector<int> polygon, PolygonMesh mesh, const string shape_id_prefix, float in_r, float in_g, float in_b, float out_r, float out_g, float out_b, int width);
 	void drawPolygonMeshNormals(Polymesh mesh, const string shape_id, float r, float g, float b);

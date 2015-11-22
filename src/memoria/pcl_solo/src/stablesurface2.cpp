@@ -10,6 +10,7 @@ using namespace pcl;
 float BG_COLOR[]                = {0.0, 0.0, 0.0};
 float POINTCLOUD_COLOR[]        = {1.0, 1.0, 1.0};
 float CONVEXHULL_COLOR[]        = {0.7, 0.7, 0.7};
+float CONVEXHULL_ALPHA 			= 0.2;
 int NORMALS_COLOR[]             = {1.0, 0.0, 1.0};
 float CM_COLOR[]                = {1.0, 0.5, 0.0};
 float CT_COLOR[]                = {1.0, 0.0, 0.0};
@@ -49,12 +50,13 @@ int main(int argc, char** argv){
 
 	// Crear convex hull y visualizar
 	Polymesh mesh = Polymesh(Util::getConvexHull(cloud));
+//	viewer.drawPolygonMesh(mesh.getPCLMesh(), "Object ConvexHull", CONVEXHULL_COLOR[0], CONVEXHULL_COLOR[1], CONVEXHULL_COLOR[2], CONVEXHULL_ALPHA);
 	viewer.drawPolygonMesh(mesh.getPCLMesh(), "Object ConvexHull", CONVEXHULL_COLOR[0], CONVEXHULL_COLOR[1], CONVEXHULL_COLOR[2]);
 
 	// Visualizar normales
 	viewer.drawPolygonMeshNormals(mesh, "ConvexHull Normals", NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2]);
 
-	// Obtener parche más grande y visualizarlo
+	// Obtener parche más grande, convertirlo a polygonmesh y visualizarlo
 	vector<int> patch; // Indices a los polígonos del mesh
 	mesh.getBiggestFlatPatch(PATCH_ANGLE_THRESHOLD, patch);
 	printf("Se obtuvo parche de %d polígonos\n", (int)patch.size());
@@ -62,13 +64,24 @@ int main(int argc, char** argv){
 	// Obtener "sombra" del parche más grande y visualizarlo
 	PointCloud<PointXYZ>::Ptr patch_flat(new PointCloud<PointXYZ>());
 	mesh.flattenPatch(patch, *patch_flat);
-	viewer.drawPointCloud(patch_flat, "Parche aplanado", FLATTENED_PATCH_COLOR[0], FLATTENED_PATCH_COLOR[1], FLATTENED_PATCH_COLOR[2], 3);
+	// Obtener polygonmesh del parche plano. Quizás debiera ser retornada directamente por flattenPatch().
+	PolygonMesh patch_mesh = Util::getConvexHull(patch_flat);
+//	viewer.drawPolygonMesh(patch_mesh, "flat_patch_mesh", 0, 1, 1);
 
 	// Obtener centro de masa, proyectarlo en sombra del parche y mostrarlo
 	PointXYZ cm = mesh.getCenterOfMass();
 	PointXYZ cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_flat);
-	void drawPoint(PointXYZ p, const string shape_id, float r, float g, float b, float size);
-	viewer.drawPoint(cm_proj, "Center of Mass projected", CM_COLOR[0], CM_COLOR[1], CM_COLOR[2], 5);
+//	viewer.drawPoint(cm_proj, mesh.getPointCloud(), "Center of Mass projected", CM_COLOR[0], CM_COLOR[1], CM_COLOR[2]);
+
+	// Mostrar centroide de toda la mesh
+	viewer.drawPoint(mesh.getMeshCentroid(), mesh.getPointCloud(), "Centroid", CT_COLOR[0], CT_COLOR[1], CT_COLOR[2]);
+	// Decidir si está dentro del parche plano o no
+	bool cm_in_patch = isPointIn2DPolygon(cm_proj, *patch_flat);
+	printf("Plano %s es estable: centro de masa %s en plano\n",(cm_in_patch ? "si" : "NO"), (cm_in_patch ? "se proyecta" : "NO SE PROYECTA"));
+//	if (cm_in_patch)
+//		viewer.addText("Posicion estable", "stable_position_label", 0, 1, 0);
+//	else
+//		viewer.addText("POSICION INESTABLE", "stable_position_label", 1, 0, 0);
 	viewer.show();
 	return 0;
 }
@@ -79,9 +92,10 @@ TODO:
 		ideas: 
 			* Enderezar normales, luego filtrar el disconexo
 			* Revisar condición de ángulo entre normal y delta: Pedir otro punto test si el angulo es muy cercano a PI/2 
-	- Proyectar centro de masa sobre área encerrada por el parche
+				Se implementó esto y no parece mejorar mucho.
+	[DONE]- Proyectar centro de masa sobre área encerrada por el parche
 	- Aplicar optimizaciones al algoritmo de parches
 	- Filtrar parches según posición del gripper
-	- ¿Priorizar parches lejanos al gripper primero?
+		- ¿Priorizar parches lejanos al gripper primero?
 
 */
