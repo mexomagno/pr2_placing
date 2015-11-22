@@ -42,6 +42,7 @@ public:
 	PointXYZ getMeshCentroid();
 	void getBiggestPolygon(Vertices &polygon, int &poly_index, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
 	void getBiggestFlatPatch(double angle_threshold, vector<int> &patch);
+	void getFlatPatches(double angle_threshold, vector<vector<int> > &patch, vector<double> &areas);
 	PolygonMesh getPCLMesh();
 	PointCloud<PointXYZ>::Ptr getPointCloud();
 	int getPolygonNumber();

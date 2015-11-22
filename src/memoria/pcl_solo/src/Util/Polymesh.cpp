@@ -19,11 +19,6 @@ Polymesh::Polymesh(PolygonMesh mesh){
 		p2 = meshcloud_->points[mesh_.polygons[i].vertices[1]];
 		p3 = meshcloud_->points[mesh_.polygons[i].vertices[2]];
 		triangleAreaNormalCentroid(p1, p2, p3, poly_area, poly_normal, poly_centroid);
-        // ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
-        // while (not triangleAreaNormalCentroid(p1, p2, p3, ptest, poly_area, poly_normal, poly_centroid)){
-            // printf("Se obtuvo una normal no confiable. Reintentando con otro punto de test...\n");
-            // ptest = meshcloud_->points[mesh_.polygons[getAnyOtherIndex(i)].vertices[0]];
-        // }
 		// Añadir al listado
 		poly_areas_.push_back(poly_area);
 		poly_normals_.push_back(poly_normal);
@@ -101,14 +96,26 @@ void Polymesh::getBiggestFlatPatch(double angle_threshold, vector<int> &patch){
             - Revisar que el grupo sea factible de posicionar según agarre del gripper
             - Aplicar optimizaciones propuestas
     */
-    // Obtener pointcloud del mesh
-    PointCloud<PointXYZ>::Ptr meshcloud (new PointCloud<PointXYZ>);
-    fromPCLPointCloud2(mesh_.cloud,*meshcloud);
-
-    // Crear contenedor de grupos y contenedor de areas totales
-    vector< vector<int> > patches; // Almacena "parches". Cada "parche" es un arreglo de índices de polígonos
-    vector<double> areas;      // Almacena area acumulada para cada "parche"
-
+    vector<vector<int> > patches;
+    vector<double> areas;
+    this->getFlatPatches(angle_threshold, patches, areas);
+    // En este punto, "patches" y "areas" son de tamaño "poly_number_"
+    // Buscar area más grande
+    double biggest_area = 0;
+    int biggest_index = 0;
+    for (int i=0; i<poly_number_; i++){
+        if (areas[i] > biggest_area){
+            biggest_area = areas[i];
+            biggest_index = i;
+        } 
+    }
+    // Retornar parche más grande
+    for (int i=0; i<patches[biggest_index].size(); i++){
+        //patch.push_back(mesh_.polygons[patches[biggest_index][i]]);
+        patch.push_back(patches[biggest_index][i]);
+    }
+}
+void Polymesh::getFlatPatches(double angle_threshold, vector<vector<int> > &patches, vector<double> &areas){
     // Recorrer polígonos y crear patch para cada uno
     for (int i=0; i<poly_number_; i++){
         // Crear su grupo y añadirse a si mismo
@@ -133,20 +140,6 @@ void Polymesh::getBiggestFlatPatch(double angle_threshold, vector<int> &patch){
         areas.push_back(patch_area);
     }
     // En este punto, "patches" y "areas" son de tamaño "poly_number_"
-    // Buscar area más grande
-    double biggest_area = 0;
-    int biggest_index = 0;
-    for (int i=0; i<poly_number_; i++){
-        if (areas[i] > biggest_area){
-            biggest_area = areas[i];
-            biggest_index = i;
-        } 
-    }
-    // Retornar parche más grande
-    for (int i=0; i<patches[biggest_index].size(); i++){
-        //patch.push_back(mesh_.polygons[patches[biggest_index][i]]);
-        patch.push_back(patches[biggest_index][i]);
-    }
 }
 PolygonMesh Polymesh::getPCLMesh(){
     return mesh_;
@@ -170,7 +163,6 @@ PointXYZ Polymesh::getCentroid(int index){
 PointXYZ Polymesh::getCenterOfMass(){
     return cm_;
 }
-
 PointXYZ Polymesh::projectPointOverPolygon(PointXYZ p, int poly_index){
     /*
         Recibe punto a proyectar, y polígono, representado por su normal, el polígono mismo y la malla con los puntos indizados por el polígono.
@@ -250,8 +242,6 @@ void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud){
         - Obtener convex hull 2D de p' y obtener nube de puntos q
     */
     // OBTENER PLANO REPRESENTADO POR PARCHE
-    // cttes
-    const double LEAFSIZE = 0.05;
     double SEG_THRESHOLD = 0.01;
     // 1) Crear nube de puntos que represente a los parches.
     //     Esta nube está hecha de los puntos de cada polígono
@@ -282,9 +272,9 @@ void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud){
     double dy = abs(min_obb.y - max_obb.y);
     double dz = abs(min_obb.z - max_obb.z);
     double dmin = min(dx, min(dy, dz));
-    SEG_THRESHOLD = (dmin/2.0 > SEG_THRESHOLD ? dmin/2.0 : SEG_THRESHOLD);
-    printf("dx:%f, dy:%f, dz:%f\n", dx, dy, dz);
-    printf("SEG_THRESHOLD fijado en %f\n", SEG_THRESHOLD);
+    SEG_THRESHOLD = (dmin > SEG_THRESHOLD ? dmin : SEG_THRESHOLD);
+    //printf("dx:%f, dy:%f, dz:%f\n", dx, dy, dz);
+    //printf("SEG_THRESHOLD fijado en %f\n", SEG_THRESHOLD);
     // 2.2 segmentar
     SACSegmentation<PointXYZ> segmentator;
     //segmentator.setOptimizeCoefficients(true);

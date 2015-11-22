@@ -83,7 +83,7 @@ void Viewer::drawPolygon(Vertices polygon, PolygonMesh mesh, const string shape_
     // Mostrar como polígono relleno
     setVisualizationMode(shape_id, (filled ? 2 : 1));
 }
-void Viewer::drawPolygonVector(vector<int> polygon, PolygonMesh mesh, const string shape_id_prefix, float in_r, float in_g, float in_b, float out_r, float out_g, float out_b, int width){
+void Viewer::drawPolygonVector(vector<int> polygon, PolygonMesh mesh, const string shape_id_prefix, float in_r, float in_g, float in_b, float out_r, float out_g, float out_b, int width, float alpha){
     for (int i=0; i<polygon.size(); i++){
         stringstream patch_id, patch_wire_id;
         patch_id << shape_id_prefix << "_" << i;
@@ -91,6 +91,8 @@ void Viewer::drawPolygonVector(vector<int> polygon, PolygonMesh mesh, const stri
         this->drawPolygon(mesh.polygons[polygon[i]], mesh, patch_id.str(), in_r, in_g, in_b);
         this->drawPolygon(mesh.polygons[polygon[i]], mesh, patch_wire_id.str(), out_r, out_g, out_b, false);
         this->setLineWidth(patch_wire_id.str(), width);
+        viewer_->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_OPACITY, alpha, patch_id.str());
+        viewer_->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_OPACITY, alpha, patch_wire_id.str());
     }
 }
 
