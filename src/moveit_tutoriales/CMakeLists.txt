@@ -111,6 +111,9 @@ target_link_libraries(testeando ${catkin_LIBRARIES})
 add_executable(testeando_brazos src/testeando_brazos.cpp)
 target_link_libraries(testeando_brazos ${catkin_LIBRARIES})
 
+add_executable(mover_brazo src/mover_brazo.cpp)
+target_link_libraries(mover_brazo ${catkin_LIBRARIES})
+
 #install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 

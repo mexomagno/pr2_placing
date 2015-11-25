@@ -193,9 +193,15 @@ target_link_libraries(gripperdrivertest ${catkin_LIBRARIES})
 
 #### EJECUTABLE TEST GRASPING
 
-# add_executable(graspingtest src/graspingtest.cpp)
-# add_dependencies(graspingtest memoria_generate_messages_cpp)
-# target_link_libraries(graspingtest ${catkin_LIBRARIES})
+add_executable(graspingtest src/graspingtest.cpp)
+add_dependencies(graspingtest memoria_generate_messages_cpp)
+target_link_libraries(graspingtest ${catkin_LIBRARIES})
+
+#### EJECUTABLE GRIPPER SCANNER
+
+add_executable(gripper_scanner src/gripper_scanner.cpp)
+add_dependencies(gripper_scanner memoria_generate_messages_cpp)
+target_link_libraries(gripper_scanner ${catkin_LIBRARIES})
 
 #############
 ## Install ##

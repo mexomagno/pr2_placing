@@ -78,7 +78,7 @@ int main(int argc, char** argv){
 		if (isPointIn2DPolygon(cm_proj, *patch_plane)){
 			best_patch = patches[i];
 			best_patch_area = patches_areas[i];
-			printf("Se ha encontrado un plano estable (de area %f)\n", best_patch_area);
+			printf("Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
 			viewer.addText("Posicion estable encontrada", "posicion_estable_label", 0, 1, 0);
 			plane_found = true;
 			break;
@@ -114,5 +114,6 @@ TODO:
 	- Aplicar optimizaciones al algoritmo de parches
 	- Filtrar parches según posición del gripper
 		- ¿Priorizar parches lejanos al gripper primero?
+	- Evaluar agregar restricción de orientación para cuencos. 
 	
 */

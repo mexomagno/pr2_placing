@@ -1,4 +1,4 @@
-/* 
+/*
 Información sobre colisiones del octree
 https://groups.google.com/forum/#!topic/moveit-users/EI73skgnGVk
 
@@ -31,8 +31,8 @@ const float lata_length=0.15;
 
 // VARIABLES GLOBALES
 
-PlanScenMon psm;
-tf::TransformListener tf;
+//PlanScenMon psm;
+//tf::TransformListener tfl;
 ros::Publisher planning_scene_pub;
 
 // Clientes
@@ -73,8 +73,8 @@ bool moveToPose(const geometry_msgs::Pose &_pose, moveit::planning_interface::Mo
     }
     return planDone;
 }
-void publishBox(geometry_msgs::PoseStamped object_pose){
-    // Publicar 
+/*void publishBox(geometry_msgs::PoseStamped object_pose){
+    // Publicar
     moveit_msgs::CollisionObject object;
     object.header = object_pose.header;
     object.id = "transport_box";
@@ -105,7 +105,7 @@ void publishBox(geometry_msgs::PoseStamped object_pose){
             }
         }
     }
-}
+}*/
 void pick(string object, moveit::planning_interface::MoveGroup &group){
     ROS_INFO("COMIENZA PICK");
 
@@ -118,27 +118,27 @@ void pick(string object, moveit::planning_interface::MoveGroup &group){
         ROS_ERROR("Error al llamar servicio de Gazebo 'get_model_state'");
         return;
     }
-    geometry_msgs::Pose pose_lata, pose_encima_lata;
+    geometry_msgs::Pose pose_lata, pose_detras_lata;
     pose_lata = gms_srv.response.pose;
-    pose_encima_lata = gms_srv.response.pose;
-    pose_encima_lata.position.z += 0.3;
-    pose_encima_lata.orientation.x = pose_encima_lata.orientation.y = pose_encima_lata.orientation.z = pose_lata.orientation.x = pose_lata.orientation.y = pose_lata.orientation.z = 0;
+    pose_detras_lata = gms_srv.response.pose;
+    pose_detras_lata.position.x -= 0.2;
+    pose_detras_lata.orientation.x = pose_detras_lata.orientation.y = pose_detras_lata.orientation.z = pose_lata.orientation.x = pose_lata.orientation.y = pose_lata.orientation.z = 0;
     ROS_INFO("'%s' en (%f, %f, %f)\nPublicando",object.c_str(),pose_lata.position.x, pose_lata.position.y, pose_lata.position.z);
     geometry_msgs::PointStamped object_position;
     object_position.header.frame_id = "odom_combined";
     object_position.point = pose_lata.position;
     point_pub.publish(object_position);
-    pose_encima_lata.orientation.w = pose_lata.orientation.w = 1;
+    pose_detras_lata.orientation.w = pose_lata.orientation.w = 1;
     // ###### Situarse encima del objeto
-    ROS_INFO("Situándose encima de la lata");
+    ROS_INFO("Situándose detras de la lata");
     moveit::planning_interface::MoveGroup::Plan planner;
-    if (not moveToPose(pose_encima_lata, group, planner)){
+    if (not moveToPose(pose_detras_lata, group, planner)){
         ROS_ERROR("Error al mover grupo");
         return;
     }
     geometry_msgs::PointStamped gripper_position;
     gripper_position.header.frame_id = "odom_combined";
-    gripper_position.point = pose_encima_lata.position;
+    gripper_position.point = pose_detras_lata.position;
     point_pub2.publish(gripper_position);
     // ###### Abrir gripper al máximo
     ROS_INFO("Abriendo Gripper");
@@ -151,13 +151,8 @@ void pick(string object, moveit::planning_interface::MoveGroup &group){
         return;
     }
 
-    // TESTEANDO:
-    // publicar cajita
-    geometry_msgs::Pose
-    publishBox()
-
     // ###### Bajar a pose del objeto
-    ROS_INFO("Envolviendo lata coca con gripper");
+    ROS_INFO("Envolviendo lata con gripper");
     if (not moveToPose(pose_lata,group,planner)){
         ROS_ERROR("Error al mover grupo");
         return;
@@ -174,14 +169,77 @@ void pick(string object, moveit::planning_interface::MoveGroup &group){
     }
     // ###### Levantar gripper a pose encima del objeto
     ROS_INFO("Subiendo objeto");
-    if (not moveToPose(pose_encima_lata, group, planner)){
+    if (not moveToPose(pose_detras_lata, group, planner)){
         ROS_ERROR("Error al mover grupo");
         return;
     }
     ROS_INFO("TERMINA PICK");
 
 }
+void prePick(string object, moveit::planning_interface::MoveGroup &group){
+    ROS_INFO("COMIENZA PICK");
 
+    /* Esta función es un auxiliar para poder hacer grasp en gazebo*/
+    // ###### Obtener posición del objeto
+    ROS_INFO("Obteniendo posición de '%s'",object.c_str());
+    // Pedir pose del objeto
+    gms_srv.request.model_name = object;
+    if (not getmodelstate_client.call(gms_srv)){
+        ROS_ERROR("Error al llamar servicio de Gazebo 'get_model_state'");
+        return;
+    }
+    geometry_msgs::Pose pose_lata = gms_srv.response.pose;
+    pose_lata.position.x -=0.2;
+    pose_lata.position.z +=0.03;
+    pose_lata.orientation.x = pose_lata.orientation.y = pose_lata.orientation.z = 0;
+    pose_lata.orientation.w = 1;
+    // Guardar la pose actual
+    //geometry_msgs::PoseStamped prev_pose = group.getCurrentPose();
+    ROS_INFO("Situándose detras de la lata");
+    moveit::planning_interface::MoveGroup::Plan planner;
+    if (not moveToPose(pose_lata, group, planner)){
+        ROS_ERROR("Error al mover grupo");
+        return;
+    }
+    ROS_INFO("Abriendo Gripper");
+    bool isright = (group.getName().compare("right_arm") == 0? true : false);
+    gripperdriver_srv.request.right = isright;
+    gripperdriver_srv.request.opening = 1;
+    if (not gripperdriver_client.call(gripperdriver_srv)){
+        ROS_ERROR("Error al llamar servicio 'gripper_driver'");
+        ROS_ERROR("Error retornado: '%s'",gripperdriver_srv.response.error.what.c_str());
+        return;
+    }
+    ROS_INFO("Esperando que posicione objeto en el gripper...");
+    ros::Duration(1.0).sleep();    
+    // ###### Cerrar gripper hasta máximo esfuerzo
+    ROS_INFO("Cerrando Gripper");
+    gripperdriver_srv.request.right = isright;
+    gripperdriver_srv.request.opening = 0.1;
+    gripperdriver_srv.request.max_effort = 10;
+    if (not gripperdriver_client.call(gripperdriver_srv)){
+        ROS_ERROR("Error al llamar servicio 'gripper_driver'");
+        ROS_ERROR("Error retornado: '%s'",gripperdriver_srv.response.error.what.c_str());
+        return;
+    }
+    // ###### Levantar gripper a pose encima del objeto
+    ROS_INFO("Moviendo objeto a posición de observación");
+    group.setPoseReferenceFrame("base_footprint");
+    geometry_msgs::Pose final_pose;
+    final_pose.position.x = 1.3;
+    final_pose.position.y = 0;
+    final_pose.position.z = 1.1;
+    final_pose.orientation.x = 0;
+    final_pose.orientation.y = 0;
+    final_pose.orientation.z = 0;
+    final_pose.orientation.w = 1;
+
+    if (not moveToPose(final_pose, group, planner)){
+        ROS_ERROR("Error al mover grupo");
+        return;
+    }
+    ROS_INFO("TERMINA PICK");
+}
 int main(int argc, char **argv){
     if (argc < 2 ){
         printf("ERROR: Debe ingresar nombre de objeto a graspiar zi\n");
@@ -196,10 +254,10 @@ int main(int argc, char **argv){
     spinner.start();
 
     // publicador de planning_scene
-    planning_scene_pub = nh.advertise<moveit_msgs::PlanningScene>("planning_scene_2",1);
-    getplanningscene_client = nh.serviceClient<moveit_msgs::PlanningScene>("/moveit_msgs/GetPlanningScene");
+    //planning_scene_pub = nh.advertise<moveit_msgs::PlanningScene>("planning_scene_2",1);
+    //getplanningscene_client = nh.serviceClient<moveit_msgs::PlanningScene>("/moveit_msgs/GetPlanningScene");
     // Crear planning_scene_monitor
-    psm = PlanScenMon(new PlanScenMon("robot_description", tf, "planning_scene_monitor"));
+    //psm = PlanScenMon(new PlanScenMon("robot_description", tfl, "planning_scene_monitor"));
 
     getmodelstate_client = nh.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
     gripperdriver_client = nh.serviceClient<memoria::GripperDriver>("gripper_driver");
@@ -210,6 +268,6 @@ int main(int argc, char **argv){
     moveit::planning_interface::MoveGroup::Plan plan;
     // Tomar lata de cocacola
     ROS_INFO("Comenzando pick de '%s'",grasp_object.c_str());
-    pick(grasp_object, r_arm);
+    prePick(grasp_object, r_arm);
     return 0;
 }

@@ -20,16 +20,6 @@ using namespace std;
         -Cabeza    */
 bool r_arm_toggle,l_arm_toggle,c_toggle;
 
-// trajectory_msgs::JointTrajectory getNewHeadPose(){
-//     trajectory_msgs::JointTrajectory new_pose;
-//     new_pose.joint_names=['head_pan_joint', 'head_tilt_joint'];
-//     new_pose.positions=(c_toggle ? [0,-1] : [0,1])
-//     new_pose.velocities = [0,0];
-//     new_pose.time_from_start.secs = 0;
-//     new_pose.time_from_start.nsecs = 100000000;
-//     c_toggle = !c_toggle;
-//     return new_pose;
-// }
 void signalHandler( int signum ){
     ros::shutdown();
     exit (EXIT_SUCCESS);
@@ -64,18 +54,54 @@ geometry_msgs::Pose getNewArmPose(const string &name){
     ROS_INFO("Seteada nueva pose");
     return pose;
 }
-void moveToPose(const geometry_msgs::Pose &_pose, moveit::planning_interface::MoveGroup &_group, moveit::planning_interface::MoveGroup::Plan &_planner)
-{
-    _group.setPoseTarget(_pose);
-    ROS_INFO("Planning for pose (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f, %.2f)", _pose.position.x, _pose.position.y, _pose.position.z, _pose.orientation.x, _pose.orientation.y, _pose.orientation.z, _pose.orientation.w);
+geometry_msgs::Pose newPose(float x, float y, float z, float ox, float oy, float oz, float w){
+    geometry_msgs::Pose newpose;
+    newpose.position.x  = x;
+    newpose.position.y  = y;
+    newpose.position.z  = z;
+    newpose.orientation.x = ox;
+    newpose.orientation.y = oy;
+    newpose.orientation.z = oz;
+    newpose.orientation.w  = w;
+    return newpose;
 
-    bool planDone = _group.plan(_planner);
-    ROS_INFO("Pose planning %s", planDone ? "SUCCESSFUL" : "FAILED");
+}
+void moveToPose(const geometry_msgs::Pose &pose, moveit::planning_interface::MoveGroup &group, moveit::planning_interface::MoveGroup::Plan &planner){
+    group.setPoseTarget(pose);
+    ROS_INFO("Planeando para pose (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f, %.2f)", pose.position.x, pose.position.y, pose.position.z, pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+
+    bool planDone = group.plan(planner);
+    ROS_INFO("Plan %s", planDone ? "EXITOSO" : "FALLIDO");
 
     if (planDone)
     {
-        ROS_INFO("Executing plan");
-        _group.move();
+        ROS_INFO("Ejecutando plan...");
+        group.move();
+    }
+}
+void moveToPosition(const geometry_msgs::Point &position, moveit::planning_interface::MoveGroup &group, moveit::planning_interface::MoveGroup::Plan &planner){
+    group.setPositionTarget(position.x, position.y, position.z);
+    ROS_INFO("Planeando para posición (%.2f, %.2f, %.2f)", position.x, position.y, position.z);
+
+    bool planDone = group.plan(planner);
+    ROS_INFO("Plan %s", planDone ? "EXITOSO" : "FALLIDO");
+
+    if (planDone)
+    {
+        ROS_INFO("Ejecutando plan...");
+        group.move();
+    }
+}
+void moveToRandom(moveit::planning_interface::MoveGroup &group, moveit::planning_interface::MoveGroup::Plan &planner){
+    geometry_msgs::PoseStamped pose = group.getRandomPose();
+    group.setPoseTarget(pose);
+    bool planDone = group.plan(planner);
+    ROS_INFO("Plan %s", planDone ? "EXITOSO" : "FALLIDO");
+
+    if (planDone)
+    {
+        ROS_INFO("Ejecutando plan...");
+        group.move();
     }
 }
 int main(int argc, char **argv){
@@ -106,48 +132,22 @@ int main(int argc, char **argv){
     // ROS_INFO("Cabeza: frame del plan: %s, end effector: %s",cabeza.getPlanningFrame().c_str(), cabeza.getEndEffectorLink().c_str());
     // bool l_succ= false , r_succ = false, c_succ= false;
     moveit::planning_interface::MoveGroup::Plan mi_plan;
+    // Defino par de poses para cada brazo
+    vector<geometry_msgs::Pose> poses_iz, poses_der;
+    poses_iz.push_back(newPose(0.5,0.3,1,0,0,0,1));
+    poses_iz.push_back(newPose(0.5,0.5,1,0,0,0,1));
+    poses_der.push_back(newPose(0.5,-0.3,1,0,0,0,1));
+    poses_der.push_back(newPose(0.5,-0.5,1,0,0,0,1));
+    char toggle = 0;
     // Ciclo eterno
     while (1){
-    // Para cada grupo:
-        // Setear pose_goal
-        // geometry_msgs::Pose l_pose = getNewArmPose(brazo_izquierdo);
-        //geometry_msgs::Pose r_pose = getNewArmPose(brazo_derecho);
-/*        l_pose.position.x = (l_arm_toggle ? 0.5 : 0.5);
-        l_pose.position.y = (l_arm_toggle ? 0.3 : 0.5);
-        l_pose.position.z = 1.1;
-        l_pose.orientation.w = 1;
-        l_arm_toggle = !l_arm_toggle;
-        r_pose.position.x = (r_arm_toggle ? 0.5 : 0.5);
-        r_pose.position.y = (r_arm_toggle ? -0.3 : -0.5);
-        r_pose.position.z = 1.1;
-        r_pose.orientation.w = 1;
-        r_arm_toggle = !r_arm_toggle;*/
-        moveToPose(getNewArmPose(brazo_izquierdo.getName()), brazo_izquierdo, mi_plan);
-        moveToPose(getNewArmPose(brazo_derecho.getName()), brazo_derecho, mi_plan);
-        // brazo_derecho.setPoseTarget(getNewArmPose(brazo_derecho));
-        // ROS_INFO("Nuevos pose_targets seteados");
-        // // cabeza.setPoseTarget(getNewHeadPose());
-        // // Planear
-        // bool l_succ = brazo_izquierdo.plan(mi_plan);
-        // // ROS_INFO("Planeé brazo izquierdo");
-        // if (l_succ){
-        // //     // Publicar plan
-        // //     plan_brazo_derecho.trajectory_start = mi_plan.start_state_;
-        // //     plan_brazo_derecho.trajectory.push_back(mi_plan.trajectory_);
-        // //     plan_brazo_derecho
-        //     ROS_INFO("Moviendo Brazo Izquierdo");
-        //     brazo_izquierdo.move();
-        // }
-        // bool r_succ = brazo_derecho.plan(mi_plan);
-        // if (r_succ){
-        //     ROS_INFO("Moviendo Brazo Derecho");
-        //     brazo_derecho.move();
-        // }
-        // c_succ = cabeza.plan(mi_plan);
-        // if (l_succ){
-        //     ROS_INFO("Moviendo Cabeza");
-        //     cabeza.move();
-        // }
+        // moveToPosition(poses_iz[toggle].position, brazo_izquierdo, mi_plan);
+        // moveToPosition(poses_der[toggle].position, brazo_derecho, mi_plan);
+        // moveToPose(poses_iz[toggle], brazo_izquierdo, mi_plan);
+        // moveToPose(poses_der[toggle], brazo_derecho, mi_plan);
+        // toggle = (toggle + 1)%2;
+        moveToRandom(brazo_izquierdo, mi_plan);
+        moveToRandom(brazo_derecho, mi_plan);
     }
     ros::shutdown();
     return EXIT_SUCCESS;
