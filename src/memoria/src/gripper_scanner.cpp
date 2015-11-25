@@ -17,6 +17,7 @@ Algoritmo:
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl/point_cloud.h>
 #include <pcl_ros/point_cloud.h>
+#include <pcl_ros/transforms.h>
 #include <pcl/conversions.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
@@ -45,6 +46,9 @@ geometry_msgs::PoseStamped scan_pose1;
 
 const double roll_delta = PI/4;
 const string KINECT_TOPIC = "head_mount_kinect/depth/points";
+const string GRIPPER_FRAME_SUFFIX = "_wrist_roll_link";
+const double WAIT_TF_TIMEOUT = 1.0;
+const int TF_RETRYS = 5;
 
 // VARIABLES GLOBALES
 moveit::planning_interface::MoveGroup::Plan planner;
@@ -83,10 +87,6 @@ void moveToPose(const geometry_msgs::PoseStamped &pose){
         gripper_group->move();
     }
 }
-void turnGripper(char which, double roll){
-
-
-}
 bool lookAt(string frame_id, double x, double y, double z, bool rotate = false){
     /* 
     Recibe: Frame_id
@@ -113,13 +113,36 @@ PointCloud<PointXYZ> mergeViews(){
     /* Recorre arreglo de pointclouds y retorna sólo una, mezclada */
     PointCloud<PointXYZ> merged;
     merged.height = 1;
-    //merged.width = 0;
-    //for (int i=0; i<scans.size(); i++){
-    //    merged.width += scans[i].points.size();
-    //}
-    //merged.points.resize(merged.width);
+    // Agregar primer elemento
+    // Obtener transformación desde el frame de la kinect al del gripper
+   
+    /*// Convertir nube de puntos a mensaje ROS
+    PCLPointCloud2 scan_pclmsg;
+    toPCLPointCloud2(scans[0], scan_pclmsg);
+    sensor_msgs::PointCloud2 scan_msg;
+    pcl_conversions::fromPCL(scan_pclmsg, scan_msg);
+    // Aplicar transformación a primer elemento
+    sensor_msgs::PointCloud2 scan_transformed;
+    pcl_ros::transformPointCloud(wrist_frame.str(), scan_msg, scan_transformed);
+    // Volver a convertir a mensaje PCL
+    pcl_conversions::toPCL(scan_transformed, scan_pclmsg);
+    fromPCLPointCloud2(scan_pclmsg, merged);
+    PointCloud<PointXYZ> temp;
+    for (int i=1; i<scans.size(); i++){
+        // Aplicar transformación a cada nube, y rotar según el ángulo roll_delta
+        toPCLPointCloud2(scans[i], scan_pclmsg);
+        pcl_conversions::fromPCL(scan_pclmsg, scan_msg);
+        tf_listener.transformPointCloud(wrist_frame.str(), scan_msg, scan_transformed);
+        pcl_conversions::toPCL(scan_transformed, scan_pclmsg);
+        fromPCLPointCloud2(scan_pclmsg, temp);
+        merged += temp;
+    }
+    return merged;*/
+    //pcl_ros::transformPointCloud(wrist_frame.str(), scans[0], merged, tf_listener);
+    //PointCloud<PointXYZ> temp;
     merged = scans[0];
     for (int i=1; i<scans.size(); i++){
+        //pcl_ros::transformPointCloud(wrist_frame.str(), scans[i], temp, tf_listener);
         merged += scans[i];
     }
     return merged;
@@ -130,6 +153,32 @@ void kinectCallback(const PointCloud<PointXYZ>::ConstPtr& in_cloud){
     }
     listen_kinect = false;
     ROS_INFO("Nube recibida");
+    tf::TransformListener tf_listener;
+    tf::StampedTransform stamped_tf;
+    ros::Time transform_time = ros::Time(0);
+    stringstream wrist_frame;
+    wrist_frame << GROUP << GRIPPER_FRAME_SUFFIX;
+    try{
+        ROS_INFO("Esperando transformación...");
+        bool got_transform = false;
+        for (int i=0; i<TF_RETRYS; i++){
+            if (not tf_listener.waitForTransform(in_cloud->header.frame_id, wrist_frame.str(), transform_time, ros::Duration(WAIT_TF_TIMEOUT))){
+                    ROS_ERROR("Intento %d de %d: Timeout en %f segundos",(i+1), TF_RETRYS, WAIT_TF_TIMEOUT);
+            }
+            else{
+                got_transform = true;
+                break;
+            }
+        }
+        if (not got_transform){
+            ROS_ERROR("Error grave: no se pudo obtener transformación entre kinect y el gripper.\nABORTANDO...");
+            exit(1);
+        }
+        tf_listener.lookupTransform(in_cloud->header.frame_id, wrist_frame.str(), ros::Time(0), stamped_tf);
+    }
+    catch (tf::TransformException ex){
+        ROS_ERROR("Exception al obtener transform: %s", ex.what());
+    }
     /* Recibo nube de puntos, debo almacenar el escaneo de mi objeto.
     */
     // Eliminar puntos lejanos
@@ -147,9 +196,14 @@ void kinectCallback(const PointCloud<PointXYZ>::ConstPtr& in_cloud){
     subsampler.setLeafSize(LEAFSIZE, LEAFSIZE, LEAFSIZE);
     subsampler.filter(*in_cloud_subsampled);
 
+    // Aplicar transformación
+    PointCloud<PointXYZ> in_cloud_transformed;
+    in_cloud_subsampled->header.stamp = stamped_tf.stamp_.toNSec()/1e3;
+    pcl_ros::transformPointCloud(wrist_frame.str(), *in_cloud_subsampled, in_cloud_transformed, tf_listener);
+
     // Guardar la nube de puntos
     ROS_INFO("Añadiendo a listado de scans");
-    scans.push_back(*in_cloud_subsampled);
+    scans.push_back(in_cloud_transformed);
     // Si ya escaneamos todas las perspectivas, juntarlas, guardarlas y salir
     scan_pose1_orientation[0] += roll_delta;
     if (scan_pose1_orientation[0] > 2*PI){
@@ -159,7 +213,7 @@ void kinectCallback(const PointCloud<PointXYZ>::ConstPtr& in_cloud){
         time_t t = time(NULL);
         struct tm *tm = localtime(&t);
         char date[50];
-        strftime(date, sizeof(date), "%H:%M:%S_%d_%m_%Y", tm);
+        strftime(date, sizeof(date), "%d_%m_%Y-%H:%M:%S", tm);
         stringstream filename;
         filename << "Scan_" << date << ".pcd";
         io::savePCDFileASCII(filename.str(), merged);
