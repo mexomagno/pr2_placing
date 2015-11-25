@@ -14,6 +14,9 @@ target_link_libraries (build/cloud_viewer ${PCL_LIBRARIES})
 add_executable (build/viewer  src/viewer.cpp)
 target_link_libraries (build/viewer ${PCL_LIBRARIES})
 
+add_executable (build/viewerrgb  src/viewerrgb.cpp)
+target_link_libraries (build/viewerrgb ${PCL_LIBRARIES})
+
 #add_executablebuild/ (simple_objects  src/simple_objects.cpp)
 #target_link_libraries (build/simple_objects ${PCL_LIBRARIES})
 

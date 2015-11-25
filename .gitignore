@@ -27,3 +27,4 @@ src/memoria/pcl_solo/src/simple_objects.cpp
 
 # Ignorar pcds generados por scanner de gripper
 src/memoria/Scan*
+src/memoria/viewer*

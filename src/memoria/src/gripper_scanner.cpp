@@ -44,11 +44,16 @@ double scan_pose1_position[] = {0.5, 0, 1.5}; // X, Y, Z
 double scan_pose1_orientation[] = {0, -PI/2, 0}; // R, P, Y 
 geometry_msgs::PoseStamped scan_pose1;
 
-const double roll_delta = PI/4;
-const string KINECT_TOPIC = "head_mount_kinect/depth/points";
-const string GRIPPER_FRAME_SUFFIX = "_wrist_roll_link";
+double roll_delta = PI/2;
+const string KINECT_TOPIC = "head_mount_kinect/depth_registered/points";
+const string GRIPPER_FRAME_SUFFIX = "_gripper_tool_frame";
+// const string GRIPPER_FRAME_SUFFIX = "_wrist_roll_link";
 const double WAIT_TF_TIMEOUT = 1.0;
 const int TF_RETRYS = 5;
+double POST_MOVE_SLEEP = 1;
+
+double colors[10][3];
+
 
 // VARIABLES GLOBALES
 moveit::planning_interface::MoveGroup::Plan planner;
@@ -58,6 +63,15 @@ memoria::LookAt lookat_srv;
 char GROUP = 'l'; // Puede ser 'l' o 'r'
 bool listen_kinect = false;
 vector<PointCloud<PointXYZ> > scans;
+
+// Variables auxiliares
+ros::Publisher scan1_publisher;
+ros::Publisher scan2_publisher;
+ros::Publisher scan3_publisher;
+ros::Publisher scan4_publisher;
+int curr_pub = 1;
+
+// METODOS
 
 void signalHandler( int signum ){
     ros::shutdown();
@@ -109,43 +123,81 @@ bool lookAt(string frame_id, double x, double y, double z, bool rotate = false){
         return false;
     }
 }
-PointCloud<PointXYZ> mergeViews(){
+PointCloud<PointXYZRGB> mergeViews(){
     /* Recorre arreglo de pointclouds y retorna sólo una, mezclada */
-    PointCloud<PointXYZ> merged;
+    PointCloud<PointXYZRGB> merged;
     merged.height = 1;
+
     // Agregar primer elemento
-    // Obtener transformación desde el frame de la kinect al del gripper
-   
-    /*// Convertir nube de puntos a mensaje ROS
-    PCLPointCloud2 scan_pclmsg;
-    toPCLPointCloud2(scans[0], scan_pclmsg);
-    sensor_msgs::PointCloud2 scan_msg;
-    pcl_conversions::fromPCL(scan_pclmsg, scan_msg);
-    // Aplicar transformación a primer elemento
-    sensor_msgs::PointCloud2 scan_transformed;
-    pcl_ros::transformPointCloud(wrist_frame.str(), scan_msg, scan_transformed);
-    // Volver a convertir a mensaje PCL
-    pcl_conversions::toPCL(scan_transformed, scan_pclmsg);
-    fromPCLPointCloud2(scan_pclmsg, merged);
-    PointCloud<PointXYZ> temp;
-    for (int i=1; i<scans.size(); i++){
-        // Aplicar transformación a cada nube, y rotar según el ángulo roll_delta
-        toPCLPointCloud2(scans[i], scan_pclmsg);
-        pcl_conversions::fromPCL(scan_pclmsg, scan_msg);
-        tf_listener.transformPointCloud(wrist_frame.str(), scan_msg, scan_transformed);
-        pcl_conversions::toPCL(scan_transformed, scan_pclmsg);
-        fromPCLPointCloud2(scan_pclmsg, temp);
-        merged += temp;
+    // Rotar según eje X en sentido contrario de rotación según roll_delta.
+    // Notar que scans[i] está rotado en (roll_delta*(i+1))
+    // Eigen::Matrix4f rotation = Eigen::Matrix4f::Identity();
+    // double angle = 0;//roll_delta;
+    // rotation(1,1) = cos(angle);
+    // rotation(1,2) = -sin(angle);
+    // rotation(2,1) = sin(angle);
+    // rotation(2,2) = cos(angle);
+    // Aplicar rotación
+    // PointCloud<PointXYZ>::Ptr scan_rotated_ptr (new PointCloud<PointXYZ>());
+    // transformPointCloud(scans[0], *scan_rotated_ptr, rotation);
+    //merged = scans[0];
+    for (int i=0; i<scans.size(); i++){
+        for (int j=0; j<scans[i].points.size(); j++){
+            PointXYZ scanpoint = scans[i].points[j];
+            int r, g, b;
+            switch (i){
+                case 0:
+                    r=255; g=b=0;
+                    break;
+                case 1:
+                    r=b=0; g=255;
+                    break;
+                case 2: 
+                    r=g=0; b=255;
+                    break;
+                case 3:
+                    r=g=255; b=0;
+                    break;
+                case 4:
+                    r=b=255; g=0;
+                    break;
+                case 5:
+                    r=0; g=b=255;
+                    break;
+                case 6:
+                    r=g=b=255;
+                    break;
+                case 7:
+                    r=g=b=0;
+                    break;
+                default:
+                    r=g=b=0.4;
+            }
+            PointXYZRGB newpoint = PointXYZRGB(r, g, b);
+            newpoint.x = scanpoint.x;
+            newpoint.y = scanpoint.y;
+            newpoint.z = scanpoint.z;
+            merged.points.push_back(newpoint);
+        }
+        // Cambiar ángulo
+        // double angle = 0;//(roll_delta*(i+1));
+        // rotation(1,1) = cos(angle);
+        // rotation(1,2) = -sin(angle);
+        // rotation(2,1) = sin(angle);
+        // rotation(2,2) = cos(angle);
+        // Aplicar rotación
+        // transformPointCloud(scans[i], *scan_rotated_ptr, rotation);
+    //    merged += scans[i];
     }
-    return merged;*/
-    //pcl_ros::transformPointCloud(wrist_frame.str(), scans[0], merged, tf_listener);
-    //PointCloud<PointXYZ> temp;
-    merged = scans[0];
-    for (int i=1; i<scans.size(); i++){
-        //pcl_ros::transformPointCloud(wrist_frame.str(), scans[i], temp, tf_listener);
-        merged += scans[i];
-    }
-    return merged;
+    // Borrar gripper
+    PointCloud<PointXYZRGB>::Ptr merged_filtered(new PointCloud<PointXYZRGB>()), merged_ptr(new PointCloud<PointXYZRGB>());
+    *merged_ptr = merged;
+    PassThrough<PointXYZRGB> pass;
+    pass.setInputCloud(merged_ptr);
+    pass.setFilterFieldName("x");
+    pass.setFilterLimits(-0.14, 1000);
+    pass.filter(*merged_filtered);
+    return *merged_filtered;
 }
 void kinectCallback(const PointCloud<PointXYZ>::ConstPtr& in_cloud){
     if (not listen_kinect){
@@ -181,6 +233,9 @@ void kinectCallback(const PointCloud<PointXYZ>::ConstPtr& in_cloud){
     }
     /* Recibo nube de puntos, debo almacenar el escaneo de mi objeto.
     */
+    ROS_INFO("Nube recibida es de T=%f", (float)(in_cloud->header.stamp/1e6));
+    ROS_INFO("Transform obtenido es de T=%f", (float)(stamped_tf.stamp_.toNSec()/1e9));
+
     // Eliminar puntos lejanos
     PointCloud<PointXYZ>::Ptr in_cloud_filtered(new PointCloud<PointXYZ>);
     PassThrough<PointXYZ> pass;
@@ -204,10 +259,27 @@ void kinectCallback(const PointCloud<PointXYZ>::ConstPtr& in_cloud){
     // Guardar la nube de puntos
     ROS_INFO("Añadiendo a listado de scans");
     scans.push_back(in_cloud_transformed);
+
+
+    switch (curr_pub){
+        case 1:
+            scan1_publisher.publish(in_cloud);
+            break;
+        case 2:
+            scan2_publisher.publish(in_cloud);
+            break;
+        case 3:
+            scan3_publisher.publish(in_cloud);
+            break;
+        case 4:
+            scan4_publisher.publish(in_cloud);
+            break;
+    }
+    curr_pub++;
     // Si ya escaneamos todas las perspectivas, juntarlas, guardarlas y salir
     scan_pose1_orientation[0] += roll_delta;
     if (scan_pose1_orientation[0] > 2*PI){
-        PointCloud<PointXYZ> merged = mergeViews();
+        PointCloud<PointXYZRGB> merged = mergeViews();
         // Escribir a archivo pcd
         long int now = (long int)ros::WallTime::now().toSec();
         time_t t = time(NULL);
@@ -225,6 +297,7 @@ void kinectCallback(const PointCloud<PointXYZ>::ConstPtr& in_cloud){
     ROS_INFO("Posicionándose para siguiente scan");
     scan_pose1.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_pose1_orientation[0], scan_pose1_orientation[1], scan_pose1_orientation[2]);
     moveToPose(scan_pose1);
+    ros::Duration(POST_MOVE_SLEEP).sleep();
     listen_kinect = true;
 }
 int main(int argc, char **argv){
@@ -237,11 +310,20 @@ int main(int argc, char **argv){
         printf("Opción inválida: '%c'. Debe ingresar [l|r]\n",*argv[1]);
         exit(1);
     }
+    if (argc >= 3){
+        roll_delta = atof(argv[2])*PI/180.0;
+    }
+    if (argc >= 4){
+        POST_MOVE_SLEEP = atof(argv[3]);
+    }
+    ROS_INFO("Usando roll_delta = %f",(roll_delta*180/PI));
+    ROS_INFO("Usando POST_MOVE_SLEEP = %f", POST_MOVE_SLEEP);
     // Inicializar algunas constantes globales
     scan_pose1.header.frame_id = "base_footprint";
     scan_pose1.pose.position.x = scan_pose1_position[0];
     scan_pose1.pose.position.y = scan_pose1_position[1];
     scan_pose1.pose.position.z = scan_pose1_position[2];
+    scan_pose1_orientation[0] += roll_delta;
     scan_pose1.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_pose1_orientation[0], scan_pose1_orientation[1], scan_pose1_orientation[2]);
     // iniciar un nodo ROS
     ros::init(argc, argv, "gripper_scanner");
@@ -256,6 +338,12 @@ int main(int argc, char **argv){
     lookat_client = nh.serviceClient<memoria::LookAt>("look_at");
     // Suscribirse al kinect
     ros::Subscriber kinect_sub = nh.subscribe<PointCloud<PointXYZ> > (KINECT_TOPIC, 1, kinectCallback);
+    // Publicar auxiliares
+    scan1_publisher = nh.advertise<PointCloud<PointXYZ> > ("scan_1", 1);
+    scan2_publisher = nh.advertise<PointCloud<PointXYZ> > ("scan_2", 1);
+    scan3_publisher = nh.advertise<PointCloud<PointXYZ> > ("scan_3", 1);
+    scan4_publisher = nh.advertise<PointCloud<PointXYZ> > ("scan_4", 1);
+
 
     // --- INICIO ---
     ros::AsyncSpinner spinner(1);
@@ -264,17 +352,22 @@ int main(int argc, char **argv){
     lookAt(scan_pose1.header.frame_id, scan_pose1.pose.position.x, scan_pose1.pose.position.y, scan_pose1.pose.position.z + 0.10);
     // Llevar brazo al punto de escaneo
     moveToPose(scan_pose1);
+    ros::Duration(POST_MOVE_SLEEP).sleep();
     // Guardar una nube de puntos por cada perspectiva
     listen_kinect = true;
     ros::spin();
-/*  
-    while (1){
-        scan_pose1_orientation[0] += roll_delta;
-        if (scan_pose1_orientation[0] > 2*PI)
-            scan_pose1_orientation[0] -= 2*PI;
-        scan_pose1.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_pose1_orientation[0], scan_pose1_orientation[1], scan_pose1_orientation[2]);
-        moveToPose(scan_pose1, gripper_group, planner);
-        ros::Duration(0.3).sleep();
-    }*/
     return 0;
 }
+/*
+    TODO:
+        [DONE]- Estabilizar scaneo: Se ven muy separadas las capas.
+            - Puede deberse a que el gripper no sea totalmente simétrico...
+            - Puede ser porque se está tomando un scan del kinect un poco atrasado, justo antes de llegar al punto indicado
+            - Habrá problemas con el transform?
+
+            Observaciones: 
+                - Cada scan parece estar corrido hacia la izquierda
+                - En Rviz, el tópico del kinect se visualiza perfecto, pero cada scan por separado se ve corrido hacia la izquierda (del robot)
+                    Esto era causado por usar "depth_registered" para visualizar en rviz, pero "depth" para el programa.
+
+*/
