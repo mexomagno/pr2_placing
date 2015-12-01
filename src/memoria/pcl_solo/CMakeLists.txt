@@ -51,3 +51,6 @@ target_link_libraries (build/stablesurface2 ${PCL_LIBRARIES})
 
 add_executable(build/gripperfilter src/gripperfilter.cpp ${SOURCES})
 target_link_libraries (build/gripperfilter ${PCL_LIBRARIES})
+
+add_executable(build/stablesurface3 src/stablesurface3.cpp ${SOURCES})
+target_link_libraries (build/stablesurface3 ${PCL_LIBRARIES})
