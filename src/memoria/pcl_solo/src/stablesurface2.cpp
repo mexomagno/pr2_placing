@@ -114,6 +114,7 @@ TODO:
 	- Aplicar optimizaciones al algoritmo de parches
 	- Filtrar parches según posición del gripper
 		- ¿Priorizar parches lejanos al gripper primero?
+	- Limitar plano según alcance del gripper
 	- Evaluar agregar restricción de orientación para cuencos. 
 	
 */

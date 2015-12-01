@@ -70,8 +70,6 @@ void isolateObject(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr
 	extractor.setNegative(true);
 	extractor.filter(*object_out);
 }
-
-
 int main(int argc, char **argv){
 	if (argc < 2){
 		printf("Error: Debe especificar un archivo .pcd\n");
