@@ -67,11 +67,12 @@ int main(int argc, char** argv){
 	vector<int> best_patch;
 	double best_patch_area;
 	PointCloud<PointXYZ>::Ptr patch_plane(new PointCloud<PointXYZ>());
+	ModelCoefficients::Ptr coefs (new ModelCoefficients());
 	PointXYZ cm_proj;
 	bool plane_found = false;
 	for (int i=0; i<patches.size(); i++){
 		// Obtener plano representado por el parche
-		mesh.flattenPatch(patches[i], *patch_plane);
+		mesh.flattenPatch(patches[i], *patch_plane, coefs);
 		// proyectar centro de masa sobre plano
 		cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_plane);
 		// Verificar si proyección está dentro del plano del parche

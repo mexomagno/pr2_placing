@@ -98,8 +98,40 @@ void isolateObject(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr
  * @param  coefs Coeficientes del plano
  * @return       True si lo corta, false en caso contrario.
  */
-bool isPointCloudCutByPlane(PointCloud<PointXYZ> pc, ModelCoefficients::Ptr coefs){
-	
+bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr pc, ModelCoefficients::Ptr coefs, PointXYZ p_plane){
+	/*
+	Algoritmo:
+		- Obtener vector normal a partir de coeficientes
+		- Iterar sobre puntos de la nube
+			- Calcular vector delta entre punto entregado (dentro del plano) y punto iterado
+			- Calcular ángulo entre vector delta y normal
+			- Angulos menores a PI/2 son de un lado, mayores son de otro
+			- Si aparecen puntos de ambos lados, retornar True, else, false.
+	*/
+	const double PI = 3.1416;
+	Eigen::Vector3f normal = Eigen::Vector3f(coefs->values[0], coefs->values[1], coefs->values[2]);
+	normal.normalize();
+	// cout << "Normal: " << normal << endl;
+	bool side;
+	// Iterar sobre los puntos
+	for (int i=0; i<pc->points.size(); i++){
+		// Calcular ángulo entre punto y normal
+		Eigen::Vector3f delta = Eigen::Vector3f (p_plane.x, p_plane.y, p_plane.z) - Eigen::Vector3f(pc->points[i].x, pc->points[i].y, pc->points[i].z);
+		delta.normalize();
+		double alpha = acos(normal.dot(delta));
+		// printf ("Alpha: %f°\n", (alpha*180/PI));
+		if (i==0){
+			side = (alpha < PI/2.0);
+			// printf("Lado escogido: %s", side ? "true": "false");
+			continue;
+		}
+		if (side != (alpha < PI/2.0)){
+			// printf("Nube es cortada por plano\n");
+			return true;
+		}
+	}
+	// printf("Nube NO es cortada por plano\n");
+	return false;
 }
 
 int main(int argc, char** argv){
@@ -122,7 +154,7 @@ int main(int argc, char** argv){
 	// Cargar nube de puntos y visualizar
 	PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
 	io::loadPCDFile(argv[1], *cloud);
-	viewer.drawPointCloud(cloud, "Object PointCloud", POINTCLOUD_COLOR[0], POINTCLOUD_COLOR[1], POINTCLOUD_COLOR[2]);
+	// viewer.drawPointCloud(cloud, "Object PointCloud", POINTCLOUD_COLOR[0], POINTCLOUD_COLOR[1], POINTCLOUD_COLOR[2]);
 
 	// Separar objeto del gripper
 	initBoxes();
@@ -174,8 +206,8 @@ int main(int argc, char** argv){
 		// 		- Es un plano estable?
 		// 			* centro de masa se proyecta sobre parche?
 		// 		- Puede el gripper llegar a esa posición?
-		// 			* El gripper es cortado por el plano?
-		if (isPointIn2DPolygon(cm_proj, *patch_plane)){
+		// 			* El gripper no es cortado por el plano de la superficie?
+		if (isPointIn2DPolygon(cm_proj, *patch_plane) and not isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
 			best_patch = patches[i];
 			best_patch_area = patches_areas[i];
 			printf("Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
@@ -210,12 +242,14 @@ TODO:
 	[DONE]- Reparar tamaño de parche aplanado
 		Al parecer es puramente un problema del convex hull. Sin embargo la proyección se hace sobre los puntos, que están correctos.
 	[DONE]- Iterar parches si el seleccionado no es estable
+	[DONE]- Limitar plano según alcance del gripper
+	- Intentar hacer tamaño de boxes dependientes de la apertura del gripper
 	- Revisar problema de isPointIn2DPolygon (ver "pcds/convertidos/trofeo.pcd" 0.01
+	
+	Opcional:
 	- Aplicar optimizaciones al algoritmo de parches
+	- Evaluar agregar restricción de orientación para cuencos. 
 	- Filtrar parches según posición del gripper
 		- ¿Priorizar parches lejanos al gripper primero?
-	- Limitar plano según alcance del gripper
-	- Intentar hacer tamaño de boxes dependientes de la apertura del gripper
-	- Evaluar agregar restricción de orientación para cuencos. 
 	
 */
