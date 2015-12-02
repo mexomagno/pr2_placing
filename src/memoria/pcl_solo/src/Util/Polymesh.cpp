@@ -189,6 +189,8 @@ PointXYZ Polymesh::getCentroid(int index){
 PointXYZ Polymesh::getCenterOfMass(){
     return cm_;
 }
+
+// Utilidades
 PointXYZ Polymesh::projectPointOverPolygon(PointXYZ p, int poly_index){
     /*
         Recibe punto a proyectar, y polígono, representado por su normal, el polígono mismo y la malla con los puntos indizados por el polígono.
@@ -332,6 +334,10 @@ void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud, 
     c_huller.setInputCloud(patch_cloud_projected);
     c_huller.reconstruct(flatcloud);
 }
+bool Polymesh::isPointInConvexPolygon(PointXYZ p, PointCloud<PointXYZ> poly){
+    return isPointIn2DPolygon(p, poly);
+}
+
 
 
 // PRIVATE
