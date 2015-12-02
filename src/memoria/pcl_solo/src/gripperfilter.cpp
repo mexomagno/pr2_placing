@@ -16,6 +16,8 @@ struct box{
 typedef struct box Box;
 vector<Box> gripper_boxes;
 void initBoxes(){
+	/* Todos estos valores fueron hardcodeados tras hacer pruebas empíricas.
+	*/
 	// Base del gripper
 	Box box1;
 	box1.center[0] = -0.095; box1.center[1] = box1.center[2] = 0;
@@ -24,8 +26,13 @@ void initBoxes(){
 	// Dedos del gripper
 	Box box2;
 	box2.center[0] = -0.03; box2.center[1] = box2.center[2] = 0;
-	box2.size[0] = 0.101; box2.size[1] = 0.18; box2.size[2] = 0.03;
+	box2.size[0] = 0.105; box2.size[1] = 0.18; box2.size[2] = 0.03;
 	gripper_boxes.push_back(box2);
+	// Pedazo cuando está cerrado
+	Box box3;
+	box3.center[0] = -0.042; box3.center[1] = box3.center[2] = 0;
+	box3.size[0] = 0.02; box3.size[1] = 0.11; box3.size[2] = 0.052;
+	gripper_boxes.push_back(box3);
 }
 /**
  * Toma punto y retorna True si está dentro de caja (definida globalmente) y false en caso contrario.
