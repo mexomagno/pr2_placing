@@ -25,6 +25,5 @@ src/memoria/pcl_solo/simple_objects.cpp
 src/memoria/pcl_solo/viewer
 src/memoria/pcl_solo/src/simple_objects.cpp
 
-# Ignorar pcds generados por scanner de gripper
-src/memoria/Scan*
+# Ignorar symlinks para testing local
 src/memoria/viewer*

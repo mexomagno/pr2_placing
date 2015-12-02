@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /PointCloud21
       Splitter Ratio: 0.5
     Tree Height: 466
   - Class: rviz/Selection
@@ -646,6 +645,20 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 0.1
+      Name: l_gripper_frame
+      Radius: 0.01
+      Reference Frame: l_gripper_tool_frame
+      Value: true
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 0.1
+      Name: r_gripper_frame
+      Radius: 0.01
+      Reference Frame: r_gripper_tool_frame
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -670,22 +683,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.389268
+      Distance: 0.447083
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.496833
-        Y: 0.00407843
-        Z: 1.57769
+        X: 0.88889
+        Y: -0.000111926
+        Z: 1.3795
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.404797
+      Pitch: 0.174797
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.25228
+      Yaw: 5.17724
     Saved: ~
 Window Geometry:
   Displays:
@@ -703,5 +716,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1366
-  X: -7
+  X: 0
   Y: 24

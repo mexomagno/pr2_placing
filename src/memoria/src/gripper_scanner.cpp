@@ -40,7 +40,7 @@ const double PI = 3.1416;
 const double passthrough_z = 0.5;
 const double LEAFSIZE = 0.005;
 // Pose de escaneo
-double scan_pose1_position[] = {0.5, 0, 1.5}; // X, Y, Z
+double scan_pose1_position[] = {0.6, 0, 1.2}; // X, Y, Z
 double scan_pose1_orientation[] = {0, -PI/2, 0}; // R, P, Y 
 geometry_msgs::PoseStamped scan_pose1;
 
@@ -127,7 +127,7 @@ PointCloud<PointXYZRGB> mergeViews(){
     /* Recorre arreglo de pointclouds y retorna sólo una, mezclada */
     PointCloud<PointXYZRGB> merged;
     merged.height = 1;
-
+    merged.width = 0;
     // Agregar primer elemento
     // Rotar según eje X en sentido contrario de rotación según roll_delta.
     // Notar que scans[i] está rotado en (roll_delta*(i+1))
@@ -142,6 +142,7 @@ PointCloud<PointXYZRGB> mergeViews(){
     // transformPointCloud(scans[0], *scan_rotated_ptr, rotation);
     //merged = scans[0];
     for (int i=0; i<scans.size(); i++){
+        merged.width += scans[i].points.size();
         for (int j=0; j<scans[i].points.size(); j++){
             PointXYZ scanpoint = scans[i].points[j];
             int r, g, b;
@@ -171,7 +172,9 @@ PointCloud<PointXYZRGB> mergeViews(){
                     r=g=b=0;
                     break;
                 default:
-                    r=g=b=0.4;
+                    r = (int)(rand()%255);
+                    g = (int)(rand()%255);
+                    b = (int)(rand()%255);
             }
             PointXYZRGB newpoint = PointXYZRGB(r, g, b);
             newpoint.x = scanpoint.x;
@@ -310,13 +313,14 @@ int main(int argc, char **argv){
         printf("Opción inválida: '%c'. Debe ingresar [l|r]\n",*argv[1]);
         exit(1);
     }
+    GROUP = string(argv[1]).compare("l") == 0 ? 'l' : 'r';
     if (argc >= 3){
         roll_delta = atof(argv[2])*PI/180.0;
     }
     if (argc >= 4){
         POST_MOVE_SLEEP = atof(argv[3]);
     }
-    ROS_INFO("Usando roll_delta = %f",(roll_delta*180/PI));
+    ROS_INFO("Usando roll_delta = %f°",(roll_delta*180/PI));
     ROS_INFO("Usando POST_MOVE_SLEEP = %f", POST_MOVE_SLEEP);
     // Inicializar algunas constantes globales
     scan_pose1.header.frame_id = "base_footprint";
@@ -359,7 +363,7 @@ int main(int argc, char **argv){
     return 0;
 }
 /*
-    TODO:
+    TODO:   
         [DONE]- Estabilizar scaneo: Se ven muy separadas las capas.
             - Puede deberse a que el gripper no sea totalmente simétrico...
             - Puede ser porque se está tomando un scan del kinect un poco atrasado, justo antes de llegar al punto indicado
@@ -369,5 +373,6 @@ int main(int argc, char **argv){
                 - Cada scan parece estar corrido hacia la izquierda
                 - En Rviz, el tópico del kinect se visualiza perfecto, pero cada scan por separado se ve corrido hacia la izquierda (del robot)
                     Esto era causado por usar "depth_registered" para visualizar en rviz, pero "depth" para el programa.
-
+        - Filtrar el gripper
+        - 
 */
