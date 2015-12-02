@@ -207,7 +207,7 @@ int main(int argc, char** argv){
 		// 			* centro de masa se proyecta sobre parche?
 		// 		- Puede el gripper llegar a esa posición?
 		// 			* El gripper no es cortado por el plano de la superficie?
-		if (isPointIn2DPolygon(cm_proj, *patch_plane) and not isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
+		if (Polymesh::isPointInConvexPolygon(cm_proj, *patch_plane) and not isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
 			best_patch = patches[i];
 			best_patch_area = patches_areas[i];
 			printf("Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
@@ -244,7 +244,12 @@ TODO:
 	[DONE]- Iterar parches si el seleccionado no es estable
 	[DONE]- Limitar plano según alcance del gripper
 	- Intentar hacer tamaño de boxes dependientes de la apertura del gripper
+		No se puede obtener apertura desde tópicos de gripper
+
 	- Revisar problema de isPointIn2DPolygon (ver "pcds/convertidos/trofeo.pcd" 0.01
+		http://demonstrations.wolfram.com/AnEfficientTestForAPointToBeInAConvexPolygon/
+		http://erich.realtimerendering.com/ptinpoly/
+	- Integrar en función capaz de entregar pose para el objeto (Más que nada, entregar una orientación.)
 	
 	Opcional:
 	- Aplicar optimizaciones al algoritmo de parches
