@@ -257,7 +257,7 @@ bool Polymesh::pointInPolygon(PointXYZ p, int poly_index){
     // Verificar si está dentro o fuera del polígono
     return isPointIn2DPolygon(p, *polygon_cloud);
 }
-void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud){
+void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud, ModelCoefficients::Ptr &patchcoefs){
     /*
     Esta función se encarga de transformar un parche de polígonos en un polígono bidimensional.
     En definitiva, se obtiene el plano representado por el parche de polígonos.
@@ -311,6 +311,7 @@ void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud){
     ModelCoefficients::Ptr coefs (new ModelCoefficients());
     PointIndices::Ptr inliers (new PointIndices()); // No se utilizarán
     segmentator.segment(*inliers, *coefs);
+    patchcoefs = coefs;
     // OJO: El segmentador se queja cuando encuentra menos de 4 inliers, sin embargo encontrar 3 es suficiente para nosotros.
     // Tener esto en cuenta. Puede repararse agregando uno de los 3 puntos 2 veces.
     // Por otro lado, esto no quita que funcione. El error lo lanza un llamado interno a optimizeModelCoefficients().

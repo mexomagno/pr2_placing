@@ -92,6 +92,16 @@ void isolateObject(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr
 	extractor.setNegative(true);
 	extractor.filter(*object_out);
 }
+/**
+ * Verifica si un plano corta a una nube en dos
+ * @param  pc    nube de puntos a evaluar
+ * @param  coefs Coeficientes del plano
+ * @return       True si lo corta, false en caso contrario.
+ */
+bool isPointCloudCutByPlane(PointCloud<PointXYZ> pc, ModelCoefficients::Ptr coefs){
+	
+}
+
 int main(int argc, char** argv){
 	// Obtener argumentos: Archivo pcd y opcionalmente, angle_threshold
 	if (argc < 2){
@@ -152,14 +162,19 @@ int main(int argc, char** argv){
 	vector<int> best_patch;
 	double best_patch_area;
 	PointCloud<PointXYZ>::Ptr patch_plane(new PointCloud<PointXYZ>());
+	ModelCoefficients::Ptr patch_plane_coefs(new ModelCoefficients());
 	PointXYZ cm_proj;
 	bool plane_found = false;
 	for (int i=0; i<patches.size(); i++){
 		// Obtener plano representado por el parche
-		mesh.flattenPatch(patches[i], *patch_plane);
+		mesh.flattenPatch(patches[i], *patch_plane, patch_plane_coefs);
 		// proyectar centro de masa sobre plano
 		cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_plane);
-		// Verificar si proyección está dentro del plano del parche
+		// VERIFICACIÓN DE CONDICIONES:
+		// 		- Es un plano estable?
+		// 			* centro de masa se proyecta sobre parche?
+		// 		- Puede el gripper llegar a esa posición?
+		// 			* El gripper es cortado por el plano?
 		if (isPointIn2DPolygon(cm_proj, *patch_plane)){
 			best_patch = patches[i];
 			best_patch_area = patches_areas[i];

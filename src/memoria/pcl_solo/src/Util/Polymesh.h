@@ -54,7 +54,7 @@ public:
 	PointXYZ projectPointOverPolygon(PointXYZ p, int poly_index);
 	static PointXYZ projectPointOverFlatPointCloud(PointXYZ p, PointCloud<PointXYZ>::Ptr cloud);
 	bool pointInPolygon(PointXYZ p, int poly_index);
-	void flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud);
+	void flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud, ModelCoefficients::Ptr &patchcoefs);
 private:
 	bool triangleAreaNormalCentroid(PointXYZ p1, PointXYZ p2, PointXYZ p3, double &area, Eigen::Vector3f &normal, PointXYZ &centroid);
 	static Eigen::Vector3f triangleNormal(PointXYZ p1, PointXYZ p2, PointXYZ p3);
