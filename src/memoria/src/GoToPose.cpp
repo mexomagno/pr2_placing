@@ -38,6 +38,9 @@ using namespace std;
 const string ROBOT_FRAME = "base_footprint";
 const float WAIT_TF_TIMEOUT = 1.0;
 const float PI = 3.1415;
+const float DISTANCE_CORRECTION = 0.18;
+const float DISTANCE_PRE_TURN = 0.15;
+const float ANGLE_CORRECTION = 0.2;
 // VARIABLES GLOBALES
 ros::ServiceClient basedriver_client;
 memoria::BaseDriver basedriver_srv;
@@ -47,6 +50,11 @@ vector<string> errors(6);
 
 int goToPose(geometry_msgs::PoseStamped& pose_goal){
     ROS_INFO("Obtenida pose ubicada en (%f,%f,%f) (frame: %s)",pose_goal.pose.position.x,pose_goal.pose.position.y,pose_goal.pose.position.z,pose_goal.header.frame_id.c_str());
+    /*
+        1) Mover base hasta un poco antes de llegar a punto final
+        2) Girar la base a orientación requerida
+        3) Mover un poco más (lo que falta)
+     */
     // ***** Ver si se puede ir a esa pose
     // ***** Calcular distancia y ángulo a enviar al BaseDriver
     /* Este punto es sensible. Depende del frame_id de la pose.
@@ -80,6 +88,13 @@ int goToPose(geometry_msgs::PoseStamped& pose_goal){
         robot_pose = pose_goal.pose;
     }
     ROS_INFO("Pose respecto al robot: (%f,%f,%f)",robot_pose.position.x,robot_pose.position.y,robot_pose.position.z);
+/*    // Posición quedó rotada, contrarrestar
+    double x = robot_pose.position.x;
+    double y = robot_pose.position.y;
+    robot_pose.position.x = x * cos(manual_angle2) - y * sin(manual_angle2);
+    robot_pose.position.y = x * sin(manual_angle2) + y * cos(manual_angle2);
+*/
+    // 1) DESPLAZAR BASE
     if (robot_pose.position.x != 0 or robot_pose.position.y != 0){
         // Calcular distancia desde robot a nueva pose
         double distance = sqrt(robot_pose.position.x*robot_pose.position.x + robot_pose.position.y*robot_pose.position.y);
@@ -89,10 +104,12 @@ int goToPose(geometry_msgs::PoseStamped& pose_goal){
         //ROS_INFO("Angulo nueva pose respecto a pose actual: %f",angle);
         // ***** Mover hacia pose
         ROS_INFO("Trasladando base");
-        tf::Vector3 xend (robot_pose.position.x, robot_pose.position.y,robot_pose.position.z);
+        tf::Vector3 xend (robot_pose.position.x, robot_pose.position.y, robot_pose.position.z);
         tf::Vector3 anglestart (1,0,0);
-        double angle = anglestart.angle(xend) * (robot_pose.position.y < 0 ? -1 : 1); // Problema: Angulo entregado es siempre positivo
+        double angle = anglestart.angle(xend) * (robot_pose.position.y < 0 ? -1 : 1); // Resuelve problema de ángulo siempre positivo
         ROS_INFO("Angulo dirección desplazamiento: %f",angle*180.0/PI);
+        // Corrección de distancia
+        distance = distance - DISTANCE_CORRECTION - DISTANCE_PRE_TURN;
         basedriver_srv.request.distance = distance;
         basedriver_srv.request.angle = angle;
         if (not basedriver_client.call(basedriver_srv)){
@@ -102,15 +119,34 @@ int goToPose(geometry_msgs::PoseStamped& pose_goal){
     else{
         ROS_INFO("Recibida pose en misma posición");
     }
+    // 2) ROTAR BASE
     ROS_INFO("Rotando base");
     // Rotar robot usando servicio BaseDriver
     tf::Quaternion quat_angle(robot_pose.orientation.x, robot_pose.orientation.y, robot_pose.orientation.z, robot_pose.orientation.w);
     double angle = quat_angle.getAngle();
-    ROS_INFO("Angulo pose respecto a pose inicial: %f", angle*180.0/PI);
+    geometry_msgs::Quaternion q = robot_pose.orientation;
+    double manual_angle = 2*acos(q.w);
+    double manual_angle2 = atan2(2.0*(q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y + q.z*q.z));
+    // Aplicar pequeña corrección al ángulo
+    double manual_angle2 = (manual_angle2 > 0 ? manual_angle2 - ANGLE_CORRECTION : manual_angle2 + ANGLE_CORRECTION);
+    // Corrige angulos positivos
+    ROS_INFO("Angulo con tf: %f, manual1: %f, manual2: %f", angle*180.0/PI, manual_angle*180.0/PI, manual_angle2*180.0/PI);
+    angle = (angle > PI ? -(2*PI-angle) : angle);
+    manual_angle = (manual_angle > PI ? -(2*PI-manual_angle) : manual_angle);
+    ROS_INFO("Angulo tf corregido: %f, manual1 corregido: %f, manual2 corregido: %f", angle*180.0/PI, manual_angle*180.0/PI, manual_angle2*180.0/PI);
     basedriver_srv.request.distance = 0;
-    basedriver_srv.request.angle = angle;
+    basedriver_srv.request.angle = manual_angle2;
     if (not basedriver_client.call(basedriver_srv)){
         return 3;
+    }
+    // 3) MOVER ULTIMO POCO
+    if (robot_pose.position.x != 0 or robot_pose.position.y != 0){
+        ROS_INFO("Terminando de acercarse");
+        basedriver_srv.request.distance = DISTANCE_PRE_TURN;
+        basedriver_srv.request.angle = 0;
+        if (not basedriver_client.call(basedriver_srv)){
+            return 3;
+        }
     }
     ROS_INFO("Se mueve con éxito");
     return 0;
