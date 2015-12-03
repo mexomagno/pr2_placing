@@ -41,15 +41,6 @@ LIBRERÍAS
     OTROS
         string
         csignal : Para salir con ctrl+C
-
-TODO:
-    - Implementar servicio (o método) getPlacingPose
-    - Implementar placeObject
-    - Actualizar diagramas de flujo con arquitectura anterior
-    - Cambiar diagrama de flujo en parte de Tuck Arms. Debe tuckearse sólo el brazo que no tiene el objeto. Esto debe saberse de antemano.
-    - Terminar moveToSurface mirando centroide de superficie
-    - Considerar altura del torso al llegar a la superficie
-    - Considerar cambiar servicios por métodos en una clase auxiliar
 */
 #include <vector>
 #include <csignal>
@@ -59,6 +50,9 @@ TODO:
 #include <sensor_msgs/PointCloud2.h>
 #include <memoria/SearchSurface.h>
 #include <memoria/GoToPose.h>
+#include <memoria/LookAt.h>
+#include <memoria/LookAtMsg.h>
+#include <pcl/common/centroid.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/move_group_interface/move_group.h>
@@ -73,11 +67,15 @@ TODO:
 #include <tf/transform_listener.h>
 
 using namespace std;
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+using namespace pcl;
+
+// typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 // CONSTANTES
 const string SEARCH_SURFACE_SRV_NAME = "search_surface";
 const string GO_TO_POSE_SRV_NAME = "go_to_pose";
-const string ROBOT_FRAME = "base_footprint";
+const string LOOKAT_SRV_NAME = "look_at";
+const string BASE_FRAME = "base_footprint";
+const string KINECT_FRAME = "head_mount_kinect_ir_optical_frame";
 const float ROBOT_FRONT_MARGIN = 0.5; // delta de distancia para no chocar
 const float WAIT_TF_TIMEOUT = 1.0;
 // Dummies, para recrear condiciones iniciales
@@ -94,7 +92,7 @@ ros::ServiceClient search_surface_client;
 ros::ServiceClient go_to_pose_client;
 memoria::SearchSurface search_surface_srv;
 memoria::GoToPose go_to_pose_srv;
-
+ros::NodeHandle *global_nh;
 // MÉTODOS
 void endProgram(int retcode){
     ros::shutdown();
@@ -103,7 +101,24 @@ void endProgram(int retcode){
 void signalHandler( int signum ){
     endProgram(EXIT_SUCCESS);
 }
-void searchSurface(){
+float toGrad(float rad){
+    return rad*180.0/3.1415;
+}
+float toRad(int grados){
+    return grados*3.1415/180.0;
+}
+geometry_msgs::Quaternion coefsToQuaternionMsg(float a, float b, float c){
+    /* 
+    Recibe: a, b, c, coeficientes de un plano
+    Retorna: Quaternion con la orientación de la normal del plano.
+    */
+    float vmod=sqrt(a*a+b*b+c*c);
+    float pitch = -(1.0*asin(1.0*c/vmod));
+    float yaw = (a==0?toRad(90):atan(b/a)) + (a>=0?0:toRad(180));
+    return tf::createQuaternionMsgFromRollPitchYaw(0,pitch,yaw);
+}
+ 
+void searchSurface(PointCloud<PointXYZ>::Ptr &surface_pc){
     /*
     Llama al servicio memoria/SearchSurface y espera que termine.
     Resultado de retorno:
@@ -118,70 +133,80 @@ void searchSurface(){
         }
         ROS_INFO("Almacenando superficie encontrada");
         surface = search_surface_srv.response.pointcloud;
+        // Guardar superficie como nube PCL
+        PCLPointCloud2 surface_pc2;
+        pcl_conversions::toPCL(surface, surface_pc2);
+        fromPCLPointCloud2(surface_pc2, *surface_pc);
         //ROS_INFO("nube: Tamaño=%d",surface)
-        aux_pointcloud_pub.publish(surface);
+        // aux_pointcloud_pub.publish(surface);
+        aux_pointcloud_pub.publish(*surface_pc);
     }
     else{
         ROS_ERROR("Error al llamar al servicio %s",SEARCH_SURFACE_SRV_NAME.c_str());
         endProgram(1);
     }
 }
-void moveToSurface(){
+void moveToSurface(PointCloud<PointXYZ>::Ptr surface_pc){
     // ****** Elegir punto cerca de la superficie
     geometry_msgs::PoseStamped pose_goal;
-    // Convertir nube de ROS a PCL
-    PointCloud pcl_surface;
-    pcl::fromROSMsg(surface, pcl_surface);
-    // Crear elemento KdTree
+    // Crear elemento KdTree y buscar punto más cercano
     pcl::KdTree<pcl::PointXYZ>::Ptr kdtree (new pcl::KdTreeFLANN<pcl::PointXYZ>);
-    kdtree->setInputCloud(pcl_surface.makeShared()); // NO ELIMINAR EL MAKESHARED POR NINGUN MOTIVO
+    kdtree->setInputCloud(surface_pc->makeShared()); // NO ELIMINAR EL MAKESHARED POR NINGUN MOTIVO
     vector<int> nearest_index(1);
     vector<float> nearest_dist(1);
-    ROS_INFO("Buscando punto más cercano...");
+    ROS_INFO("Buscando punto más cercano (a la kinect)...");
     kdtree->nearestKSearch(pcl::PointXYZ(0,0,0), 1, nearest_index, nearest_dist);
-    ROS_INFO("Punto más cercano es (%f, %f, %f) a distancia %f", pcl_surface.points[nearest_index[0]].x,pcl_surface.points[nearest_index[0]].y, pcl_surface.points[nearest_index[0]].z, nearest_dist[0]);
-    // publicar punto más cercano
+    ROS_INFO("Punto más cercano es (%f, %f, %f) a distancia %f", surface_pc->points[nearest_index[0]].x,surface_pc->points[nearest_index[0]].y, surface_pc->points[nearest_index[0]].z, nearest_dist[0]);
+    // convertir puntode PCL a ROSMSG
     geometry_msgs::PointStamped closest_point_kinect;
-    closest_point_kinect.header.frame_id =  "head_mount_kinect_ir_optical_frame";
-    closest_point_kinect.point.x = pcl_surface.points[nearest_index[0]].x;
-    closest_point_kinect.point.y = pcl_surface.points[nearest_index[0]].y;
-    closest_point_kinect.point.z = pcl_surface.points[nearest_index[0]].z;
-    aux_point_pub.publish(closest_point_kinect);
+    closest_point_kinect.header.frame_id =  KINECT_FRAME;
+    closest_point_kinect.point.x = surface_pc->points[nearest_index[0]].x;
+    closest_point_kinect.point.y = surface_pc->points[nearest_index[0]].y;
+    closest_point_kinect.point.z = surface_pc->points[nearest_index[0]].z;
     // ****** Ir a la superficie
-    // Transformar punto de pose más cercana desde kinect frame hasta robot frame
+    // Transformar punto más cercano de kinect_frame a base_footprint
     tf::TransformListener tf_listener;
     tf::StampedTransform stamped_tf;
     try{
         ROS_INFO("Esperando transformación disponible...");
-        while (not tf_listener.waitForTransform(closest_point_kinect.header.frame_id, ROBOT_FRAME, ros::Time(0), ros::Duration(WAIT_TF_TIMEOUT))){
+        while (not tf_listener.waitForTransform(KINECT_FRAME, BASE_FRAME, ros::Time(0), ros::Duration(WAIT_TF_TIMEOUT))){
             ROS_ERROR("Transformación no pudo ser obtenida en %f segundos",WAIT_TF_TIMEOUT);
             //iterar
         }
         ROS_INFO("Transformación obtenida");
-        tf_listener.lookupTransform(closest_point_kinect.header.frame_id, ROBOT_FRAME, ros::Time(0), stamped_tf);
+        tf_listener.lookupTransform(KINECT_FRAME, BASE_FRAME, ros::Time(0), stamped_tf);
     }
     catch(tf::TransformException ex){
         ROS_ERROR("Excepción al obtener transformación: '%s'", ex.what());
     }
     geometry_msgs::PointStamped closest_point;
-    tf_listener.transformPoint(ROBOT_FRAME, closest_point_kinect, closest_point);
-    // Obtener pose_goal con pose cercana - delta
+    tf_listener.transformPoint(BASE_FRAME, closest_point_kinect, closest_point);
+    // Publicar para visualización.
+    aux_point_pub.publish(closest_point);
+    // Obtener pose_goal = punto_mas_cercano - delta (vectorial)
     tf::Vector3 closest_point_floor_vector (closest_point.point.x,closest_point.point.y,0);
     double closest_point_floor_distance = closest_point_floor_vector.length();
-    ROS_INFO("Distancia punto más cercano: %f (%f)",closest_point_floor_distance,nearest_dist[0]);
+    ROS_INFO("Distancia punto más cercano: %f",closest_point_floor_distance);
+    // Obtengo vector unitario apuntando a punto más cercano
     closest_point_floor_vector.normalize();
+    // Multiplico vector por distancia - delta (obtengo vector a posición final)
     closest_point_floor_vector*=closest_point_floor_distance-ROBOT_FRONT_MARGIN;
-    ROS_INFO("Distancia pose factible (resté %f): %f",ROBOT_FRONT_MARGIN,closest_point_floor_vector.length());
+    ROS_INFO("Distancia pose factible (reste %f): %f",ROBOT_FRONT_MARGIN,closest_point_floor_vector.length());
     geometry_msgs::PoseStamped closest_pose;
-    closest_pose.header.frame_id = closest_point.header.frame_id;
+    closest_pose.header.frame_id = BASE_FRAME;
     closest_pose.pose.position.x = closest_point_floor_vector.x();
     closest_pose.pose.position.y = closest_point_floor_vector.y();
     closest_pose.pose.position.z = closest_point_floor_vector.z();
-    tf::Vector3 start_angle (1,0,0), zaxis (0,0,1);
-    double rotation_angle = (closest_point_floor_vector.y() < 0 ? -1 : 1)* start_angle.angle(closest_point_floor_vector);
-    ROS_INFO("Angulo rotación: %f",rotation_angle);
+    // Obtener orientación del vector
+    // tf::Vector3 start_angle (1,0,0), zaxis (0,0,1);
+    // double rotation_angle = (closest_point_floor_vector.y() < 0 ? -1 : 1)* start_angle.angle(closest_point_floor_vector);
+    // ROS_INFO("Angulo rotación: %f",rotation_angle);
+    /*    tf::Vector3 zaxis(0,0,1);
+    double rotation_angle = -acos(closest_point_floor_vector.x());
+    ROS_INFO("Angulo rotacion: %f", rotation_angle);
     tf::Quaternion tf_orientation (zaxis,rotation_angle);
-    tf::quaternionTFToMsg(tf_orientation, closest_pose.pose.orientation);
+    tf::quaternionTFToMsg(tf_orientation, closest_pose.pose.orientation);*/
+    closest_pose.pose.orientation = coefsToQuaternionMsg(closest_point_floor_vector.x(), closest_point_floor_vector.y(), 0);
     aux_posestamped2_pub.publish(closest_pose);
     // Mover 
     go_to_pose_srv.request.pose = closest_pose;
@@ -197,6 +222,23 @@ void moveToSurface(){
     else{
         ROS_ERROR("Error al llamar al servicio %s",GO_TO_POSE_SRV_NAME.c_str());
         endProgram(1);
+    }
+    // Mirar centroide de la mesa
+    Eigen::Vector4f surface_centroid;
+    compute3DCentroid(*surface_pc, surface_centroid);
+    ROS_INFO("Creando cliente para '%s'",LOOKAT_SRV_NAME.c_str());
+    ros::ServiceClient lookat_client = global_nh->serviceClient<memoria::LookAt>(LOOKAT_SRV_NAME);
+    memoria::LookAt lookat_srv;
+    memoria::LookAtMsg lookatmsg;
+    lookatmsg.frame_id = BASE_FRAME;
+    lookatmsg.rotate = 0;
+    lookatmsg.vector.x = surface_centroid[0];
+    lookatmsg.vector.y = surface_centroid[1];
+    lookatmsg.vector.z = surface_centroid[2];
+    lookat_srv.request.lookatmsg = lookatmsg;
+    ROS_INFO("Mirando a la mesa");
+    if (not lookat_client.call(lookat_srv)){
+        ROS_ERROR("Error al llamar al servicio 'look_at'");
     }
 }
 void getPlacingPose(){
@@ -226,6 +268,7 @@ int main(int argc, char **argv){
     spinner.start();
     ROS_INFO("Comenzando ejecución");
     ros::NodeHandle nh;
+    global_nh = &nh;
     
     // Conectar a los servicios
     ROS_INFO("Creando cliente para '%s'",SEARCH_SURFACE_SRV_NAME.c_str());
@@ -234,7 +277,7 @@ int main(int argc, char **argv){
     go_to_pose_client = nh.serviceClient<memoria::GoToPose>(GO_TO_POSE_SRV_NAME);
 
     // Publicar dummies
-    aux_pointcloud_pub = nh.advertise<PointCloud> ("plano_dummy",1);
+    aux_pointcloud_pub = nh.advertise<PointCloud<PointXYZ> > ("plano_dummy",1);
     aux_posestamped_pub = nh.advertise<geometry_msgs::PoseStamped> ("pose_dummy",1);
     aux_posestamped2_pub = nh.advertise<geometry_msgs::PoseStamped> ("pose_mas_cercana",1);
     aux_point_pub = nh.advertise<geometry_msgs::PointStamped> ("punto_mas_cercano",1);
@@ -246,14 +289,48 @@ int main(int argc, char **argv){
     moveit::planning_interface::MoveGroup::Plan plan;
     // Comienza ejecución del megaprograma
     ROS_INFO("Iniciando búsqueda de superficie");
-    searchSurface();
+    // Nube que almacenará la superficie encontrada, relativa al frame odométrico.
+    PointCloud<PointXYZ>::Ptr surface_pc(new PointCloud<PointXYZ>());
+    searchSurface(surface_pc);
     ROS_INFO("Iniciando desplazamiento hacia superficie");
-    moveToSurface();
-    /*ROS_INFO("Iniciando cálculo de pose para objeto");
+    moveToSurface(surface_pc);
+    ROS_INFO("Iniciando cálculo de pose para objeto");
     getPlacingPose();
-    ROS_INFO("Iniciando placing");
+    /*ROS_INFO("Iniciando placing");
     placeObject();
     // ROS_INFO("Placing finalizado con éxito.");*/
 
     return 0;
 }
+/*
+    TODO:
+        [DONE]- Reparar rotación al llegar a la mesa
+            Se implementó forma manual de calcular Yaw a partir de Quaternion. getAngle retornaba cosas positivas siempre.
+        [DONE]- Reparar problema "superficie demasiado inclinada" cuando no deberia pasar
+            A veces se retorna pitch positivo siendo que realmente es negativo. Revisar implementación. Por ahora se parcha tomando -1*abs(pitch).
+        [DONE]- Rotar primero, luego avanzar
+            La rotación genera mucho error. 
+            1) Avanza
+            2) Rota
+            3) Avanza un último pedacito
+        [DONE]- Cabeza debe mirar inicialmente un poco más cerca
+            Hardcodeo en LookAt
+        [DONE]- Reparar dirección de pose al lado de la mesa
+            Cálculo de orientación reparado
+        [DONE]- Reparar el que se pase de largo al ir a la pose de la mesa.
+            Corrección hardcodeada en GoToPose
+        [DONE]- Reparar caso en que distancia a punto más cercano es menor a correcciones
+            Al parecer se repara solo por implementación
+        [DONE]- Actualizar diagramas de flujo con arquitectura anterior
+        - Terminar moveToSurface mirando centroide de superficie
+        - Implementar servicio (o método) getPlacingPose
+        - Implementar placeObject
+        - Cambiar diagrama de flujo en parte de Tuck Arms. Debe tuckearse sólo el brazo que no tiene el objeto. Esto debe saberse de antemano.
+        - Considerar altura del torso al llegar a la superficie
+        - Considerar cambiar servicios por métodos en una clase auxiliar
+
+    Propuestas para el futuro
+        - Búsqueda más inteligente de superficie: Si encuentro un pedazo plano pero chico, puedo mirar más hacia esa parte, probablemente vi una punta de una mesa y puedo encontrar el resto.
+
+
+ */
