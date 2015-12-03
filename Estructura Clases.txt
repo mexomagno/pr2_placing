@@ -1,0 +1,36 @@
+/*Este documento es un brainstorming para diseñar lo mejor posible las clases y componentes del sistema a implementar para la memoria
+
+Estructura básica de funcionamiento del algoritmo:
+Inicio:
+    # Buscar superficie:
+        [robot driver] Mirar entorno
+        Buscar plano
+            Segmentar plano
+            [TF] Transformar plano
+            Testear altura e inclinación
+
+    # Ir a superficie
+        [robot driver] Mover base
+
+    # Buscar mejor pose
+        Escanear objeto
+            [robot driver] Mover cabeza
+            [robot driver] mover gripper
+            Escanear
+                Capturar puntos
+                [TF] Transformar a coordenadas de gripper
+        Encontrar mejor pose
+            Procesar puntos
+                Filtrar gripper
+                encontrar mejores poses
+                Seleccionar mejor pose que cumpla restricciones
+            [TF] Obtener POSE del punto de apoyo (posición y orientación relativa a base_footprint)
+
+    # Posicionar
+        [robot driver] Mirar a la superficie
+        Planear trayectoria
+        Mover
+
+--------------------------
+*/
+
