@@ -240,6 +240,8 @@ void kinectCallback(const PointCloud::ConstPtr& in_cloud){
             double roll,pitch,yaw;
             tf::Matrix3x3(tf_quaternion).getRPY(roll,pitch,yaw);
             ROS_INFO("Normal en RPY (ROBOT_FRAME): (%f°, %f°, %f°)",toGrad(roll),toGrad(pitch),toGrad(yaw));
+            // A veces, lo anterior retorna un pitch positivo siendo que realmente es negativo. Por ahora, parchamos tomando el valor absoluto.
+            pitch = -abs(pitch);
             // ********* VERIFICAR 2-DO CRITERIO ACEPTACIÓN: inclinación (pitch)
             if (DESIRED_PITCH - PITCH_THRESHOLD < pitch and pitch < DESIRED_PITCH + PITCH_THRESHOLD ){
                 ROS_INFO("Superficie encontrada!");
@@ -279,7 +281,7 @@ int getSurface(PointCloud::Ptr& pointcloud){
     Utiliza callback del tópico suscrito al kinect para buscar la nub.
     */
     ROS_INFO("Mirando un poco hacia el suelo");
-    if (not lookAt(ROBOT_FRAME,2,0,0,false)){
+    if (not lookAt(ROBOT_FRAME,1.4,0,0,false)){
         return 4;
     }
     // Mirar al primer punto de búsqueda de superficie
