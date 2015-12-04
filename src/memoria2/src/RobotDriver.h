@@ -3,16 +3,16 @@
 
 #include <ros/ros.h>
 #include "RobotHeadDriver.h"
-// #include "RobotBaseDriver.h"
+#include "RobotBaseDriver.h"
 
 class RobotDriver{
     public:
         // Variables públicas
         // Driver de cabeza
         RobotHeadDriver *head;
-    /*    // Driver de base
-        RobotBaseDriver base;
-        // Driver de gripper izquierdo
+        // Driver de base
+        RobotBaseDriver *base;
+        /*// Driver de gripper izquierdo
         RobotGripperDriver lgripper;
         // Driver de gripper derecho
         RobotGripperDriver rgripper;*/
