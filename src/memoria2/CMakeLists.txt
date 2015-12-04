@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
     pr2_controllers_msgs
     # Action Clients
     actionlib
-    
+
 )
 
 ## System dependencies are found with CMake's conventions
@@ -147,6 +147,7 @@ include_directories(
 # Directorio a archivos fuente propios
 set(SOURCES ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotDriver.cpp
             ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotHeadDriver.cpp
+            ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotBaseDriver.cpp
             ${PROJECT_SOURCE_DIR}/src/Util/Util.cpp)
 
 add_executable(place src/place.cpp ${SOURCES})  
