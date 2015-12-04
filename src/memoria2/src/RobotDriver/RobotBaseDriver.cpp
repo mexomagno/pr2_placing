@@ -4,6 +4,9 @@ const float WAIT_TF_TIMEOUT = 1.0;
 const float LOOP_FREQ = 10.0;
 const float TWIST_VELOCITY = 2.5;
 const float ANGULAR_VELOCITY = 3;
+const float DISTANCE_CORRECTION = 0.18;
+const float DISTANCE_PRE_TURN = 0.15;
+const float ANGLE_CORRECTION = 0.05;
 bool store_odom = false;
 tf::Vector3 last_position(0,0,0);
 tf::Quaternion last_orientation(0,0,0,1);
@@ -46,13 +49,56 @@ RobotBaseDriver::~RobotBaseDriver(){
 /*bool RobotBaseDriver::goToPose(const string frame_id, geometry_msgs::PoseStamped pose){
 	// Ver si es el mismo frame, sino, transformarlo
 }*/
-bool RobotBaseDriver::goToPose(){
-	travel(-1, 0);
-	turn(Util::toRad(-90));
+bool RobotBaseDriver::goToPose(geometry_msgs::PoseStamped pose_goal){
+	/**
+	 * 1) Mover base hasta un poco antes de llegar al punto final
+	 * 2) Girar la base a orientación requerida
+	 * 3) Mover un poco más (lo que falta)
+	 *
+	 * En el proceso aplicar correcciones. Por naturaleza, turn y travel se pasan de largo una cierta cantidad.
+	 */
+	if (Util::BASE_FRAME.compare(pose_goal.header.frame_id) != 0){
+		ROS_ERROR("Se ingresó pose final con un frame no válido: '%s'", pose_goal.header.frame_id.c_str());
+		return false;
+	}
+	geometry_msgs::Pose robot_pose = pose_goal.pose;
+	ROS_DEBUG("RobotBaseDriver: Pose buscada: (%f, %f, %f)", robot_pose.position.x, robot_pose.position.y, robot_pose.position.z);
+	// 1) DESPLAZAR BASE
+	if (robot_pose.position.x != 0 or robot_pose.position.y != 0){
+		// Calcular distancia desde robot a nueva pose
+		float distance = sqrt(robot_pose.position.x*robot_pose.position.x + robot_pose.position.y*robot_pose.position.y);
+		ROS_DEBUG("RobotBaseDriver: Trasladando base");
+		tf::Vector3 xend( robot_pose.position.x, robot_pose.position.y, robot_pose.position.z);
+		tf::Vector3 anglestart (1,0,0);
+		float angle = anglestart.angle(xend)*(robot_pose.position.y < 0 ? -1 : 1); // Corrige problema de ángulo siempre positivo
+		ROS_DEBUG("RobotBaseDriver: Angulo dirección desplazamiento: %f", Util::toGrad(angle));
+		// Corrección de distancia
+		distance = distance - DISTANCE_CORRECTION - DISTANCE_PRE_TURN;
+		if (not travel(distance, angle))
+			return false;
+	}
+	else{
+		ROS_DEBUG("RobotBaseDriver: Recibida pose en mismo lugar");
+	}
+	// 2) ROTAR BASE
+	ROS_DEBUG("RobotBaseDriver: Rotando base");
+	geometry_msgs::Quaternion q = robot_pose.orientation;
+	float angle = atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y + q.z*q.z));
+	// Corrección de ángulo
+	//angle = (angle > 0 ? angle - ANGLE_CORRECTION : angle + ANGLE_CORRECTION);
+	if (not turn(angle))
+		return false;
+	// 3) MOVER ULTIMO POCO
+	if (robot_pose.position.x != 0 or robot_pose.position.y != 0){
+		ROS_DEBUG("RobotBaseDriver: Terminando de acercarse");
+		if (not travel(DISTANCE_PRE_TURN, 0))
+			return false;
+	}
+	ROS_DEBUG("RobotBaseDriver: Fin goToPose");
 }
 // PRIVATE
 bool RobotBaseDriver::turn(float angle){
-	ROS_DEBUG("Girar %f grados", Util::toGrad(angle));
+	ROS_DEBUG("RobotBaseDriver: Girar %f grados", Util::toGrad(angle));
 	ros::Rate rate(LOOP_FREQ);
 	store_odom = true;
 	rate.sleep();

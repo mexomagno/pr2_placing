@@ -2,6 +2,8 @@
 #define UTIL_H_H
 
 #include <string>
+#include <geometry_msgs/Quaternion.h>
+#include <tf/transform_listener.h>
 
 using namespace std;
 
@@ -28,6 +30,7 @@ class Util{
         // Métodos
         static float toRad(float grad);
         static float toGrad(float rad);
+        static geometry_msgs::Quaternion coefsToQuaternionMsg(float a, float b, float c);
     protected:
     private:
 };

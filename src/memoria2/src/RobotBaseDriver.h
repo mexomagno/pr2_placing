@@ -7,6 +7,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <tf/transform_listener.h>
 
+using namespace std;
 
 class RobotBaseDriver
 {
@@ -17,8 +18,7 @@ class RobotBaseDriver
         RobotBaseDriver();
         ~RobotBaseDriver();
         // Métodos
-        //goToPose(const string frame_id, geometry_msgs::PoseStamped pose);
-        bool goToPose();
+        bool goToPose(geometry_msgs::PoseStamped pose);
     protected:
     private:
     	bool turn(float angle);

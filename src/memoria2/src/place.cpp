@@ -6,6 +6,8 @@
 #include <csignal>
 #include <ros/ros.h>
 #include <ros/console.h> // Para debuggear
+// Mensajes
+#include <geometry_msgs/PoseStamped.h>
 // PCL
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -20,10 +22,14 @@ using namespace pcl;
 
 // VARIABLES GLOBALES
 RobotDriver *r_driver;
-
-void signalHandler( int signum ){
+void endProgram(int retcode){
     ROS_INFO("Terminando programa...");
-    exit(0);
+    delete r_driver;
+    exit(retcode);
+}
+void signalHandler( int signum ){
+    ROS_INFO("Se recibe Ctrl+C");
+    endProgram(0);
 }
 bool searchSurface(PointCloud<PointXYZ>::Ptr outcloud){
     // Constantes
@@ -39,7 +45,7 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr outcloud){
         // Rotar cabeza
         r_driver->head->rotate(Util::BASE_FRAME, yaw);
         // Obtener nube de puntos desde kinect
-
+        // r_driver->sensors->kinect->getCloud();
         // Buscar un plano adecuado
 
         yaw += yaw_step;
@@ -94,13 +100,28 @@ int main(int argc, char **argv){
     r_driver = new RobotDriver();
     
     // 1) BUSCAR SUPERFICIE
-    PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
+/*    PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
     if (not searchSurface(surface_cloud)){
         ROS_ERROR("No se pudo obtener superficie");
         exit(1);
-    }
+    }*/
 
-    return 0;
+        //   ZONA DE PRUEBAS
+        // Mover 1m hacia atrás y mirar al frente
+        geometry_msgs::PoseStamped pose;
+        pose.header.frame_id = Util::BASE_FRAME;
+        pose.pose.position.x = 2;
+        pose.pose.position.y = pose.pose.position.z = 0;
+        pose.pose.orientation = Util::coefsToQuaternionMsg(1,1,0);
+        r_driver->base->goToPose(pose);
+
+        // END ZONA DE PRUEBAS
+
+
+
+
+
+    endProgram(0);
 }
 
 
