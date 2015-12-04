@@ -20,7 +20,9 @@ class RobotHeadDriver{
     geometry_msgs::Point lastpoint_;
     public:
         // Métodos
+        // Constructor y destructor
         RobotHeadDriver();
+        ~RobotHeadDriver();
         bool lookAt(string frame_id, double x, double y, double z);
         bool rotate(string frame_id, double rad);
 

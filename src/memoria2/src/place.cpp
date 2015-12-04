@@ -25,21 +25,19 @@ void signalHandler( int signum ){
     ROS_INFO("Terminando programa...");
     exit(0);
 }
-/*bool searchSurface(PointCloud<PointXYZ>::Ptr outcloud){
+bool searchSurface(PointCloud<PointXYZ>::Ptr outcloud){
     // Constantes
-    const float PI = Util::PI;
-
-    const float min_yaw = -PI*2/4.0;
-    const float max_yaw = PI*2/4.0;
-    const float yaw_step = PI/4.0;
+    const float min_yaw = -Util::PI/2.0; //-90°
+    const float max_yaw = Util::PI/2.0;  // 90°
+    const float yaw_step = Util::PI/4.0; // 45°
     float yaw = min_yaw;
     ROS_INFO("Se inicia búsqueda de superficie");
     // Mirar al frente
-    r_driver->head.lookAt(Util::BASE_FRAME, 2, 0, 0);
+    r_driver->head->lookAt(Util::BASE_FRAME, 2, 0, 0);
     // Iterar y mirar alrededor
     while (yaw <= max_yaw){
         // Rotar cabeza
-        r_driver->head.rotate(Util::BASE_FRAME, yaw);
+        r_driver->head->rotate(Util::BASE_FRAME, yaw);
         // Obtener nube de puntos desde kinect
 
         // Buscar un plano adecuado
@@ -50,7 +48,7 @@ void signalHandler( int signum ){
     // Subir la mirada e iterar
     while (yaw >= min_yaw){
         // Robar cabeza
-        r_driver->head.rotate(Util::BASE_FRAME, yaw);
+        r_driver->head->rotate(Util::BASE_FRAME, yaw);
         // Obtener nube de puntos de kinect
 
         // Buscar plano adecuado
@@ -61,7 +59,7 @@ void signalHandler( int signum ){
     return true;
 }
 
-*/
+
 
 
 /**
@@ -93,14 +91,22 @@ int main(int argc, char **argv){
     signal(SIGINT, signalHandler);
     // Iniciando robot driver
     ROS_DEBUG("PLACE: Iniciando RobotDriver");
-    RobotDriver robotdriver = RobotDriver();
-    /*
+    r_driver = new RobotDriver();
+    
     // 1) BUSCAR SUPERFICIE
     PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
     if (not searchSurface(surface_cloud)){
         ROS_ERROR("No se pudo obtener superficie");
         exit(1);
-    }*/
+    }
 
     return 0;
 }
+
+
+/*
+
+    TODO:
+        - Revisar problema de head driver de no hacer nada a veces (lanzar timeout)
+
+ */

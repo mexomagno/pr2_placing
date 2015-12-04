@@ -6,7 +6,8 @@ const float HEAD_MIN_DURATION = 0.1;
 const float HEAD_TIMEOUT = 15;
 const float WAIT_CONTROLLER_TIMEOUT = 5.0;
 
-
+// MÉTODOS
+// Constructor y Destructor
 RobotHeadDriver::RobotHeadDriver(){
     // Crear cliente de movimiento
     ROS_DEBUG("RobotHeadDriver: Creando nuevo objeto RobotHeadDriver");
@@ -20,6 +21,11 @@ RobotHeadDriver::RobotHeadDriver(){
     // Mirar hacia el frente
     bool res = this->lookAt(Util::BASE_FRAME,10,0,1.5);
     ROS_DEBUG("Ya se miro al frente. Resultado: %s", (res ? "true" : "false"));
+}
+RobotHeadDriver::~RobotHeadDriver(){
+    // Eliminar cliente
+    ROS_DEBUG("RobotHeadDriver: Destruyendo cliente servicio POINT_HEAD_CONTROLLER");
+    delete this->phc_;
 }
 bool RobotHeadDriver::lookAt(string frame_id, double x, double y, double z){
     geometry_msgs::Point point;
@@ -62,9 +68,9 @@ bool RobotHeadDriver::sendLookAt(string frame_id, geometry_msgs::Point p){
     goal.max_velocity = HEAD_MAX_VELOCITY;
     goal.min_duration = ros::Duration(HEAD_MIN_DURATION);
     ROS_DEBUG("RobotHeadDriver: Enviando Goal al robot...");
-    phc_->sendGoal(goal);
+    this->phc_->sendGoal(goal);
     ROS_DEBUG("RobotHeadDriver: Enviado!");
-    if (not phc_->waitForResult(ros::Duration(HEAD_TIMEOUT))){
+    if (not this->phc_->waitForResult(ros::Duration(HEAD_TIMEOUT))){
         ROS_ERROR("RobotHeadDriver: Timeout antes de llegar a pose final");
         return false;
     }

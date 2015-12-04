@@ -9,15 +9,16 @@ class RobotDriver{
     public:
         // Variables públicas
         // Driver de cabeza
-        RobotHeadDriver head;
+        RobotHeadDriver *head;
     /*    // Driver de base
         RobotBaseDriver base;
         // Driver de gripper izquierdo
         RobotGripperDriver lgripper;
         // Driver de gripper derecho
         RobotGripperDriver rgripper;*/
-        // Constructor
+        // Constructor y destructor
         RobotDriver();
+        ~RobotDriver();
     protected:
     private:
 };
