@@ -1,5 +1,7 @@
 #include "../RobotDriver.h"
 
 RobotDriver::RobotDriver(){
-    this->head = RobotHeadDriver();
+/*	ROS_INFO("RobotDriver: Creando un RobotHeadDriver");
+    *head = 	RobotHeadDriver();
+    ROS_INFO("RobotDriver: RobotHeadDriver creado");*/
 }

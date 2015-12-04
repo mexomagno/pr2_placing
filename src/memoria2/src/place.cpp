@@ -5,12 +5,11 @@
 #include <string>
 #include <csignal>
 #include <ros/ros.h>
+#include <ros/console.h> // Para debuggear
 // PCL
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl_ros/point_cloud.h>
-
-
 // Propios
 #include "Util.h"
 #include "RobotDriver.h"
@@ -26,7 +25,7 @@ void signalHandler( int signum ){
     ROS_INFO("Terminando programa...");
     exit(0);
 }
-bool searchSurface(PointCloud<PointXYZ>::Ptr outcloud){
+/*bool searchSurface(PointCloud<PointXYZ>::Ptr outcloud){
     // Constantes
     const float PI = Util::PI;
 
@@ -62,7 +61,7 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr outcloud){
     return true;
 }
 
-
+*/
 
 
 /**
@@ -86,18 +85,22 @@ int main(int argc, char **argv){
     // Iniciar nodo ROS
     ros::init(argc, argv, "placing_node");
     ros::NodeHandle nh;
+    // Verbosidad para debugging
+    if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug) ) {
+        ros::console::notifyLoggerLevelsChanged();
+    }
     // Para terminar con ctrl+c
     signal(SIGINT, signalHandler);
     // Iniciando robot driver
-    ROS_DEBUG("Iniciando RobotDriver");
-    *r_driver = RobotDriver();
-
+    ROS_DEBUG("PLACE: Iniciando RobotDriver");
+    RobotDriver robotdriver = RobotDriver();
+    /*
     // 1) BUSCAR SUPERFICIE
     PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
     if (not searchSurface(surface_cloud)){
         ROS_ERROR("No se pudo obtener superficie");
         exit(1);
-    }
+    }*/
 
     return 0;
 }

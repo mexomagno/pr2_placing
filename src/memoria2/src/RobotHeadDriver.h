@@ -9,7 +9,6 @@
 #include <pr2_controllers_msgs/PointHeadGoal.h>
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <actionlib/client/simple_action_client.h>
-#include <ros/console.h> // Para debuggear
 
 using namespace std;
 using namespace pcl;
@@ -20,12 +19,6 @@ class RobotHeadDriver{
     PointHeadClient *phc_;
     geometry_msgs::Point lastpoint_;
     public:
-        // Constantes
-        static const string POINT_HEAD_CONTROLLER;
-        static const float HEAD_MAX_VELOCITY;
-        static const float HEAD_MIN_DURATION;
-        static const float HEAD_TIMEOUT;
-
         // Métodos
         RobotHeadDriver();
         bool lookAt(string frame_id, double x, double y, double z);

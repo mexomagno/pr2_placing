@@ -1,6 +1,7 @@
 #ifndef ROBOTDRIVER_H
 #define ROBOTDRIVER_H
 
+#include <ros/ros.h>
 #include "RobotHeadDriver.h"
 // #include "RobotBaseDriver.h"
 
@@ -15,6 +16,7 @@ class RobotDriver{
         RobotGripperDriver lgripper;
         // Driver de gripper derecho
         RobotGripperDriver rgripper;*/
+        // Constructor
         RobotDriver();
     protected:
     private:
