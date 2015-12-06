@@ -1,6 +1,6 @@
 #ifndef ROBOTGRIPPERDRIVER_H
 #define ROBOTGRIPPERDRIVER_H
-#include "Util.h"
+#include "../Util/Util.h"
 #include <string>
 #include <ros/ros.h>
 #include <pr2_controllers_msgs/Pr2GripperCommandActionGoal.h>
