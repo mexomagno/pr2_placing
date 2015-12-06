@@ -4,6 +4,8 @@
 #include <ros/ros.h>
 #include "RobotHeadDriver.h"
 #include "RobotBaseDriver.h"
+#include "RobotGripperDriver.h"
+#include "RobotSensors.h"
 
 class RobotDriver{
     public:
@@ -12,10 +14,12 @@ class RobotDriver{
         RobotHeadDriver *head;
         // Driver de base
         RobotBaseDriver *base;
-        /*// Driver de gripper izquierdo
-        RobotGripperDriver lgripper;
+        // Driver de gripper izquierdo
+        RobotGripperDriver *lgripper;
         // Driver de gripper derecho
-        RobotGripperDriver rgripper;*/
+        RobotGripperDriver *rgripper;
+        // Sensores del robot (sólo los que ocuparé en la memoria)
+        RobotSensors sensors;
         // Constructor y destructor
         RobotDriver();
         ~RobotDriver();

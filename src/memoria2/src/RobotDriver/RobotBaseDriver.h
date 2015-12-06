@@ -9,8 +9,7 @@
 
 using namespace std;
 
-class RobotBaseDriver
-{
+class RobotBaseDriver{
 	ros::NodeHandle *nh_;
 
     public:

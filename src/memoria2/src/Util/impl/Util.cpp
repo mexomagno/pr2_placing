@@ -36,3 +36,6 @@ geometry_msgs::Quaternion Util::coefsToQuaternionMsg(float a, float b, float c){
     float yaw = (a==0?toRad(90):atan(b/a)) + (a>=0?0:toRad(180));
     return tf::createQuaternionMsgFromRollPitchYaw(0,pitch,yaw);
 }
+/*PointCloud<PointXYZ> Util::scanGripper(char which){
+    
+}*/

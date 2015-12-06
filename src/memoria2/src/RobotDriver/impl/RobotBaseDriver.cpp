@@ -172,5 +172,5 @@ bool RobotBaseDriver::travel(float distance, float angle){
 /**
  *	TODO:
  *		- Evaluar posibilidad de desacelerar al acercarse a posición final (para turn y travel).
- * 
+ *  	- Evaluar generalidad de goToPose. Está pensado para el placing, pero para otras aplicaciones se comporta de forma poco práctica.
  */

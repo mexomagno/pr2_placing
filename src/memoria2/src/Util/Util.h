@@ -1,5 +1,5 @@
-#ifndef UTIL_H_H
-#define UTIL_H_H
+#ifndef UTIL_H
+#define UTIL_H
 
 #include <string>
 #include <geometry_msgs/Quaternion.h>
@@ -31,8 +31,9 @@ class Util{
         static float toRad(float grad);
         static float toGrad(float rad);
         static geometry_msgs::Quaternion coefsToQuaternionMsg(float a, float b, float c);
+        // static scanGripper(char which);
     protected:
     private:
 };
 
-#endif // UTIL_H_H
+#endif // UTIL_H
