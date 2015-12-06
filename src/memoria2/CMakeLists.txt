@@ -145,12 +145,13 @@ include_directories(
 # )
 
 # Directorio a archivos fuente propios
-set(SOURCES ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotDriver.cpp
-            ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotHeadDriver.cpp
-            ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotBaseDriver.cpp
-            ${PROJECT_SOURCE_DIR}/src/Util/Util.cpp)
+set(SOURCES ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotDriver.cpp
+            ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotHeadDriver.cpp
+            ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotBaseDriver.cpp
+            ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotGripperDriver.cpp
+            ${PROJECT_SOURCE_DIR}/src/Util/impl/Util.cpp)
 
-add_executable(place src/place.cpp ${SOURCES})  
+add_executable(place src/place.cpp ${SOURCES})
 target_link_libraries(place ${catkin_LIBRARIES})
 
 #############

@@ -13,8 +13,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl_ros/point_cloud.h>
 // Propios
-#include "Util.h"
-#include "RobotDriver.h"
+#include "Util/Util.h"
+#include "RobotDriver/RobotDriver.h"
 
 
 using namespace std;
@@ -22,6 +22,7 @@ using namespace pcl;
 
 // VARIABLES GLOBALES
 RobotDriver *r_driver;
+char grasp_arm;
 void endProgram(int retcode){
     ROS_INFO("Terminando programa...");
     delete r_driver;
@@ -80,7 +81,7 @@ int main(int argc, char **argv){
         ROS_ERROR("Debe ingresar brazo que posee objeto [l|r]\n");
         exit(1);
     }
-    char grasp_arm = argv[1][0];
+    grasp_arm = argv[1][0];
     if (grasp_arm != 'l' and grasp_arm != 'r'){
         ROS_ERROR("Error: Debe ingresar brazo válido [l|r]");
         exit(1);
@@ -106,16 +107,23 @@ int main(int argc, char **argv){
         exit(1);
     }*/
 
-        //   ZONA DE PRUEBAS
-        // Mover 1m hacia atrás y mirar al frente
-        geometry_msgs::PoseStamped pose;
-        pose.header.frame_id = Util::BASE_FRAME;
-        pose.pose.position.x = 2;
-        pose.pose.position.y = pose.pose.position.z = 0;
-        pose.pose.orientation = Util::coefsToQuaternionMsg(1,1,0);
-        r_driver->base->goToPose(pose);
+    //   ZONA DE PRUEBAS
+/*    // Mover 1m hacia atrás y mirar al frente
+    geometry_msgs::PoseStamped pose;
+    pose.header.frame_id = Util::BASE_FRAME;
+    pose.pose.position.x = 2;
+    pose.pose.position.y = pose.pose.position.z = 0;
+    pose.pose.orientation = Util::coefsToQuaternionMsg(1,1,0);
+    r_driver->base->goToPose(pose);*/
 
-        // END ZONA DE PRUEBAS
+/*    r_driver->lgripper->setOpening(1, 400);
+    r_driver->rgripper->setOpening(1, 400);
+    r_driver->lgripper->setOpening(0, 400);
+    r_driver->rgripper->setOpening(0, 400);*/
+
+
+
+    // END ZONA DE PRUEBAS
 
 
 
