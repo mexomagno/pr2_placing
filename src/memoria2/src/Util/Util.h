@@ -28,6 +28,7 @@ class Util{
 
         // Tópicos
         static const string KINECT_TOPIC;
+        static const string KINECT_TOPIC_SELF_FILTERED;
         static const string GRIPPER_GOAL_TOPIC_SUFFIX;
         static const string GRIPPER_STATUS_TOPIC_SUFFIX;
         static const string BASE_CONTROLLER_TOPIC;
@@ -37,7 +38,7 @@ class Util{
         static const float PI;
         static const float SUBSAMPLE_LEAFSIZE;
         static const float DEFAULT_DESIRED_PITCH;
-
+        static const float KINECT_STABILIZE_TIME;
         // Métodos
         static float toRad(float grad);
         static float toGrad(float rad);

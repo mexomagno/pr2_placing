@@ -10,6 +10,7 @@ const string Util::KINECT_FRAME                = "/head_mount_kinect_ir_optical_
 
 // Tópicos
 const string Util::KINECT_TOPIC                = "head_mount_kinect/depth_registered/points";
+const string Util::KINECT_TOPIC_SELF_FILTERED  = "head_mount_kinect/depth_registered/points";
 const string Util::GRIPPER_GOAL_TOPIC_SUFFIX   = "_gripper_controller/gripper_action/goal";
 const string Util::GRIPPER_STATUS_TOPIC_SUFFIX = "_gripper_controller/gripper_action/result";
 const string Util::BASE_CONTROLLER_TOPIC       = "/base_controller/command";
@@ -21,19 +22,21 @@ const float Util::SUBSAMPLE_LEAFSIZE = 0.05;
 // segmentación
 const float WAIT_TF_TIMEOUT = 1.0;
 const float SEG_THRESHOLD = 0.01;
-const float MIN_SEGMENTED_SURFACE_PERCENT = 15;
+const float MIN_SEGMENTED_SURFACE_PERCENT = 5;
 const float MIN_CLOUD_LEFT_PERCENT = 10;
 // Búsqueda de superficie
 const float Util::DEFAULT_DESIRED_PITCH = -Util::PI/2.0; // Inclinación deseada del plano (normal vetical)
 const float PITCH_THRESHOLD = 0.09;
+const float Util::KINECT_STABILIZE_TIME = 1;
+
 
 // MÉTODOS
 Util::Util(){}
 float Util::toGrad(float rad){
-	return rad*180.0/PI;
+    return rad*180.0/PI;
 }
 float Util::toRad(float grad){
-	return grad*PI/180.0;
+    return grad*PI/180.0;
 }
 geometry_msgs::Quaternion Util::coefsToQuaternionMsg(float a, float b, float c){
     /* 
@@ -79,6 +82,13 @@ geometry_msgs::Point Util::getCloudCentroid(PointCloud<PointXYZ>::Ptr cloud_in){
  * @param  cloud_out   : Donde se retornan los inliers
  */
 bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination){
+    // variables auxiliares, para borrar
+    ros::NodeHandle nh;
+    ros::Publisher point_pub1 = nh.advertise<geometry_msgs::PointStamped>("centroide_k", 1);
+    ros::Publisher point_pub2 = nh.advertise<geometry_msgs::PointStamped>("centroide_b", 1);
+    ros::Publisher pc_pub1 = nh.advertise<PointCloud<PointXYZ> >("plano", 1);
+    ros::Publisher pc_pub2 = nh.advertise<PointCloud<PointXYZ> >("subsampled", 1);
+    pc_pub2.publish(*cloud_in);
     // Tamaño inicial de la nube de entrada
     int init_cloud_size = (int)cloud_in->size();
     int current_cloud_size = init_cloud_size;
@@ -87,15 +97,16 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
     ros::Time transform_time = ros::Time(0);
     // Intentar obtener transformación actual
     try{
-        ROS_DEBUG("Util: Esperando transformación disponible...");
+        ROS_DEBUG("UTIL: Esperando transformacion disponible...");
         if (not tf_listener.waitForTransform(cloud_in->header.frame_id, BASE_FRAME, transform_time, ros::Duration(WAIT_TF_TIMEOUT))){
-            ROS_ERROR("Util: Transformación no pudo ser obtenida antes del timeout (%fs)", WAIT_TF_TIMEOUT);
+            ROS_ERROR("UTIL: Transformacion no pudo ser obtenida antes del timeout (%fs)", WAIT_TF_TIMEOUT);
             return false;
         }
+        ROS_DEBUG("UTIL: Guardando transformacion");
         tf_listener.lookupTransform(cloud_in->header.frame_id, BASE_FRAME, ros::Time(0), stamped_tf);
     }
     catch (tf::TransformException ex){
-        ROS_ERROR("Util: Excepción al obtener transformación: %s", ex.what());
+        ROS_ERROR("UTIL: Excepcion al obtener transformacion: %s", ex.what());
     }
     // Preparar para segmentación
     SACSegmentation<PointXYZ> segmentator;
@@ -117,23 +128,28 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
         if (inliers->indices.size()*100.0/current_cloud_size < MIN_SEGMENTED_SURFACE_PERCENT){
             // Si no se encontró el modelo
             if (inliers->indices.size() == 0){
-                ROS_INFO("Util: No se encontró plano");
+                ROS_INFO("UTIL: No se encontró plano");
                 return false;
             }
             // Si es una superficie muy chica
-            ROS_INFO("Util: Superficie muy pequeña (%f%% de un mímino de %f%% del total de puntos)", inliers->indices.size()*100.0/init_cloud_size, MIN_SEGMENTED_SURFACE_PERCENT);
+            ROS_INFO("UTIL: Superficie muy pequeña (%f%% de un mímino de %f%% del total de puntos)", inliers->indices.size()*100.0/init_cloud_size, MIN_SEGMENTED_SURFACE_PERCENT);
             return false;
         }
+        ROS_DEBUG("UTIL: Se obtuvo un modelo con %i puntos", (int)inliers->indices.size());
         extractor.setInputCloud(cloud_in);
         extractor.setIndices(inliers);
         extractor.setNegative(false);
         extractor.filter(*cloud_plane);
         // Verificar primer criterio de aceptación: Altura mínima
+        pc_pub1.publish(*cloud_plane);
+        ROS_DEBUG("UTIL: Area aproximada de la superficie: %fm2", Util::SUBSAMPLE_LEAFSIZE*Util::SUBSAMPLE_LEAFSIZE*(int)inliers->indices.size());
         geometry_msgs::PointStamped cloud_centroid, cloud_centroid_base;
         cloud_centroid.point = Util::getCloudCentroid(cloud_plane);
         cloud_centroid.header.frame_id = cloud_in->header.frame_id;
         cloud_centroid.header.stamp = stamped_tf.stamp_;
         tf_listener.transformPoint(Util::BASE_FRAME, cloud_centroid, cloud_centroid_base);
+        ROS_DEBUG("UTIL: Centroide según base: (%f, %f, %f)", cloud_centroid_base.point.x, cloud_centroid_base.point.y, cloud_centroid_base.point.z);
+        point_pub2.publish(cloud_centroid_base);
         if (cloud_centroid_base.point.z > min_height and cloud_centroid_base.point.z < max_height){
             // Primera prueba superada. Ahora, comprobar inclinación
             // Obtener la normal del plano, basada en los coeficientes del plano
@@ -148,9 +164,10 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
             tf::Matrix3x3(tf_q).getRPY(roll, pitch, yaw);
             // El siguiente arreglo, puede ser un problema si se encuentra un techo bajo
             pitch = -abs(pitch);
+            ROS_DEBUG("UTIL: Inclinación del plano respecto al suelo (plano XY): %f grados", Util::toGrad(-pitch));
             // Verificar segundo criterio de aceptación: Inclinación máxima
             if (inclination - PITCH_THRESHOLD < pitch and pitch < inclination + PITCH_THRESHOLD){
-                ROS_INFO("Util: Superficie encontrada");
+                ROS_INFO("UTIL: Superficie encontrada");
                 // Guardar superficie encontrada
                 extractor.setInputCloud(cloud_in);
                 extractor.setIndices(inliers);
@@ -160,7 +177,7 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
             }
         }
         else {
-            ROS_INFO("Util: Plano demasiado %s. Buscando siguiente...", cloud_centroid_base.point.z > max_height ? "alto" : "bajo");
+            ROS_INFO("UTIL: Plano demasiado %s. Buscando siguiente...", cloud_centroid_base.point.z > max_height ? "alto" : "bajo");
         }
         // Quitar plano encontrado de los puntos restantes
         extractor.setInputCloud(cloud_in);

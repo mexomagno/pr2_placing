@@ -19,8 +19,7 @@ RobotHeadDriver::RobotHeadDriver(){
     }
     ROS_DEBUG("RobotHeadDriver: Mirando hacia el frente");
     // Mirar hacia el frente
-    bool res = this->lookAt(Util::BASE_FRAME,10,0,1.5);
-    ROS_DEBUG("Ya se miro al frente. Resultado: %s", (res ? "true" : "false"));
+    this->lookAt(Util::BASE_FRAME,10,0,1.5);
 }
 RobotHeadDriver::~RobotHeadDriver(){
     // Eliminar cliente
@@ -69,11 +68,9 @@ bool RobotHeadDriver::sendLookAt(string frame_id, geometry_msgs::Point p){
     goal.min_duration = ros::Duration(HEAD_MIN_DURATION);
     ROS_DEBUG("RobotHeadDriver: Enviando Goal al robot...");
     this->phc_->sendGoal(goal);
-    ROS_DEBUG("RobotHeadDriver: Enviado!");
     if (not this->phc_->waitForResult(ros::Duration(HEAD_TIMEOUT))){
         ROS_ERROR("RobotHeadDriver: Timeout antes de llegar a pose final");
         return false;
     }
-    ROS_DEBUG("RobotHeadDriver: Respuesta del envío fue True");
     return true;
 }
