@@ -128,7 +128,7 @@ int goToPose(geometry_msgs::PoseStamped& pose_goal){
     double manual_angle = 2*acos(q.w);
     double manual_angle2 = atan2(2.0*(q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y + q.z*q.z));
     // Aplicar pequeña corrección al ángulo
-    double manual_angle2 = (manual_angle2 > 0 ? manual_angle2 - ANGLE_CORRECTION : manual_angle2 + ANGLE_CORRECTION);
+    manual_angle2 = (manual_angle2 > 0 ? manual_angle2 - ANGLE_CORRECTION : manual_angle2 + ANGLE_CORRECTION);
     // Corrige angulos positivos
     ROS_INFO("Angulo con tf: %f, manual1: %f, manual2: %f", angle*180.0/PI, manual_angle*180.0/PI, manual_angle2*180.0/PI);
     angle = (angle > PI ? -(2*PI-angle) : angle);
