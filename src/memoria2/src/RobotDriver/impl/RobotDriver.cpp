@@ -8,6 +8,9 @@ RobotDriver::RobotDriver(){
     ROS_DEBUG("RobotDriver: Creando un RobotGripperDriver para cada gripper");
     this->lgripper = new RobotGripperDriver("l");
     this->rgripper = new RobotGripperDriver("r");
+    ROS_DEBUG("RobotDriver: Creando sensores");
+    this->sensors = new RobotSensors();
+    
 }
 RobotDriver::~RobotDriver(){
 	ROS_DEBUG("RobotDriver: Borrando RobotHeadDriver");
@@ -17,4 +20,6 @@ RobotDriver::~RobotDriver(){
 	ROS_DEBUG("RobotDriver: Destruyendo ambos RobotGripperDrivers");
 	delete this->lgripper;
 	delete this->rgripper;
+	ROS_DEBUG("RobotDriver: Destruyendo sensores");
+	delete this->sensors;
 }

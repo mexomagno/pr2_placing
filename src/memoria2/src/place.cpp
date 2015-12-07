@@ -25,6 +25,7 @@ RobotDriver *r_driver;
 char grasp_arm;
 void endProgram(int retcode){
     ROS_INFO("Terminando programa...");
+    ros::shutdown();
     delete r_driver;
     exit(retcode);
 }
@@ -41,14 +42,27 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr outcloud){
     ROS_INFO("Se inicia búsqueda de superficie");
     // Mirar al frente
     r_driver->head->lookAt(Util::BASE_FRAME, 2, 0, 0);
+    // Contenedor de nube de puntos
+    PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>()),
+                              cloud_subsampled(new PointCloud<PointXYZ>()),
+                              cloud_surface(new PointCloud<PointXYZ>());
     // Iterar y mirar alrededor
     while (yaw <= max_yaw){
         // Rotar cabeza
         r_driver->head->rotate(Util::BASE_FRAME, yaw);
         // Obtener nube de puntos desde kinect
-        // r_driver->sensors->kinect->getCloud();
+        ROS_DEBUG("place: Esperando nube de puntos...");
+        cloud = r_driver->sensors->kinect->getNewCloud();
+        ROS_DEBUG("place: Nube recibida");
+        // Submuestrear nube
+        cloud_subsampled = Util::subsampleCloud(cloud, Util::SUBSAMPLE_LEAFSIZE);
         // Buscar un plano adecuado
-
+        
+        if (Util::searchPlacingSurface(cloud_subsampled, cloud_surface, 0.4, 0.8, Util::DEFAULT_DESIRED_PITCH)){
+            outcloud = cloud_surface;
+            return true;
+        }
+        ROS_INFO("place: No fue posible encontrar una superficie de placing");
         yaw += yaw_step;
     }
     // Si no se encontró, buscar hacia el otro lado
@@ -99,6 +113,7 @@ int main(int argc, char **argv){
     // Iniciando robot driver
     ROS_DEBUG("PLACE: Iniciando RobotDriver");
     r_driver = new RobotDriver();
+    ROS_DEBUG("PLACE: RobotDriver Creado e iniciado");
     
     // 1) BUSCAR SUPERFICIE
 /*    PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
@@ -120,7 +135,16 @@ int main(int argc, char **argv){
     r_driver->rgripper->setOpening(1, 400);
     r_driver->lgripper->setOpening(0, 400);
     r_driver->rgripper->setOpening(0, 400);*/
+    ros::Publisher cloud_pub = nh.advertise<PointCloud<PointXYZ> >("nube_maravillosa", 1);
+    PointCloud<PointXYZ>::Ptr kinect_cloud (new PointCloud<PointXYZ>());
+    ROS_DEBUG("PLACE: creado topico e iniciando ciclo");
 
+    while (1){
+        kinect_cloud = r_driver->sensors->kinect->getNewCloud();
+        ROS_DEBUG("PLACE: N° Puntos: %d", (int)kinect_cloud->points.size());
+        cloud_pub.publish(*kinect_cloud);
+        ros::Duration(0.4).sleep();    
+    }
 
 
     // END ZONA DE PRUEBAS

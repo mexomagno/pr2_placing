@@ -5,7 +5,7 @@
 #include "RobotHeadDriver.h"
 #include "RobotBaseDriver.h"
 #include "RobotGripperDriver.h"
-#include "RobotSensors.h"
+#include "RobotSensors/RobotSensors.h"
 
 class RobotDriver{
     public:
@@ -19,7 +19,7 @@ class RobotDriver{
         // Driver de gripper derecho
         RobotGripperDriver *rgripper;
         // Sensores del robot (sólo los que ocuparé en la memoria)
-        RobotSensors sensors;
+        RobotSensors *sensors;
         // Constructor y destructor
         RobotDriver();
         ~RobotDriver();

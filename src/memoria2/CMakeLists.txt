@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
     roscpp
     pcl_ros
     # Mensajes
+    sensor_msgs
     pr2_controllers_msgs
     # Action Clients
     actionlib
@@ -149,6 +150,8 @@ set(SOURCES ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotDriver.cpp
             ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotHeadDriver.cpp
             ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotBaseDriver.cpp
             ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotGripperDriver.cpp
+            ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotSensors/impl/RobotSensors.cpp
+            ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotSensors/impl/Kinect.cpp
             ${PROJECT_SOURCE_DIR}/src/Util/impl/Util.cpp)
 
 add_executable(place src/place.cpp ${SOURCES})

@@ -2,10 +2,18 @@
 #define ROBOTSENSORS_H
 
 #include <ros/ros.h>
+#include "../../Util/Util.h"
+#include "Kinect.h"
+
 //#include <sensor_msgs/PointCloud2.h>
 class RobotSensors{
 	public:
-		Kinect kinect;
+		Kinect *kinect;
+
+		// Constructor y Destructor
+		RobotSensors();
+		~RobotSensors();
+
 	private:
 };
 
