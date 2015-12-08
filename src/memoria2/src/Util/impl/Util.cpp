@@ -29,7 +29,14 @@ const float Util::DEFAULT_DESIRED_PITCH = -Util::PI/2.0; // Inclinación deseada
 const float PITCH_THRESHOLD = 0.09;
 const float Util::KINECT_STABILIZE_TIME = 1;
 const float Util::ROBOT_FRONT_MARGIN = 0.5;
-
+// Gripper Scanner
+const float SCAN_ROLL_DELTA = Util::PI/2.0;
+const string GRIPPER_FRAME_SUFFIX = "_gripper_tool_frame";
+const float scan_position[] = {0.6, 0, 1.2};
+float scan_orientation[] = {0, -PI/2.0, 0}; //R, P, Y
+const float GRIPPER_STABILIZE_TIME = 1;
+const float PASSTHROUGH_Z = 0.5;
+const float SCAN_LEAFSIZE = 0.005;
 
 // MÉTODOS
 Util::Util(){}
@@ -142,7 +149,7 @@ Eigen::Matrix4f Util::getTransformation(string frame_ini, string frame_end){
     transformation.col(3) = Eigen::Vector4f(translation[0], translation[1], translation[2], 1);
     // cout << "Todo: \n" << transformation << endl;
     return transformation;
-/*  transformation << rotation[0][0], rotation[0][1], rotation[0][2], translation[0],
+    /*  transformation << rotation[0][0], rotation[0][1], rotation[0][2], translation[0],
         rotation[1][0], rotation[1][1], rotation[1][2], translation[1],
         rotation[2][0], rotation[2][1], rotation[2][2], translation[2],
         0, 0, 0, 1;*/
@@ -262,4 +269,118 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
     }while ( ((int)cloud_in->size()*100.0/init_cloud_size) >= MIN_CLOUD_LEFT_PERCENT);
     ROS_INFO("Quedan muy pocos puntos para buscar una superficie. Superficie NO encontrada");
     return false;
+}
+bool Util::scanGripper(RobotDriver r_driver, char which_arm, PointCloud<PointXYZ>::Ptr object_out, PointCloud<PointXYZ>::Ptr gripper_out){
+    // Mover gripper a posición inicial de scanning
+    geometry_msgs::PoseStamped scan_pose;
+    scan_pose.header.frame_id = Util::BASE_FRAME;
+    scan_pose.position.x = scan_position[0];
+    scan_pose.position.y = scan_position[1];
+    scan_pose.position.z = scan_position[2];
+    scan_orientation[0] += SCAN_ROLL_DELTA;
+    scan_pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
+    string GRIPPER_FRAME = (which_arm == 'l' ? "l" : "r") + GRIPPER_FRAME_SUFFIX;
+    if (which_arm == 'l')
+        r_driver->lgripper->goToPose(scan_pose);
+    else
+        r_driver->rgripper->goToPose(scan_pose);
+    ros::Duration(GRIPPER_STABILIZE_TIME).sleep();
+    // Contenedores para objetos creados en el ciclo
+    PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>()), 
+                              cloud_near(new PointCloud<PointXYZ>()),
+                              cloud_subsampled(new PointCloud<PointXYZ>()),
+                              cloud_base(new PointCloud<PointXYZ>());
+    vector<PointCloud<PointXYZ> > cloud_scans;
+    Eigen::Matrix4f transformation;
+    // Scanear
+    while ( 1 ){
+        // Pedir nube de kinect
+        cloud = r_driver->sensors->kinect.getNewCloud();
+        // obtener transformación de kinect a wrist
+        transformation = Util::getTransformation(Util::KINECT_FRAME, GRIPPER_FRAME);
+        // Eliminar puntos lejanos
+        PassThrough<PointXYZ> pass;
+        pass.setInputCloud(cloud);
+        pass.setFilterFieldName("z");
+        pass.setFilterLimits(0.6 - PASSTHROUGH_Z/2.0, 0.6 + PASSTHROUGH_Z/2.0); // HARDCODEADO. FORMA CORRECTA ES CON TF?
+        pass.filter(*cloud_near);
+        // submuestrear
+        cloud_subsampled = Util::subsampleCloud(cloud_near, SCAN_LEAFSIZE);
+        // Transformar y agregar a scans
+        transformPointCloud(*cloud_subsampled, *cloud_base, transformation);
+        cloud_scans.push_back(*cloud_base);
+        // Si ya escaneamos todas las perspectivas, juntarlas y retornar
+        scan_orientation[0] += SCAN_ROLL_DELTA;
+        if (scan_orientation[0] > 2*Util::PI){
+            PointCloud<PointXYZ>::Ptr merged (new PointCloud<PointXYZ>());
+            for (int i=0; i<cloud_scans.size(); i++){
+                merged += cloud_scans[i];
+            }
+            // Filtrar gripper
+            Util::gripperFilter(merged, object_out, gripper_out);
+            return true;
+        }
+        ROS_DEBUG("UTIL: Posicionándose psra siguiente scan");
+        scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
+        if (which_arm == 'l')
+            r_driver->lgripper->goToPose(scan_pose);
+        else
+            r_driver->rgripper->goToPose(scan_pose);
+        ros::Duration(GRIPPER_STABILIZE_TIME).sleep();
+    }
+    
+}
+// PRIVATE
+void Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
+    vector<Box> gripper_boxes;
+    // inicializar boxes. Total y absolutamente HARDCODEADO, basado en observaciones.
+    Box box1;
+    box1.center[0] = -0.095; box1.center[1] = box1.center[2] = 0;
+    box1.size[0] = 0.098; box1.size[1] = 0.16; box1.size[2] = 0.061;
+    gripper_boxes.push_back(box1);
+    // Dedos del gripper
+    Box box2;
+    box2.center[0] = -0.03; box2.center[1] = box2.center[2] = 0;
+    box2.size[0] = 0.105; box2.size[1] = 0.18; box2.size[2] = 0.03;
+    gripper_boxes.push_back(box2);
+    // Pedazo cuando está cerrado
+    Box box3;
+    box3.center[0] = -0.042; box3.center[1] = box3.center[2] = 0;
+    box3.size[0] = 0.02; box3.size[1] = 0.11; box3.size[2] = 0.052;
+    gripper_boxes.push_back(box3);
+
+    PointCloud<PointXYZ>::Ptr cloud_out;
+    // Borrar primer pedazo
+    PassThrough<PointXYZ> pass;
+    pass.setInputCloud(cloud_in);
+    pass.setFilterFieldName("x");
+    pass.setFilterLimits(-0.14, 1000); // Totalmente HARDCODEADO
+    pass.filter(*cloud_out);
+    // Separar gripper del objeto
+    /*    PointCloud<PointXYZ>::Ptr object_pc(new PointCloud<PointXYZ>()),
+                              gripper_pc(new PointCloud<PointXYZ>());*/
+    // Capturar índices de puntos dentro de paralelepípedo
+    PointIndices::Ptr inliers (new PointIndices());
+    for (int i=0; i < cloud_out->points.size(); i++){
+        for (int j=0; j < gripper_boxes.size(); j++){
+            if (isPointInsideBox(cloud_out->points[i], gripper_boxes[j])){
+                inliers->indices.push_back(i);
+                break;
+            }
+        }
+    }
+    // Extraer índices de cada figura
+    ExtractIndices<PointXYZ> extractor;
+    extractor.setInputCloud(cloud_out);
+    extractor.setIndices(inliers);
+    extractor.setNegative(false);
+    extractor.filter(*gripper_out);
+    extractor.setNegative(true);
+    extractor.filter(*object_out);
+}
+bool Util::isPointInsideBox(PointXYZ p, Box box){
+    bool in_x = (p.x > box.center[0] - box.size[0]/2.0) and (p.x < box.center[0] + box.size[0]/2.0);
+    bool in_y = (p.y > box.center[1] - box.size[1]/2.0) and (p.y < box.center[1] + box.size[1]/2.0);
+    bool in_z = (p.z > box.center[2] - box.size[2]/2.0) and (p.z < box.center[2] + box.size[2]/2.0);
+    return in_x and in_y and in_z;
 }

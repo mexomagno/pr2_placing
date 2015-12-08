@@ -28,6 +28,12 @@ RobotGripperDriver::RobotGripperDriver(const string which){
     STATUS_TOPIC   = which + Util::GRIPPER_STATUS_TOPIC_SUFFIX;
     gripper_goal_   = this->nh_->advertise<pr2_controllers_msgs::Pr2GripperCommandActionGoal>(GOAL_TOPIC, 1);
     gripper_status_ = this->nh_->subscribe(STATUS_TOPIC, 1, statusCallback);
+    
+    string group_s = (this->which_ == 'l' ? "left_arm" : "right_arm");
+    ROS_DEBUG("RobotGripperDriver: Inicializando grupo '%s'", group_s.c_str());
+    // moveit::planning_interface::MoveGroup group(group_s.c_str());
+    this->moveit_group_ = moveit::planning_interface::MoveGroup(group_s.c_str());
+    ROS_DEBUG("RobotGripperDriver: grupo iniciado");
 }
 RobotGripperDriver::~RobotGripperDriver(){
     delete nh_;
@@ -64,7 +70,17 @@ string RobotGripperDriver::getWhich(){
 				return "error";
 	}
 }
-
+bool RobotGripperDriver::goToPose(geometry_msgs::PoseStamped pose){
+	this->moveit_group_->setPoseTarget(pose);
+    ROS_DEBUG("RobotGripperDriver: Planeando para pose (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f, %.2f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
+    bool plan_done = this->moveit_group_->plan(this->planner_);
+    ROS_DEBUG("RobotGripperDriver: Plan %s", plan_done ? "EXITOSO" : "FALLIDO");
+    if (plan_done){
+    	ROS_DEBUG("RobotGripperDriver: Ejecutando plan...");
+    	this->moveit_group_->move();
+    }
+    return plan_done;
+}
 /**
  * TODO:
  * 		- Implementar timeout en setOpening.

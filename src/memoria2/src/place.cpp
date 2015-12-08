@@ -24,6 +24,7 @@ using namespace pcl;
 
 // VARIABLES GLOBALES
 RobotDriver *r_driver;
+
 // Auxiliares y cosas para visualizar
 ros::Publisher cloud_pub;
 ros::Publisher cloud_pub2;
@@ -152,7 +153,13 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
     // Mirar hacia el centroide
     r_driver->head->lookAt(Util::BASE_FRAME, centroid.x, centroid.y, centroid.z);    
 }
-
+bool getPlacingPose(geometry_msgs::PoseStamped &pose_out){
+    // Scannear gripper
+    PointCloud<PointXYZ>::Ptr gripper_scan (new PointCloud<PointXYZ>());
+    gripper_scan = Util::scanGripper(r_driver, grasp_arm);
+    // Filtrar gripper del scan
+    // Obtener mejor superficie
+}
 
 
 /**
@@ -210,7 +217,15 @@ int main(int argc, char **argv){
         cloud_pub.publish(*kinect_cloud);
         ros::Duration(0.4).sleep();    
     }*/
-    
+    geometry_msgs::PoseStamped placing_pose;
+    if (not getPlacingPose(placing_pose)){
+        ROS_ERROR("PLACE: No se pudo obtener una pose de placing");
+        endProgram(1);
+    }
+    // END ZONA DE PRUEBAS
+
+
+/*
     cloud_pub = nh.advertise<PointCloud<PointXYZ> >("superficie", 1);
     cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("punto_trans_pc", 1);
     point_pub = nh.advertise<geometry_msgs::PointStamped>("punto_mas_cercano", 1);
@@ -229,11 +244,7 @@ int main(int argc, char **argv){
     moveToSurface(surface_cloud);
     ros::Duration(1).sleep();
     
-    ROS_INFO("PLACE: FIN");
-    // END ZONA DE PRUEBAS
-
-
-
+    ROS_INFO("PLACE: FIN");*/
 
 
     endProgram(0);

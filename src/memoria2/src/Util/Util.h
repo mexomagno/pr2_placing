@@ -15,9 +15,17 @@
 #include <pcl/common/centroid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <tf/transform_listener.h>
+#include "../RobotDriver/RobotDriver.h"
 
 using namespace std;
 using namespace pcl;
+// Para uso en gripperfilter
+struct box{
+    float center[3];
+    float size[3];
+};
+typedef struct box Box;
+// FIN gripperfilter
 
 class Util{
     public:
@@ -49,14 +57,15 @@ class Util{
         static geometry_msgs::Quaternion coefsToQuaternionMsg(float a, float b, float c);
         // Operaciones con nubes de puntos
         static PointCloud<PointXYZ>::Ptr subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_in, float leafsize);
-        // static scanGripper(char which);
         static geometry_msgs::Point getCloudCentroid(PointCloud<PointXYZ>::Ptr cloud_in);
         static void getClosestPoint(PointCloud<PointXYZ>::Ptr cloud, geometry_msgs::PointStamped &closest_point, float &closest_point_distance);
         static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
+        // Utilidades específicas
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
-        // 
+        static PointCloud<PointXYZ>::Ptr scanGripper(RobotDriver r_driver, char which);
     protected:
     private:
-};
+        static void gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
+};      static bool isPointInsideBox(PointXYZ p, Box box);
 
 #endif // UTIL_H

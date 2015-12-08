@@ -12,6 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
     pr2_controllers_msgs
     # Action Clients
     actionlib
+    # MoveIt
+    moveit_ros_planning_interface
 
 )
 
