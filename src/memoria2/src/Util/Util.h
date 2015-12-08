@@ -10,12 +10,13 @@
 #include <pcl_ros/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/passthrough.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/common/centroid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <tf/transform_listener.h>
-#include "../RobotDriver/RobotDriver.h"
+// #include "../RobotDriver/RobotDriver.h"
 
 using namespace std;
 using namespace pcl;
@@ -27,6 +28,7 @@ struct box{
 typedef struct box Box;
 // FIN gripperfilter
 
+// Forward declaration de la clase RobotDriver
 class Util{
     public:
         Util();
@@ -51,6 +53,14 @@ class Util{
         static const float DEFAULT_DESIRED_PITCH;
         static const float KINECT_STABILIZE_TIME;
         static const float ROBOT_FRONT_MARGIN;
+        // Gripper scanner
+        static const float SCAN_ROLL_DELTA;
+        static const string GRIPPER_FRAME_SUFFIX;
+        static const float scan_position[];
+        static const float scan_orientation[];
+        static const float GRIPPER_STABILIZE_TIME;
+        static const float SCAN_PASSTHROUGH_Z;
+        static const float SCAN_LEAFSIZE;
         // Métodos
         static float toRad(float grad);
         static float toGrad(float rad);
@@ -62,10 +72,10 @@ class Util{
         static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
         // Utilidades específicas
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
-        static PointCloud<PointXYZ>::Ptr scanGripper(RobotDriver r_driver, char which);
+        static void gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
+        static bool isPointInsideBox(PointXYZ p, Box box);
     protected:
     private:
-        static void gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
-};      static bool isPointInsideBox(PointXYZ p, Box box);
+};
 
 #endif // UTIL_H

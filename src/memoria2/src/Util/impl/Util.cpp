@@ -30,13 +30,13 @@ const float PITCH_THRESHOLD = 0.09;
 const float Util::KINECT_STABILIZE_TIME = 1;
 const float Util::ROBOT_FRONT_MARGIN = 0.5;
 // Gripper Scanner
-const float SCAN_ROLL_DELTA = Util::PI/2.0;
-const string GRIPPER_FRAME_SUFFIX = "_gripper_tool_frame";
-const float scan_position[] = {0.6, 0, 1.2};
-float scan_orientation[] = {0, -PI/2.0, 0}; //R, P, Y
-const float GRIPPER_STABILIZE_TIME = 1;
-const float PASSTHROUGH_Z = 0.5;
-const float SCAN_LEAFSIZE = 0.005;
+const float Util::SCAN_ROLL_DELTA = Util::PI/2.0;
+const string Util::GRIPPER_FRAME_SUFFIX = "_gripper_tool_frame";
+const float Util::scan_position[] = {0.6, 0, 1.2};
+const float Util::scan_orientation[] = {0, -Util::PI/2.0, 0}; //R, P, Y
+const float Util::GRIPPER_STABILIZE_TIME = 1;
+const float Util::SCAN_PASSTHROUGH_Z = 0.5;
+const float Util::SCAN_LEAFSIZE = 0.005;
 
 // MÉTODOS
 Util::Util(){}
@@ -270,66 +270,7 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
     ROS_INFO("Quedan muy pocos puntos para buscar una superficie. Superficie NO encontrada");
     return false;
 }
-bool Util::scanGripper(RobotDriver r_driver, char which_arm, PointCloud<PointXYZ>::Ptr object_out, PointCloud<PointXYZ>::Ptr gripper_out){
-    // Mover gripper a posición inicial de scanning
-    geometry_msgs::PoseStamped scan_pose;
-    scan_pose.header.frame_id = Util::BASE_FRAME;
-    scan_pose.position.x = scan_position[0];
-    scan_pose.position.y = scan_position[1];
-    scan_pose.position.z = scan_position[2];
-    scan_orientation[0] += SCAN_ROLL_DELTA;
-    scan_pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
-    string GRIPPER_FRAME = (which_arm == 'l' ? "l" : "r") + GRIPPER_FRAME_SUFFIX;
-    if (which_arm == 'l')
-        r_driver->lgripper->goToPose(scan_pose);
-    else
-        r_driver->rgripper->goToPose(scan_pose);
-    ros::Duration(GRIPPER_STABILIZE_TIME).sleep();
-    // Contenedores para objetos creados en el ciclo
-    PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>()), 
-                              cloud_near(new PointCloud<PointXYZ>()),
-                              cloud_subsampled(new PointCloud<PointXYZ>()),
-                              cloud_base(new PointCloud<PointXYZ>());
-    vector<PointCloud<PointXYZ> > cloud_scans;
-    Eigen::Matrix4f transformation;
-    // Scanear
-    while ( 1 ){
-        // Pedir nube de kinect
-        cloud = r_driver->sensors->kinect.getNewCloud();
-        // obtener transformación de kinect a wrist
-        transformation = Util::getTransformation(Util::KINECT_FRAME, GRIPPER_FRAME);
-        // Eliminar puntos lejanos
-        PassThrough<PointXYZ> pass;
-        pass.setInputCloud(cloud);
-        pass.setFilterFieldName("z");
-        pass.setFilterLimits(0.6 - PASSTHROUGH_Z/2.0, 0.6 + PASSTHROUGH_Z/2.0); // HARDCODEADO. FORMA CORRECTA ES CON TF?
-        pass.filter(*cloud_near);
-        // submuestrear
-        cloud_subsampled = Util::subsampleCloud(cloud_near, SCAN_LEAFSIZE);
-        // Transformar y agregar a scans
-        transformPointCloud(*cloud_subsampled, *cloud_base, transformation);
-        cloud_scans.push_back(*cloud_base);
-        // Si ya escaneamos todas las perspectivas, juntarlas y retornar
-        scan_orientation[0] += SCAN_ROLL_DELTA;
-        if (scan_orientation[0] > 2*Util::PI){
-            PointCloud<PointXYZ>::Ptr merged (new PointCloud<PointXYZ>());
-            for (int i=0; i<cloud_scans.size(); i++){
-                merged += cloud_scans[i];
-            }
-            // Filtrar gripper
-            Util::gripperFilter(merged, object_out, gripper_out);
-            return true;
-        }
-        ROS_DEBUG("UTIL: Posicionándose psra siguiente scan");
-        scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
-        if (which_arm == 'l')
-            r_driver->lgripper->goToPose(scan_pose);
-        else
-            r_driver->rgripper->goToPose(scan_pose);
-        ros::Duration(GRIPPER_STABILIZE_TIME).sleep();
-    }
-    
-}
+
 // PRIVATE
 void Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
     vector<Box> gripper_boxes;

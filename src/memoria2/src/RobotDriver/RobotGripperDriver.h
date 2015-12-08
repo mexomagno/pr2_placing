@@ -19,6 +19,7 @@ class RobotGripperDriver{
 	ros::Publisher gripper_goal_;
     moveit::planning_interface::MoveGroup::Plan planner_;
     moveit::planning_interface::MoveGroup *moveit_group_;
+    ros::AsyncSpinner *spinner_;
 	char which_;
     public:
         RobotGripperDriver(const string which);

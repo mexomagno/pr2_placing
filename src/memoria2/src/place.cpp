@@ -13,8 +13,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl_ros/point_cloud.h>
 // Propios
-#include "Util/Util.h"
 #include "RobotDriver/RobotDriver.h"
+#include "Util/Util.h"
 
 
 using namespace std;
@@ -24,6 +24,7 @@ using namespace pcl;
 
 // VARIABLES GLOBALES
 RobotDriver *r_driver;
+char grasp_arm;
 
 // Auxiliares y cosas para visualizar
 ros::Publisher cloud_pub;
@@ -32,14 +33,24 @@ ros::Publisher point_pub;
 ros::Publisher point_pub2;
 ros::Publisher pose_pub;
 
-char grasp_arm;
+// Pre-declaración de métodos
+void endProgram(int retcode);
+void signalHandler(int signum);
+bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out);
+bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud);
+bool getPlacingPose(geometry_msgs::PoseStamped &pose_out);
+bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
+
+// MÉTODOS
+
 void endProgram(int retcode){
     ROS_INFO("Terminando programa...");
     delete r_driver;
     ros::shutdown();
+    printf("Programa completamente finalizado :') (código %d)\n", retcode);
     exit(retcode);
 }
-void signalHandler( int signum ){
+void signalHandler(int signum){
     ROS_INFO("Se recibe Ctrl+C");
     endProgram(0);
 }
@@ -155,12 +166,76 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
 }
 bool getPlacingPose(geometry_msgs::PoseStamped &pose_out){
     // Scannear gripper
-    PointCloud<PointXYZ>::Ptr gripper_scan (new PointCloud<PointXYZ>());
-    gripper_scan = Util::scanGripper(r_driver, grasp_arm);
+    PointCloud<PointXYZ>::Ptr gripper_scan (new PointCloud<PointXYZ>()),
+                              object_scan (new PointCloud<PointXYZ>());
+    return scanGripper(object_scan, gripper_scan);
     // Filtrar gripper del scan
     // Obtener mejor superficie
 }
-
+bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
+    // Mover gripper a posición inicial de scanning
+    geometry_msgs::PoseStamped scan_pose;
+    scan_pose.header.frame_id = Util::BASE_FRAME;
+    scan_pose.pose.position.x = Util::scan_position[0];
+    scan_pose.pose.position.y = Util::scan_position[1];
+    scan_pose.pose.position.z = Util::scan_position[2];
+    // Copia no constante de la orientación inicial de scanning
+    float scan_orientation[3];
+    scan_orientation[0] = Util::scan_orientation[0];
+    scan_orientation[1] = Util::scan_orientation[1];
+    scan_orientation[2] = Util::scan_orientation[2];
+    scan_orientation[0] += Util::SCAN_ROLL_DELTA;
+    scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
+    string GRIPPER_FRAME = (grasp_arm == 'l' ? "l" : "r") + Util::GRIPPER_FRAME_SUFFIX;
+    if (grasp_arm == 'l')
+        r_driver->lgripper->goToPose(scan_pose);
+    else
+        r_driver->rgripper->goToPose(scan_pose);
+    ros::Duration(Util::GRIPPER_STABILIZE_TIME).sleep();
+    // Contenedores para objetos creados en el ciclo
+    PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>()), 
+                              cloud_near(new PointCloud<PointXYZ>()),
+                              cloud_subsampled(new PointCloud<PointXYZ>()),
+                              cloud_base(new PointCloud<PointXYZ>());
+    vector<PointCloud<PointXYZ> > cloud_scans;
+    Eigen::Matrix4f transformation;
+    // Scanear
+    while ( 1 ){
+        // Pedir nube de kinect
+        cloud = r_driver->sensors->kinect->getNewCloud();
+        // obtener transformación de kinect a wrist
+        transformation = Util::getTransformation(Util::KINECT_FRAME, GRIPPER_FRAME);
+        // Eliminar puntos lejanos
+        PassThrough<PointXYZ> pass;
+        pass.setInputCloud(cloud);
+        pass.setFilterFieldName("z");
+        pass.setFilterLimits(0.6 - Util::SCAN_PASSTHROUGH_Z/2.0, 0.6 + Util::SCAN_PASSTHROUGH_Z/2.0); // HARDCODEADO. FORMA CORRECTA ES CON TF?
+        pass.filter(*cloud_near);
+        // submuestrear
+        cloud_subsampled = Util::subsampleCloud(cloud_near, Util::SCAN_LEAFSIZE);
+        // Transformar y agregar a scans
+        transformPointCloud(*cloud_subsampled, *cloud_base, transformation);
+        cloud_scans.push_back(*cloud_base);
+        // Si ya escaneamos todas las perspectivas, juntarlas y retornar
+        scan_orientation[0] += Util::SCAN_ROLL_DELTA;
+        if (scan_orientation[0] > 2*Util::PI){
+            PointCloud<PointXYZ>::Ptr merged(new PointCloud<PointXYZ>());
+            for (int i=0; i<cloud_scans.size(); i++){
+                *merged += cloud_scans[i];
+            }
+            // Filtrar gripper
+            Util::gripperFilter(merged, object_out, gripper_out);
+            return true;
+        }
+        ROS_DEBUG("UTIL: Posicionándose psra siguiente scan");
+        scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
+        if (grasp_arm == 'l')
+            r_driver->lgripper->goToPose(scan_pose);
+        else
+            r_driver->rgripper->goToPose(scan_pose);
+        ros::Duration(Util::GRIPPER_STABILIZE_TIME).sleep();
+    }
+}
 
 /**
  * main: Ejecuta todo lo necesario para efectuar placing
@@ -217,11 +292,26 @@ int main(int argc, char **argv){
         cloud_pub.publish(*kinect_cloud);
         ros::Duration(0.4).sleep();    
     }*/
-    geometry_msgs::PoseStamped placing_pose;
+
+/*    geometry_msgs::PoseStamped placing_pose;
     if (not getPlacingPose(placing_pose)){
         ROS_ERROR("PLACE: No se pudo obtener una pose de placing");
         endProgram(1);
-    }
+    }*/
+
+    ROS_DEBUG("PLACE: Llevando gripper izquierdo al frente");
+    geometry_msgs::PoseStamped gripper_pose;
+    gripper_pose.header.frame_id = Util::BASE_FRAME;
+    gripper_pose.pose.position.x = 0.7;
+    gripper_pose.pose.position.y = 0.3;
+    gripper_pose.pose.position.z = 1.2;
+    r_driver->lgripper->goToPose(gripper_pose);
+    ROS_DEBUG("PLACE: Llevando gripper derecho al frente");
+    gripper_pose.pose.position.y = -0.3;
+    r_driver->rgripper->goToPose(gripper_pose);
+    ros::Duration(1).sleep();
+    ROS_INFO("PLACE: FIN");
+
     // END ZONA DE PRUEBAS
 
 

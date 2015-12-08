@@ -8,8 +8,6 @@ const float MIN_OPENING = 0;
 string GOAL_TOPIC;
 string STATUS_TOPIC;
 // VARIABLES GLOBALES
-// ros::Publisher gripper_goal_;
-// ros::Subscriber gripper_status_;
 bool goal_reached = false;
 
 void statusCallback(const pr2_controllers_msgs::Pr2GripperCommandActionResult::Ptr &result){
@@ -32,11 +30,20 @@ RobotGripperDriver::RobotGripperDriver(const string which){
     string group_s = (this->which_ == 'l' ? "left_arm" : "right_arm");
     ROS_DEBUG("RobotGripperDriver: Inicializando grupo '%s'", group_s.c_str());
     // moveit::planning_interface::MoveGroup group(group_s.c_str());
-    this->moveit_group_ = moveit::planning_interface::MoveGroup(group_s.c_str());
+    this->moveit_group_ = new moveit::planning_interface::MoveGroup(group_s.c_str());
+    ROS_DEBUG("RobotGripperDriver: Creando e iniciando spinner");
+    this->spinner_ = new ros::AsyncSpinner(1);
+    this->spinner_->start();
     ROS_DEBUG("RobotGripperDriver: grupo iniciado");
 }
 RobotGripperDriver::~RobotGripperDriver(){
-    delete nh_;
+    ROS_DEBUG("RobotGripperDriver: Destruyendo nodehandle");
+    delete this->nh_;
+    ROS_DEBUG("RobotGripperDriver: Destruyendo moveit_group");
+    delete this->moveit_group_;
+    ROS_DEBUG("RobotGripperDriver: Deteniendo y destruyendo spinner");
+    this->spinner_->stop();
+    delete this->spinner_;
 }
 /**
  * RobotGripperDriver::setOpening: Setea apertura del gripper.

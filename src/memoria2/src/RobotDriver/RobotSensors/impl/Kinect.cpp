@@ -8,8 +8,9 @@ const float BUSYWAIT_DELAY = 0.01;
 
 // MÉTODOS
 void kinectCallback(const PointCloud<PointXYZ>::ConstPtr &in_cloud){
-	ROS_DEBUG("Kinect: Estoy recibiendo una nube");
+	ROS_DEBUG("Kinect: Estoy recibiendo una nube...");
 	if (not get_scan){
+		ROS_DEBUG("Kinect: ... pero nadie la usará. Ignorando");
 		return;
 	}
 	// Recibir nube, guardar y mandar signal. Si getNewScan la esperaba, la escuchará y actuará acorde a como corresponda.
