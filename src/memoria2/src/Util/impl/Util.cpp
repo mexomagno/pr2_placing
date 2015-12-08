@@ -115,6 +115,8 @@ Eigen::Matrix4f Util::getTransformation(string frame_ini, string frame_end){
     tf::StampedTransform stamped_tf;
     ros::Time transform_time = ros::Time(0);
     Eigen::Matrix4f transformation = Eigen::Matrix4f::Identity();
+    if (frame_ini.compare(frame_end) == 0)
+        return transformation;
     try{
         ROS_DEBUG("UTIL: Esperando transformacion disponible...");
         if (not tf_listener.waitForTransform(frame_end, frame_ini, transform_time, ros::Duration(WAIT_TF_TIMEOUT))){

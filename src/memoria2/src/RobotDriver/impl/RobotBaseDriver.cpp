@@ -6,7 +6,7 @@ const float TWIST_VELOCITY = 2.5;
 const float ANGULAR_VELOCITY = 3;
 const float DISTANCE_CORRECTION = 0.18;
 const float DISTANCE_PRE_TURN = 0.15;
-const float ANGLE_CORRECTION = 0.05;
+const float ANGLE_CORRECTION = 0.09;
 bool store_odom = false;
 tf::Vector3 last_position(0,0,0);
 tf::Quaternion last_orientation(0,0,0,1);

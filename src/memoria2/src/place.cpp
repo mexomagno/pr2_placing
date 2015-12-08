@@ -108,10 +108,15 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
     return false;
 }
 bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
+    // Transformar la nube de Odom a Base;
+    Eigen::Matrix4f transformation = Util::getTransformation(cloud->header.frame_id, Util::BASE_FRAME);
+    PointCloud<PointXYZ>::Ptr cloud_base (new PointCloud<PointXYZ>());
+    transformPointCloud(*cloud, *cloud_base, transformation);
+    cloud_base->header.frame_id = Util::BASE_FRAME;
     // Elegir punto más cercano a la superficie (respecto a la base!)
     geometry_msgs::PointStamped closest_point;
     float closest_point_distance;
-    Util::getClosestPoint(cloud, closest_point, closest_point_distance);
+    Util::getClosestPoint(cloud_base, closest_point, closest_point_distance);
     point_pub.publish(closest_point);
     // Obtener una pose adecuada para llegar a ese punto
     // la pose se encuentra un poquito más atrás que el punto.
@@ -129,6 +134,8 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
         closest_pose.pose.position.y = closest_point_floor_vector.y();
         closest_pose.pose.position.z = closest_point_floor_vector.z();
         closest_pose.pose.orientation = Util::coefsToQuaternionMsg(closest_point_floor_vector.x(), closest_point_floor_vector.y(), 0);
+        // Ver pose
+        pose_pub.publish(closest_pose);
         ROS_DEBUG("PLACE: Yendo a la pose...");
         if (not r_driver->base->goToPose(closest_pose)){
             ROS_ERROR("PLACE: No se pudo ir a la pose");
@@ -136,8 +143,14 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
         ROS_DEBUG("PLACE: Llegué a la pose");
     }
     ROS_DEBUG("Mirando al centroide de la superficie");
-    // En este punto sabemos que la nube está relativa a ODOM_FRAME
-    
+    // Nos movimos: actualizar entonces la transformación entre odom y base
+    transformation = Util::getTransformation(cloud->header.frame_id, Util::BASE_FRAME);
+    // Transformar superficie
+    transformPointCloud(*cloud, *cloud_base, transformation);
+    // Obtener centroide (respecto a la base)
+    geometry_msgs::Point centroid = Util::getCloudCentroid(cloud_base);
+    // Mirar hacia el centroide
+    r_driver->head->lookAt(Util::BASE_FRAME, centroid.x, centroid.y, centroid.z);    
 }
 
 
@@ -200,7 +213,7 @@ int main(int argc, char **argv){
     
     cloud_pub = nh.advertise<PointCloud<PointXYZ> >("superficie", 1);
     cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("punto_trans_pc", 1);
-    point_pub = nh.advertise<geometry_msgs::PointStamped>("punto", 1);
+    point_pub = nh.advertise<geometry_msgs::PointStamped>("punto_mas_cercano", 1);
     point_pub2 = nh.advertise<geometry_msgs::PointStamped>("punto_trans", 1);
     pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose_mas_cercana", 1);
     ros::Duration(1).sleep();
@@ -212,6 +225,10 @@ int main(int argc, char **argv){
     }
     ROS_INFO("PLACE: Superficie encontrada (frame: %s). Publicando...", surface_cloud->header.frame_id.c_str());
     cloud_pub.publish(*surface_cloud);
+    ROS_INFO("PLACE: Dirigiéndose hacia ella");
+    moveToSurface(surface_cloud);
+    ros::Duration(1).sleep();
+    
     ROS_INFO("PLACE: FIN");
     // END ZONA DE PRUEBAS
 
@@ -229,6 +246,7 @@ int main(int argc, char **argv){
         - Revisar problema de head driver de no hacer nada a veces (lanzar timeout)
     
     opcionales:
+        - Evaluar corregir vista de la superficie encontrada (una vez encontrada, mirar hacia ella, volver a buscar y corregir nube)
         - Evaluar reparar head driver para rotar pitch
         - Evaluar eliminar pose inicial del head driver al inicializarlo
  */
