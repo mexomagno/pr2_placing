@@ -33,6 +33,7 @@ ros::Publisher point_pub;
 ros::Publisher point_pub2;
 ros::Publisher pose_pub;
 
+
 // Pre-declaración de métodos
 void endProgram(int retcode);
 void signalHandler(int signum);
@@ -184,6 +185,9 @@ bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Pt
     scan_orientation[0] = Util::scan_orientation[0];
     scan_orientation[1] = Util::scan_orientation[1];
     scan_orientation[2] = Util::scan_orientation[2];
+    // Mirar al gripper
+    r_driver->head->lookAt(Util::BASE_FRAME, Util::scan_position[0], Util::scan_position[1], Util::scan_position[2]);
+    // Poner gripper en pose inicial
     scan_orientation[0] += Util::SCAN_ROLL_DELTA;
     scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
     string GRIPPER_FRAME = (grasp_arm == 'l' ? "l" : "r") + Util::GRIPPER_FRAME_SUFFIX;
@@ -196,16 +200,19 @@ bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Pt
     PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>()), 
                               cloud_near(new PointCloud<PointXYZ>()),
                               cloud_subsampled(new PointCloud<PointXYZ>()),
-                              cloud_base(new PointCloud<PointXYZ>());
+                              cloud_gripper(new PointCloud<PointXYZ>());
     vector<PointCloud<PointXYZ> > cloud_scans;
     Eigen::Matrix4f transformation;
     // Scanear
     while ( 1 ){
         // Pedir nube de kinect
         cloud = r_driver->sensors->kinect->getNewCloud();
+        ROS_DEBUG("PLACE: nube recibida desde kinect: %d puntos, frame: %s", (int)cloud->points.size(), cloud->header.frame_id.c_str());
+        ROS_DEBUG("PLACe: Primer punto está en (%f, %f, %f)", cloud->points[0].x, cloud->points[1].y, cloud->points[2].z);
+        
         // obtener transformación de kinect a wrist
         transformation = Util::getTransformation(Util::KINECT_FRAME, GRIPPER_FRAME);
-        // Eliminar puntos lejanos
+        // Eliminar puntos lejanos (respecto a kinect)
         PassThrough<PointXYZ> pass;
         pass.setInputCloud(cloud);
         pass.setFilterFieldName("z");
@@ -214,20 +221,36 @@ bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Pt
         // submuestrear
         cloud_subsampled = Util::subsampleCloud(cloud_near, Util::SCAN_LEAFSIZE);
         // Transformar y agregar a scans
-        transformPointCloud(*cloud_subsampled, *cloud_base, transformation);
-        cloud_scans.push_back(*cloud_base);
+        transformPointCloud(*cloud_subsampled, *cloud_gripper, transformation);
+        cloud_gripper->header.frame_id = GRIPPER_FRAME;
+        cloud_scans.push_back(*cloud_gripper);
+
         // Si ya escaneamos todas las perspectivas, juntarlas y retornar
         scan_orientation[0] += Util::SCAN_ROLL_DELTA;
         if (scan_orientation[0] > 2*Util::PI){
+            ROS_DEBUG("PLACE: Se obtuvieron todos los scans. Uniendo...");
             PointCloud<PointXYZ>::Ptr merged(new PointCloud<PointXYZ>());
             for (int i=0; i<cloud_scans.size(); i++){
                 *merged += cloud_scans[i];
             }
-            // Filtrar gripper
-            Util::gripperFilter(merged, object_out, gripper_out);
+            merged->header.frame_id = GRIPPER_FRAME;
+            if (merged->points.size() == 0){
+                ROS_ERROR("PLACE: El scanneo del gripper retornó 0 puntos!");
+                return false;
+            }
+            ROS_DEBUG("PLACE: Union resulto en nube de %d puntos", (int)merged->points.size());
+            // Filtrar gripper_out
+            ROS_DEBUG("PLACE: Filtrando scans");
+            if (not Util::gripperFilter(merged, object_out, gripper_out)){
+                ROS_ERROR("PLACE: Algo ocurrio al intentar filtrar el gripper");
+                return false;
+            }
+            ROS_DEBUG("PLACE: Objeto: %d puntos. Gripper: %d puntos.", (int)object_out->points.size(), (int)gripper_out->points.size());
+            object_out->header.frame_id = GRIPPER_FRAME;
+            gripper_out->header.frame_id = GRIPPER_FRAME;
             return true;
         }
-        ROS_DEBUG("UTIL: Posicionándose psra siguiente scan");
+        ROS_DEBUG("PLACE: Posicionandose psra siguiente scan");
         scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
         if (grasp_arm == 'l')
             r_driver->lgripper->goToPose(scan_pose);
@@ -270,6 +293,8 @@ int main(int argc, char **argv){
     ROS_DEBUG("PLACE: RobotDriver Creado e iniciado");
 
     //   ZONA DE PRUEBAS
+
+// TESTEANDO GOTOPOSE DE BASE
 /*    // Mover 1m hacia atrás y mirar al frente
     geometry_msgs::PoseStamped pose;
     pose.header.frame_id = Util::BASE_FRAME;
@@ -278,28 +303,25 @@ int main(int argc, char **argv){
     pose.pose.orientation = Util::coefsToQuaternionMsg(1,1,0);
     r_driver->base->goToPose(pose);*/
 
+// TESTEANDO SETOPENING DE GRIPPERS
 /*    r_driver->lgripper->setOpening(1, 400);
     r_driver->rgripper->setOpening(1, 400);
     r_driver->lgripper->setOpening(0, 400);
     r_driver->rgripper->setOpening(0, 400);*/
 
-/*    ros::Publisher cloud_pub = nh.advertise<PointCloud<PointXYZ> >("nube_maravillosa", 1);
+// TESTEANDO GETNEWCLOUD DE KINECT
+/*    cloud_pub = nh.advertise<PointCloud<PointXYZ> >("nube_maravillosa", 1);
     PointCloud<PointXYZ>::Ptr kinect_cloud (new PointCloud<PointXYZ>());
     ROS_DEBUG("PLACE: creado topico e iniciando ciclo");
     while (1){
         kinect_cloud = r_driver->sensors->kinect->getNewCloud();
-        ROS_DEBUG("PLACE: N° Puntos: %d", (int)kinect_cloud->points.size());
+        ROS_DEBUG("PLACE: N° Puntos: %d, frame: %s", (int)kinect_cloud->points.size(), kinect_cloud->header.frame_id.c_str());
         cloud_pub.publish(*kinect_cloud);
         ros::Duration(0.4).sleep();    
-    }*/
-
-/*    geometry_msgs::PoseStamped placing_pose;
-    if (not getPlacingPose(placing_pose)){
-        ROS_ERROR("PLACE: No se pudo obtener una pose de placing");
-        endProgram(1);
-    }*/
-
-    ROS_DEBUG("PLACE: Llevando gripper izquierdo al frente");
+    }
+*/
+// TESTEANDO GOTOPOSE DE GRIPPERS
+/*    ROS_DEBUG("PLACE: Llevando gripper izquierdo al frente");
     geometry_msgs::PoseStamped gripper_pose;
     gripper_pose.header.frame_id = Util::BASE_FRAME;
     gripper_pose.pose.position.x = 0.7;
@@ -308,9 +330,22 @@ int main(int argc, char **argv){
     r_driver->lgripper->goToPose(gripper_pose);
     ROS_DEBUG("PLACE: Llevando gripper derecho al frente");
     gripper_pose.pose.position.y = -0.3;
-    r_driver->rgripper->goToPose(gripper_pose);
+    r_driver->rgripper->goToPose(gripper_pose);*/
+
+// TESTEANDO SCANGRIPPER
+    cloud_pub = nh.advertise<PointCloud<PointXYZ> >("object_pc", 1);
+    cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("gripper_pc", 1);
     ros::Duration(1).sleep();
-    ROS_INFO("PLACE: FIN");
+    PointCloud<PointXYZ>::Ptr object_pc (new PointCloud<PointXYZ>()),
+                              gripper_pc (new PointCloud<PointXYZ>());
+    ROS_DEBUG("PLACE: Escaneando gripper...");
+    if (not scanGripper(object_pc, gripper_pc)){
+        ROS_ERROR("No se pudo escanear gripper");
+        endProgram(1);
+    }
+    ROS_DEBUG("PLACE: Publicando ambas nubes...");
+    cloud_pub.publish(*object_pc);
+    cloud_pub2.publish(*gripper_pc);
 
     // END ZONA DE PRUEBAS
 
@@ -332,11 +367,16 @@ int main(int argc, char **argv){
     cloud_pub.publish(*surface_cloud);
     ROS_INFO("PLACE: Dirigiéndose hacia ella");
     moveToSurface(surface_cloud);
-    ros::Duration(1).sleep();
+    ros::Duration(1).sleep();*/
     
-    ROS_INFO("PLACE: FIN");*/
+/*    geometry_msgs::PoseStamped placing_pose;
+    if (not getPlacingPose(placing_pose)){
+        ROS_ERROR("PLACE: No se pudo obtener una pose de placing");
+        endProgram(1);
+    }*/
 
-
+    ros::Duration(1).sleep();
+    ROS_INFO("PLACE: FIN");
     endProgram(0);
 }
 
@@ -345,7 +385,9 @@ int main(int argc, char **argv){
 
     TODO:
         - Revisar problema de head driver de no hacer nada a veces (lanzar timeout)
-    
+        - Refinar filtro del gripper scanner:
+            1) Filtrar mejor el entorno
+            2) Reintentar poses si no funcionaron
     opcionales:
         - Evaluar corregir vista de la superficie encontrada (una vez encontrada, mirar hacia ella, volver a buscar y corregir nube)
         - Evaluar reparar head driver para rotar pitch

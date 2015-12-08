@@ -6,11 +6,11 @@
 const string Util::BASE_FRAME                  = "/base_footprint";
 const string Util::ODOM_FRAME                  = "/odom_combined";
 const string Util::CAMERA_FRAME                = "/high_def_frame";
-const string Util::KINECT_FRAME                = "/head_mount_kinect_ir_optical_frame";
+const string Util::KINECT_FRAME                = "/head_mount_kinect_rgb_optical_frame";
 
 // Tópicos
-const string Util::KINECT_TOPIC                = "head_mount_kinect/depth_registered/points";
-const string Util::KINECT_TOPIC_SELF_FILTERED  = "head_mount_kinect/depth_registered/points";
+const string Util::KINECT_TOPIC                = "/head_mount_kinect/depth_registered/points";
+const string Util::KINECT_TOPIC_SELF_FILTERED  = "/head_mount_kinect/depth_registered/points";
 const string Util::GRIPPER_GOAL_TOPIC_SUFFIX   = "_gripper_controller/gripper_action/goal";
 const string Util::GRIPPER_STATUS_TOPIC_SUFFIX = "_gripper_controller/gripper_action/result";
 const string Util::BASE_CONTROLLER_TOPIC       = "/base_controller/command";
@@ -66,6 +66,7 @@ PointCloud<PointXYZ>::Ptr Util::subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_i
     subsampler.setInputCloud(cloud_in);
     subsampler.setLeafSize(leafsize, leafsize, leafsize);
     subsampler.filter(*cloud_out);
+    cloud_out->header.frame_id = cloud_in->header.frame_id;
     return cloud_out;
 }
 
@@ -272,7 +273,14 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
 }
 
 // PRIVATE
-void Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
+bool Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
+    ROS_DEBUG("UTIL: Comienza filtro del gripper");
+    if (cloud_in->header.frame_id.find(Util::GRIPPER_FRAME_SUFFIX) == string::npos){
+        ROS_ERROR("UTIL: No se puede filtrar gripper: Frame de nube es incorrecto");
+        ROS_ERROR("UTIL: Frame debe contener '%s' pero era '%s'", Util::GRIPPER_FRAME_SUFFIX.c_str(), cloud_in->header.frame_id.c_str());
+        return false;
+    }
+    ROS_DEBUG("UTIL: Agregando boxes al filtro");
     vector<Box> gripper_boxes;
     // inicializar boxes. Total y absolutamente HARDCODEADO, basado en observaciones.
     Box box1;
@@ -290,7 +298,8 @@ void Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ
     box3.size[0] = 0.02; box3.size[1] = 0.11; box3.size[2] = 0.052;
     gripper_boxes.push_back(box3);
 
-    PointCloud<PointXYZ>::Ptr cloud_out;
+    ROS_DEBUG("UTIL: Borrando brazo");
+    PointCloud<PointXYZ>::Ptr cloud_out (new PointCloud<PointXYZ>());
     // Borrar primer pedazo
     PassThrough<PointXYZ> pass;
     pass.setInputCloud(cloud_in);
@@ -301,6 +310,7 @@ void Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ
     /*    PointCloud<PointXYZ>::Ptr object_pc(new PointCloud<PointXYZ>()),
                               gripper_pc(new PointCloud<PointXYZ>());*/
     // Capturar índices de puntos dentro de paralelepípedo
+    ROS_DEBUG("UTIL: Separando gripper del objeto según boxes");
     PointIndices::Ptr inliers (new PointIndices());
     for (int i=0; i < cloud_out->points.size(); i++){
         for (int j=0; j < gripper_boxes.size(); j++){
@@ -318,6 +328,7 @@ void Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ
     extractor.filter(*gripper_out);
     extractor.setNegative(true);
     extractor.filter(*object_out);
+    return true;
 }
 bool Util::isPointInsideBox(PointXYZ p, Box box){
     bool in_x = (p.x > box.center[0] - box.size[0]/2.0) and (p.x < box.center[0] + box.size[0]/2.0);

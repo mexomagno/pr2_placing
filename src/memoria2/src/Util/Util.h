@@ -72,7 +72,7 @@ class Util{
         static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
         // Utilidades específicas
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
-        static void gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
+        static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
         static bool isPointInsideBox(PointXYZ p, Box box);
     protected:
     private:
