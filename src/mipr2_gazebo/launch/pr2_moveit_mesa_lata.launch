@@ -10,5 +10,5 @@
         <arg name="launch_rviz" value="false"/>
     </include>
     <!-- Lanzar gzclient -->
-    <node pkg="gazebo_ros" type="gzclient" name="gzclient"/>
+    <!-- <node pkg="gazebo_ros" type="gzclient" name="gzclient"/> -->
 </launch>
