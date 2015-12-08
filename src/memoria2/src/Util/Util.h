@@ -2,15 +2,18 @@
 #define UTIL_H
 
 #include <string>
+#include <vector>
 #include <geometry_msgs/Quaternion.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
+#include <pcl_ros/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/common/centroid.h>
+#include <pcl/kdtree/kdtree_flann.h>
 #include <tf/transform_listener.h>
 
 using namespace std;
@@ -39,6 +42,7 @@ class Util{
         static const float SUBSAMPLE_LEAFSIZE;
         static const float DEFAULT_DESIRED_PITCH;
         static const float KINECT_STABILIZE_TIME;
+        static const float ROBOT_FRONT_MARGIN;
         // Métodos
         static float toRad(float grad);
         static float toGrad(float rad);
@@ -46,8 +50,10 @@ class Util{
         // Operaciones con nubes de puntos
         static PointCloud<PointXYZ>::Ptr subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_in, float leafsize);
         // static scanGripper(char which);
-        static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
         static geometry_msgs::Point getCloudCentroid(PointCloud<PointXYZ>::Ptr cloud_in);
+        static void getClosestPoint(PointCloud<PointXYZ>::Ptr cloud, geometry_msgs::PointStamped &closest_point, float &closest_point_distance);
+        static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
+        static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
         // 
     protected:
     private:

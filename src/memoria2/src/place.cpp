@@ -24,6 +24,13 @@ using namespace pcl;
 
 // VARIABLES GLOBALES
 RobotDriver *r_driver;
+// Auxiliares y cosas para visualizar
+ros::Publisher cloud_pub;
+ros::Publisher cloud_pub2;
+ros::Publisher point_pub;
+ros::Publisher point_pub2;
+ros::Publisher pose_pub;
+
 char grasp_arm;
 void endProgram(int retcode){
     ROS_INFO("Terminando programa...");
@@ -43,7 +50,7 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
     float yaw = min_yaw;
     ROS_INFO("Se inicia búsqueda de superficie");
     // Mirar al frente
-    r_driver->head->lookAt(Util::BASE_FRAME, 2, 0, 0);
+    r_driver->head->lookAt(Util::BASE_FRAME, 1.5, 0, 0);
     // Contenedor de nube de puntos
     PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>()),
                               cloud_subsampled(new PointCloud<PointXYZ>()),
@@ -65,6 +72,7 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
         // Buscar un plano adecuado
         ROS_DEBUG("PLACE: Buscando superficie para placing...");
         if (Util::searchPlacingSurface(cloud_subsampled, cloud_surface, 0.3, 0.8, Util::DEFAULT_DESIRED_PITCH)){
+            ROS_DEBUG("PLACE: Encontrada");
             cloud_out = cloud_surface;
             return true;
         }
@@ -90,16 +98,47 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
         // Buscar un plano adecuado
         ROS_DEBUG("PLACE: Buscando superficie para placing...");
         if (Util::searchPlacingSurface(cloud_subsampled, cloud_surface, 0.3, 0.8, Util::DEFAULT_DESIRED_PITCH)){
+            ROS_DEBUG("PLACE: Encontrada");
             cloud_out = cloud_surface;
             return true;
         }
         ROS_INFO("PLACE: No encontrada. Iterando...");
         yaw -= yaw_step;
     }
-    ROS_INFO("Búsqueda de superficie finalizada");
     return false;
 }
-
+bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
+    // Elegir punto más cercano a la superficie (respecto a la base!)
+    geometry_msgs::PointStamped closest_point;
+    float closest_point_distance;
+    Util::getClosestPoint(cloud, closest_point, closest_point_distance);
+    point_pub.publish(closest_point);
+    // Obtener una pose adecuada para llegar a ese punto
+    // la pose se encuentra un poquito más atrás que el punto.
+    ROS_DEBUG("PLACE: Punto más cercano está a %fm", closest_point_distance);
+    if (closest_point_distance > Util::ROBOT_FRONT_MARGIN){
+        ROS_DEBUG("PLACE: Debo acercarme");
+        tf::Vector3 closest_point_floor_vector (closest_point.point.x, closest_point.point.y, 0);
+        float closest_point_floor_distance = closest_point_floor_vector.length();
+        closest_point_floor_vector.normalize();
+        closest_point_floor_vector*=closest_point_floor_distance - Util::ROBOT_FRONT_MARGIN;
+        ROS_DEBUG("PLACE: Me ubicaré a %fm de la pose actual", closest_point_floor_vector.length());
+        geometry_msgs::PoseStamped closest_pose;
+        closest_pose.header.frame_id = Util::BASE_FRAME;
+        closest_pose.pose.position.x = closest_point_floor_vector.x();
+        closest_pose.pose.position.y = closest_point_floor_vector.y();
+        closest_pose.pose.position.z = closest_point_floor_vector.z();
+        closest_pose.pose.orientation = Util::coefsToQuaternionMsg(closest_point_floor_vector.x(), closest_point_floor_vector.y(), 0);
+        ROS_DEBUG("PLACE: Yendo a la pose...");
+        if (not r_driver->base->goToPose(closest_pose)){
+            ROS_ERROR("PLACE: No se pudo ir a la pose");
+        }
+        ROS_DEBUG("PLACE: Llegué a la pose");
+    }
+    ROS_DEBUG("Mirando al centroide de la superficie");
+    // En este punto sabemos que la nube está relativa a ODOM_FRAME
+    
+}
 
 
 
@@ -159,14 +198,20 @@ int main(int argc, char **argv){
         ros::Duration(0.4).sleep();    
     }*/
     
+    cloud_pub = nh.advertise<PointCloud<PointXYZ> >("superficie", 1);
+    cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("punto_trans_pc", 1);
+    point_pub = nh.advertise<geometry_msgs::PointStamped>("punto", 1);
+    point_pub2 = nh.advertise<geometry_msgs::PointStamped>("punto_trans", 1);
+    pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose_mas_cercana", 1);
+    ros::Duration(1).sleep();
+    
     PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
     if (not searchSurface(surface_cloud)){
         ROS_ERROR("No se pudo obtener superficie");
         exit(1);
     }
-    ROS_INFO("PLACE: Superficie encontrada. Publicando...");
-    ros::Publisher cloud_pub = nh.advertise<PointCloud<PointXYZ> >("superficie", 1);
-    cloud_pub.publish(surface_cloud);
+    ROS_INFO("PLACE: Superficie encontrada (frame: %s). Publicando...", surface_cloud->header.frame_id.c_str());
+    cloud_pub.publish(*surface_cloud);
     ROS_INFO("PLACE: FIN");
     // END ZONA DE PRUEBAS
 
@@ -182,5 +227,8 @@ int main(int argc, char **argv){
 
     TODO:
         - Revisar problema de head driver de no hacer nada a veces (lanzar timeout)
-
+    
+    opcionales:
+        - Evaluar reparar head driver para rotar pitch
+        - Evaluar eliminar pose inicial del head driver al inicializarlo
  */
