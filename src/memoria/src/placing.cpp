@@ -322,12 +322,12 @@ int main(int argc, char **argv){
         [DONE]- Reparar caso en que distancia a punto más cercano es menor a correcciones
             Al parecer se repara solo por implementación
         [DONE]- Actualizar diagramas de flujo con arquitectura anterior
-        - Terminar moveToSurface mirando centroide de superficie
+        [DONE]- Terminar moveToSurface mirando centroide de superficie
         - Implementar servicio (o método) getPlacingPose
         - Implementar placeObject
         - Cambiar diagrama de flujo en parte de Tuck Arms. Debe tuckearse sólo el brazo que no tiene el objeto. Esto debe saberse de antemano.
         - Considerar altura del torso al llegar a la superficie
-        - Considerar cambiar servicios por métodos en una clase auxiliar
+        [DONE]- Considerar cambiar servicios por métodos en una clase auxiliar
 
     Propuestas para el futuro
         - Búsqueda más inteligente de superficie: Si encuentro un pedazo plano pero chico, puedo mirar más hacia esa parte, probablemente vi una punta de una mesa y puedo encontrar el resto.
