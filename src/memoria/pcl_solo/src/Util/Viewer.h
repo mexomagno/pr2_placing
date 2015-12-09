@@ -1,3 +1,6 @@
+#ifndef VIEWER_H
+#define VIEWER_H
+
 #include <boost/thread/thread.hpp>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/common/common_headers.h>
@@ -43,3 +46,5 @@ public:
 	void addText(const string text, const string shape_id, float r, float g, float b);
 	void show();
 };
+
+#endif // VIEWER_H

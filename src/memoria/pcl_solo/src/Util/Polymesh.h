@@ -1,3 +1,6 @@
+#ifndef POLYMESH_H
+#define POLYMESH_H
+
 #include <vector>
 #include <cmath>
 #include <pcl/common/common_headers.h>
@@ -63,3 +66,5 @@ private:
 	PointXYZ getCenterOfMassInternal();
 	double toGrad(double rads);
 };
+
+#endif // POLYMESH_H
