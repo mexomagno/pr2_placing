@@ -171,16 +171,36 @@ PolygonMesh Util::getConvexHull(PointCloud<PointXYZ>::Ptr cloud){
     chull.reconstruct(mesh);
     return mesh;
 }
-geometry_msgs::PoseStamped Util::transformPose(geometry_msgs::PoseStamped pose_in, Eigen::Matrix4f transf){
-    // Obtener componentes vectoriales
-    
-    // Obtener matriz de rotación
-    Eigen::Matrix4f rot = transf;
+geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf){
+    geometry_msgs::Pose pose_out;
+    // Obtener rotación desde matriz de transformación
+    Eigen::Matrix4f rot;
+    rot = transf;
     rot.col(3) = Eigen::Vector4f(0, 0, 0, 1);
-
+    // Crear normal desde quaternion
+    tf::Quaternion tf_q;
+    tf::quaternionMsgToTF(pose_in.orientation, tf_q);
+    tf::Vector3 normal(1, 0, 0);
+    normal = tf::quatRotate(tf_q, normal);
+    // Rotar normal
+    Eigen::Vector4f normal_4f;
+    normal_4f << normal.x(), normal.y(), normal.z(), 1;
+    normal_4f = rot*normal_4f;
+    // Obtener quaternion desde normal rotada
+    pose_out.orientation = Util::coefsToQuaternionMsg(normal_4f[0], normal_4f[1], normal_4f[2]);
+    // Transportar posición
+    pose_out.position = Util::transformPoint(pose_in.position, transf);
+    return pose_out;
 }
-geometry_msgs::PointStamped Util::transformPoint(geometry_msgs::PointStamped, Eigen::Matrix4f transf){
-
+geometry_msgs::Point Util::transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf){
+    geometry_msgs::Point point_out;
+    Eigen::Vector4f point_4f;
+    point_4f << point_in.x, point_in.y, point_in.z, 1;
+    point_4f = transf*point_4f;
+    point_out.x = point_4f[0];
+    point_out.y = point_4f[1];
+    point_out.z = point_4f[2];
+    return point_out;
 }
 
 // Utilidades específicas
@@ -197,11 +217,11 @@ geometry_msgs::PointStamped Util::transformPoint(geometry_msgs::PointStamped, Ei
 bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination){
     // variables auxiliares, para borrar
     ros::NodeHandle nh;
-    ros::Publisher point_pub1 = nh.advertise<geometry_msgs::PointStamped>("centroide_k", 1);
-    ros::Publisher point_pub2 = nh.advertise<geometry_msgs::PointStamped>("centroide_b", 1);
-    ros::Publisher pc_pub1 = nh.advertise<PointCloud<PointXYZ> >("plano", 1);
-    ros::Publisher pc_pub2 = nh.advertise<PointCloud<PointXYZ> >("subsampled", 1);
-    pc_pub2.publish(*cloud_in);
+    // ros::Publisher point_pub1 = nh.advertise<geometry_msgs::PointStamped>("centroide_k", 1);
+    ros::Publisher point_pub2 = nh.advertise<geometry_msgs::PointStamped>("surface_centroid", 1);
+    // ros::Publisher pc_pub1 = nh.advertise<PointCloud<PointXYZ> >("plano", 1);
+    // ros::Publisher pc_pub2 = nh.advertise<PointCloud<PointXYZ> >("subsampled", 1);
+    // pc_pub2.publish(*cloud_in);
     // Tamaño inicial de la nube de entrada
     int init_cloud_size = (int)cloud_in->size();
     int current_cloud_size = init_cloud_size;
@@ -238,19 +258,20 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
         extractor.setNegative(false);
         extractor.filter(*cloud_plane);
         // Verificar primer criterio de aceptación: Altura mínima
-        pc_pub1.publish(*cloud_plane);
+        // pc_pub1.publish(*cloud_plane);
         ROS_DEBUG("UTIL: Area aproximada de la superficie: %fm2", Util::SUBSAMPLE_LEAFSIZE*Util::SUBSAMPLE_LEAFSIZE*(int)inliers->indices.size());
         geometry_msgs::PointStamped cloud_centroid, cloud_centroid_base;
         cloud_centroid.point = Util::getCloudCentroid(cloud_plane);
         cloud_centroid.header.frame_id = cloud_in->header.frame_id;
         // cloud_centroid.header.stamp = stamped_tf.stamp_;
-        point_pub1.publish(cloud_centroid);
-        Eigen::Vector4f centroid_vector (cloud_centroid.point.x, cloud_centroid.point.y, cloud_centroid.point.z, 1);
+        // point_pub1.publish(cloud_centroid);
+        /*Eigen::Vector4f centroid_vector (cloud_centroid.point.x, cloud_centroid.point.y, cloud_centroid.point.z, 1);
         Eigen::Vector4f centroid_vector_base = transformation*centroid_vector;
         cloud_centroid_base.point.x = centroid_vector_base[0];
         cloud_centroid_base.point.y = centroid_vector_base[1];
-        cloud_centroid_base.point.z = centroid_vector_base[2];
+        cloud_centroid_base.point.z = centroid_vector_base[2];*/
         cloud_centroid_base.header.frame_id = Util::ODOM_FRAME;
+        cloud_centroid_base.point = Util::transformPoint(cloud_centroid.point, transformation);
         // tf_listener.transformPoint(Util::ODOM_FRAME, cloud_centroid, cloud_centroid_base);
         ROS_DEBUG("UTIL: Centroide según base: (%f, %f, %f)", cloud_centroid_base.point.x, cloud_centroid_base.point.y, cloud_centroid_base.point.z);
         point_pub2.publish(cloud_centroid_base);

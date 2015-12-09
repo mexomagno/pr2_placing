@@ -80,8 +80,8 @@ class Util{
         static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
         static PolygonMesh getConvexHull(PointCloud<PointXYZ>::Ptr cloud);
         // Transformaciones
-        static geometry_msgs::PoseStamped transformPose(geometry_msgs::PoseStamped pose_in, Eigen::Matrix4f transf);
-        static geometry_msgs::PointStamped transformPoint(geometry_msgs::PointStamped point_in, Eigen::Matrix4f transf);
+        static geometry_msgs::Pose transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf);
+        static geometry_msgs::Point transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf);
         // Utilidades específicas
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);

@@ -29,11 +29,14 @@ RobotDriver *r_driver;
 char grasp_arm;
 
 // Auxiliares y cosas para visualizar
-ros::Publisher cloud_pub;
-ros::Publisher cloud_pub2;
-ros::Publisher point_pub;
-ros::Publisher point_pub2;
-ros::Publisher pose_pub;
+ros::Publisher object_pc_pub;
+ros::Publisher gripper_pc_pub;
+ros::Publisher surface_pc_pub;
+
+ros::Publisher closest_point_pub;
+// ros::Publisher surface_centroid_pub;
+ros::Publisher closest_pose_pub;
+ros::Publisher stable_pose_pub;
 
 
 // Pre-declaración de métodos
@@ -132,7 +135,7 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
     geometry_msgs::PointStamped closest_point;
     float closest_point_distance;
     Util::getClosestPoint(cloud_base, closest_point, closest_point_distance);
-    point_pub.publish(closest_point);
+    closest_point_pub.publish(closest_point);
     // Obtener una pose adecuada para llegar a ese punto
     // la pose se encuentra un poquito más atrás que el punto.
     ROS_DEBUG("PLACE: Punto más cercano está a %fm", closest_point_distance);
@@ -150,7 +153,7 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
         closest_pose.pose.position.z = closest_point_floor_vector.z();
         closest_pose.pose.orientation = Util::coefsToQuaternionMsg(closest_point_floor_vector.x(), closest_point_floor_vector.y(), 0);
         // Ver pose
-        pose_pub.publish(closest_pose);
+        closest_pose_pub.publish(closest_pose);
         ROS_DEBUG("PLACE: Yendo a la pose...");
         if (not r_driver->base->goToPose(closest_pose)){
             ROS_ERROR("PLACE: No se pudo ir a la pose");
@@ -166,128 +169,6 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
     geometry_msgs::Point centroid = Util::getCloudCentroid(cloud_base);
     // Mirar hacia el centroide
     r_driver->head->lookAt(Util::BASE_FRAME, centroid.x, centroid.y, centroid.z);    
-}
-/**
- * getStableObjectPose Se encarga de calcular la mejor pose para el objeto. El resultado
- *                 es una pose, relativa al gripper, que indica la posición más estable para el objeto.
- * @param  object_pc  Nube de puntos del objeto
- * @param  gripper_pc nube de puntos del gripper
- * @param  pose_out   Pose resultante, RELATIVA AL GRIPPER
- * @return            true en éxito, false en caso contrario
- */
-bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
-/*    // Obtener mejor superficie
-    if (not Util::getStablePose(object_pc, gripper_pc, pose_out)){
-        ROS_ERROR("PLACE: Algo ocurrió al intentar obtener la pose estable");
-        return false;
-    }
-    return true;*/
-        // Verificar que ambas nubes están en el mismo frame
-    if (object_pc->header.frame_id.compare(gripper_pc->header.frame_id) != 0){
-        ROS_ERROR("UTIL: Nube de objeto y de gripper deben estar en el mismo frame de referencia");
-        return false;
-    }
-    // Crear convex hull del objeto. Internamente Polymesh calcula varias cosas útiles
-    Polymesh mesh = Polymesh(Util::getConvexHull(object_pc));
-    // Obtener listado de posibles parches estables
-    vector<vector<int> > patches; // Todos los parches posibles, ordenados desde el más grande al más pequeño
-    vector<double> patches_areas; // Sus areas correspondientes, en el mismo orden anterior.
-    mesh.getFlatPatches(Util::PATCH_ANGLE_THRESHOLD, patches, patches_areas);
-    // Obtener centro de masa
-    PointXYZ cm = mesh.getCenterOfMass();
-    // Iterar hasta encontrar un parche estable. Priorizar parches grandes
-    vector<int> best_patch;
-    double best_patch_area;
-    PointCloud<PointXYZ>::Ptr patch_plane(new PointCloud<PointXYZ>());
-    ModelCoefficients::Ptr patch_plane_coefs(new ModelCoefficients());
-    PointXYZ cm_proj;
-    for (int i=0; i<patches.size(); i++){
-        // Obtener plano representado por el parche
-        mesh.flattenPatch(patches[i], *patch_plane, patch_plane_coefs);
-        // proyectar centro de masa sobre plano
-        cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_plane);
-        // VERIFICACIÓN DE CONDICIONES:
-        //      - Es un plano estable?
-        //          * centro de masa se proyecta sobre parche?
-        //      - Puede el gripper llegar a esa posición?
-        //          * El gripper no es cortado por el plano de la superficie?
-        if (Polymesh::isPointInConvexPolygon(cm_proj, *patch_plane) and not Util::isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
-            best_patch = patches[i];
-            best_patch_area = patches_areas[i];
-            ROS_INFO("PLACE: Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
-            // Ajustar dirección de la normal de la pose (debe apuntar hacia dentro del gripper)
-            float alpha = Util::angleBetweenVectors(cm_proj.x, cm_proj.y, cm_proj.z, patch_plane_coefs->values[0], patch_plane_coefs->values[1], patch_plane_coefs->values[2]);
-            ROS_DEBUG("PLACE: pose %s será invertida", alpha < Util::PI/2.0 ? "SI" : "NO");
-            int invert = (alpha < Util::PI/2.0 ? -1 : 1);
-            // guardar pose
-            pose_out.pose.position.x = cm_proj.x;
-            pose_out.pose.position.y = cm_proj.y;
-            pose_out.pose.position.z = cm_proj.z;
-            pose_out.pose.orientation = Util::coefsToQuaternionMsg(patch_plane_coefs->values[0]*invert, patch_plane_coefs->values[1]*invert, patch_plane_coefs->values[2]*invert);
-            pose_out.header.frame_id = object_pc->header.frame_id; // frame del gripper "tool"
-            ROS_INFO("PLACE: Pose guardada, terminando");
-            return true;
-        }
-    }
-    return false;
-}
-/**
- * placeObject         Toma la pose estable del objeto, relativo al gripper, y la nube de puntos de la superficie
- *                     encontrada, para buscar en la superficie algun lugar donde poder poner el objeto. Cuando encuentra
- *                     una posición posible, obtiene una transformación entre la pose estable del objeto y la del spot encontrado, 
- *                     luego procede a calcular la pose del gripper para llegar a ese punto, y evalúa su factibilidad.
- *                     Si es factible, procede a soltar el objeto y retirar el gripper.
- * @param  stable_pose Pose más estable del objeto, relativa al gripper
- * @param  surface_pc  Superficie de placing encontrada antes. Se ignorarán partes no vistas (no se extrapolará en el plano)
- * @return             True en éxito, false en caso contrario
- */
-bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::Ptr surface_pc){
-    // Convertir pose desde frame del gripper a frame base
-    /*    // Obtener transformación
-            Eigen::Matrix4f transformation = Util::getTransformation(object_pc->header.frame_id, Util::BASE_FRAME);
-            // Transformar pose
-            // a) obtener rotación de la transformación
-            Eigen::Matrix4f rotation;
-            rotation = transformation;
-            rotation.col(3) = Eigen::Vector4f(0, 0, 0, 1);
-            // b) Normalizar normal
-            Eigen::Vector4f normal_vector_4f;
-            normal_vector_4f << invert*patch_plane_coefs->values[0], invert*patch_plane_coefs->values[1], invert*patch_plane_coefs->values[2], 1;
-            normal_vector_4f.normalize();
-            // c) rotar normal
-            normal_vector_4f = rotation*normal_vector_4f;
-            // d) Obtener quaternion a partir de la normal
-            pose_out.pose.orientation = Util::coefsToQuaternionMsg(normal_vector_4f[0], normal_vector_4f[1], normal_vector_4f[2]);
-            // e) Transportar posición
-            Eigen::Vector4f centroid_4f;
-            centroid_4f << cm_proj.x, cm_proj.y, cm_proj.z, 1;
-            centroid_4f = transformation*centroid_4f;
-            // f) guardar posición
-            pose_out.pose.position.x = centroid_4f[0];
-            pose_out.pose.position.y = centroid_4f[1];
-            pose_out.pose.position.z = centroid_4f[2];
-            pose_out.header.frame_id = Util::BASE_FRAME;*/
-
-
-    // Convertir plano placing a frame base
-    
-    // Iterar (hasta éxito o hasta máximo de intentos)
-    
-    //      Buscar pose en la mesa, alcanzable por el gripper (si falla, itera)
-
-    //      obtiene transformación pose estable a pose alcanzable
-    
-    //      calcula pose ideal para el gripper + delta en Z
-    
-    //      Verifica factibilidad. (si falla, itera)
-    
-    // posiciona gripper
-    
-    // abre gripper
-    
-    // Retira gripper (ángulo correcto)
-    
-    // FIN
 }
 bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
     bool gotopose_ok;
@@ -399,6 +280,109 @@ bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Pt
         ros::Duration(Util::GRIPPER_STABILIZE_TIME).sleep();
     }
 }
+/**
+ * getStableObjectPose Se encarga de calcular la mejor pose para el objeto. El resultado
+ *                 es una pose, relativa al gripper, que indica la posición más estable para el objeto.
+ * @param  object_pc  Nube de puntos del objeto
+ * @param  gripper_pc nube de puntos del gripper
+ * @param  pose_out   Pose resultante, RELATIVA AL GRIPPER
+ * @return            true en éxito, false en caso contrario
+ */
+bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
+/*    // Obtener mejor superficie
+    if (not Util::getStablePose(object_pc, gripper_pc, pose_out)){
+        ROS_ERROR("PLACE: Algo ocurrió al intentar obtener la pose estable");
+        return false;
+    }
+    return true;*/
+        // Verificar que ambas nubes están en el mismo frame
+    if (object_pc->header.frame_id.compare(gripper_pc->header.frame_id) != 0){
+        ROS_ERROR("UTIL: Nube de objeto y de gripper deben estar en el mismo frame de referencia");
+        return false;
+    }
+    // Crear convex hull del objeto. Internamente Polymesh calcula varias cosas útiles
+    Polymesh mesh = Polymesh(Util::getConvexHull(object_pc));
+    // Obtener listado de posibles parches estables
+    vector<vector<int> > patches; // Todos los parches posibles, ordenados desde el más grande al más pequeño
+    vector<double> patches_areas; // Sus areas correspondientes, en el mismo orden anterior.
+    mesh.getFlatPatches(Util::PATCH_ANGLE_THRESHOLD, patches, patches_areas);
+    // Obtener centro de masa
+    PointXYZ cm = mesh.getCenterOfMass();
+    // Iterar hasta encontrar un parche estable. Priorizar parches grandes
+    vector<int> best_patch;
+    double best_patch_area;
+    PointCloud<PointXYZ>::Ptr patch_plane(new PointCloud<PointXYZ>());
+    ModelCoefficients::Ptr patch_plane_coefs(new ModelCoefficients());
+    PointXYZ cm_proj;
+    for (int i=0; i<patches.size(); i++){
+        // Obtener plano representado por el parche
+        mesh.flattenPatch(patches[i], *patch_plane, patch_plane_coefs);
+        // proyectar centro de masa sobre plano
+        cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_plane);
+        // VERIFICACIÓN DE CONDICIONES:
+        //      - Es un plano estable?
+        //          * centro de masa se proyecta sobre parche?
+        //      - Puede el gripper llegar a esa posición?
+        //          * El gripper no es cortado por el plano de la superficie?
+        if (Polymesh::isPointInConvexPolygon(cm_proj, *patch_plane) and not Util::isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
+            best_patch = patches[i];
+            best_patch_area = patches_areas[i];
+            ROS_INFO("PLACE: Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
+            // Ajustar dirección de la normal de la pose (debe apuntar hacia dentro del gripper)
+            float alpha = Util::angleBetweenVectors(cm_proj.x, cm_proj.y, cm_proj.z, patch_plane_coefs->values[0], patch_plane_coefs->values[1], patch_plane_coefs->values[2]);
+            ROS_DEBUG("PLACE: pose %s será invertida", alpha < Util::PI/2.0 ? "SI" : "NO");
+            int invert = (alpha < Util::PI/2.0 ? -1 : 1);
+            // guardar pose
+            pose_out.pose.position.x = cm_proj.x;
+            pose_out.pose.position.y = cm_proj.y;
+            pose_out.pose.position.z = cm_proj.z;
+            pose_out.pose.orientation = Util::coefsToQuaternionMsg(patch_plane_coefs->values[0]*invert, patch_plane_coefs->values[1]*invert, patch_plane_coefs->values[2]*invert);
+            pose_out.header.frame_id = object_pc->header.frame_id; // frame del gripper "tool"
+            ROS_INFO("PLACE: Pose guardada, terminando");
+            return true;
+        }
+    }
+    return false;
+}
+/**
+ * placeObject         Toma la pose estable del objeto, relativo al gripper, y la nube de puntos de la superficie
+ *                     encontrada, para buscar en la superficie algun lugar donde poder poner el objeto. Cuando encuentra
+ *                     una posición posible, obtiene una transformación entre la pose estable del objeto y la del spot encontrado, 
+ *                     luego procede a calcular la pose del gripper para llegar a ese punto, y evalúa su factibilidad.
+ *                     Si es factible, procede a soltar el objeto y retirar el gripper.
+ * @param  stable_pose Pose más estable del objeto, relativa al gripper
+ * @param  surface_pc  Superficie de placing encontrada antes. Se ignorarán partes no vistas (no se extrapolará en el plano)
+ * @return             True en éxito, false en caso contrario
+ */
+bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::Ptr surface_pc){
+    // Convertir pose desde frame del gripper a frame base
+    geometry_msgs::PoseStamped stable_pose_base;
+    stable_pose_base.header.frame_id = Util::BASE_FRAME;
+    // a) Obtener transformación
+    Eigen::Matrix4f transformation = Util::getTransformation(stable_pose.header.frame_id, Util::BASE_FRAME);
+    stable_pose_base.pose = Util::transformPose(stable_pose.pose, transformation);
+    // Convertir plano placing a frame base
+    
+    return true;
+    // Iterar (hasta éxito o hasta máximo de intentos)
+    
+    //      Buscar pose en la mesa, alcanzable por el gripper (si falla, itera)
+
+    //      obtiene transformación pose estable a pose alcanzable
+    
+    //      calcula pose ideal para el gripper + delta en Z
+    
+    //      Verifica factibilidad. (si falla, itera)
+    
+    // posiciona gripper
+    
+    // abre gripper
+    
+    // Retira gripper (ángulo correcto)
+    
+    // FIN
+}
+
 
 /**
  * main: Ejecuta todo lo necesario para efectuar placing
@@ -487,13 +471,44 @@ int main(int argc, char **argv){
     cloud_pub.publish(*object_pc);
     cloud_pub2.publish(*gripper_pc);*/
 
-    // END ZONA DE PRUEBAS
 
-// TESTEANDO SCANGRIPPER + GETSTABLEOBJECTPOSE
-    cloud_pub = nh.advertise<PointCloud<PointXYZ> >("object_pc", 1);
-    cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("gripper_pc", 1);
-    pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose_estable", 1);
+/*
+    cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("punto_trans_pc", 1);
+    point_pub = nh.advertise<geometry_msgs::PointStamped>("punto_mas_cercano", 1);
+    pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose_mas_cercana", 1);
+    
+    ros::Duration(1).sleep();*/
+    
+/*    geometry_msgs::PoseStamped placing_pose;
+    if (not getStableObjectPose(placing_pose)){
+        ROS_ERROR("PLACE: No se pudo obtener una pose de placing");
+        endProgram(1);
+    }*/
+    
+// TESTEANDO SEARCHSURFACE + GOTOPOSE + SCANGRIPPER + GETSTABLEOBJECTPOSE
+    
+    surface_pc_pub = nh.advertise<PointCloud<PointXYZ> >("surface", 1);
+    object_pc_pub = nh.advertise<PointCloud<PointXYZ> >("object_pc", 1);
+    gripper_pc_pub = nh.advertise<PointCloud<PointXYZ> >("gripper_pc", 1);
+
+    closest_point_pub = nh.advertise<geometry_msgs::PointStamped>("closest_point", 1);
+    // surface_centroid_pub = nh.advertise<geometry_msgs::PointStamped>("surface_centroid", 1);
+    closest_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("closest_pose", 1);
+    stable_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("stable_pose", 1);
+
     ros::Duration(1).sleep();
+    PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
+    if (not searchSurface(surface_cloud)){
+        ROS_ERROR("No se pudo obtener superficie");
+        endProgram(1);
+    }
+    ROS_INFO("PLACE: Superficie encontrada (frame: %s). Publicando...", surface_cloud->header.frame_id.c_str());
+    surface_pc_pub.publish(*surface_cloud);
+    ROS_INFO("PLACE: Dirigiéndose hacia ella");
+    if (not moveToSurface(surface_cloud)){
+        ROS_ERROR("No se pudo ir hacia la superficie");
+        endProgram(1);
+    }
     PointCloud<PointXYZ>::Ptr object_pc (new PointCloud<PointXYZ>()),
                               gripper_pc (new PointCloud<PointXYZ>());
     ROS_DEBUG("PLACE: Escaneando gripper...");
@@ -502,8 +517,8 @@ int main(int argc, char **argv){
         endProgram(1);
     }
     ROS_DEBUG("PLACE: Publicando ambas nubes...");
-    cloud_pub.publish(*object_pc);
-    cloud_pub2.publish(*gripper_pc);
+    object_pc_pub.publish(*object_pc);
+    gripper_pc_pub.publish(*gripper_pc);
     ROS_DEBUG("PLACE: Buscando pose de placing");
     geometry_msgs::PoseStamped placing_pose;
     if (not getStableObjectPose(object_pc, gripper_pc, placing_pose)){
@@ -511,33 +526,13 @@ int main(int argc, char **argv){
         endProgram(1);
     }
     ROS_DEBUG("PLACE: Publicando pose de placing...");
-    pose_pub.publish(placing_pose);
-    
-
-/*
-    cloud_pub = nh.advertise<PointCloud<PointXYZ> >("superficie", 1);
-    cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("punto_trans_pc", 1);
-    point_pub = nh.advertise<geometry_msgs::PointStamped>("punto_mas_cercano", 1);
-    point_pub2 = nh.advertise<geometry_msgs::PointStamped>("punto_trans", 1);
-    pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose_mas_cercana", 1);
-    ros::Duration(1).sleep();
-    
-    PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
-    if (not searchSurface(surface_cloud)){
-        ROS_ERROR("No se pudo obtener superficie");
-        exit(1);
-    }
-    ROS_INFO("PLACE: Superficie encontrada (frame: %s). Publicando...", surface_cloud->header.frame_id.c_str());
-    cloud_pub.publish(*surface_cloud);
-    ROS_INFO("PLACE: Dirigiéndose hacia ella");
-    moveToSurface(surface_cloud);
-    ros::Duration(1).sleep();*/
-    
-/*    geometry_msgs::PoseStamped placing_pose;
-    if (not getStableObjectPose(placing_pose)){
-        ROS_ERROR("PLACE: No se pudo obtener una pose de placing");
+    stable_pose_pub.publish(placing_pose);
+    if (not placeObject(placing_pose, object_pc)){
+        ROS_ERROR("No se pudo hacer placing");
         endProgram(1);
-    }*/
+    }
+
+    // END ZONA DE PRUEBAS
 
     ros::Duration(1).sleep();
     ROS_INFO("PLACE: FIN");
@@ -553,8 +548,9 @@ int main(int argc, char **argv){
             1) Filtrar mejor el entorno
                 Usar clustering?
             2) Reintentar poses si no funcionaron
-        - Reparar dirección de pose encontrada
+        [DONE]- Reparar dirección de pose encontrada
             Siempre debe apuntar hacia "adentro"
+        - Agregar vista desde "arriba" al scaneo
     opcionales:
         [DONE]- Evaluar mover método "getStablePose" de Util a este archivo.
         - Evaluar corregir vista de la superficie encontrada (una vez encontrada, mirar hacia ella, volver a buscar y corregir nube)
