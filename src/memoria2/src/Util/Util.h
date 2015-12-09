@@ -15,7 +15,10 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/common/centroid.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/PolygonMesh.h>
+#include <pcl/surface/convex_hull.h>
 #include <tf/transform_listener.h>
+#include "../Polymesh/Polymesh.h"
 // #include "../RobotDriver/RobotDriver.h"
 
 using namespace std;
@@ -70,12 +73,16 @@ class Util{
         static geometry_msgs::Point getCloudCentroid(PointCloud<PointXYZ>::Ptr cloud_in);
         static void getClosestPoint(PointCloud<PointXYZ>::Ptr cloud, geometry_msgs::PointStamped &closest_point, float &closest_point_distance);
         static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
+        static PolygonMesh getConvexHull(PointCloud<PointXYZ>::Ptr cloud);
         // Utilidades específicas
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
-        static bool isPointInsideBox(PointXYZ p, Box box);
+        static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);
     protected:
     private:
+        static bool isPointInsideBox(PointXYZ p, Box box);
+        static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);
+
 };
 
 #endif // UTIL_H

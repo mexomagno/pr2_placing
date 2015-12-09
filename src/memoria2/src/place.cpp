@@ -165,13 +165,13 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
     // Mirar hacia el centroide
     r_driver->head->lookAt(Util::BASE_FRAME, centroid.x, centroid.y, centroid.z);    
 }
-bool getPlacingPose(geometry_msgs::PoseStamped &pose_out){
-    // Scannear gripper
-    PointCloud<PointXYZ>::Ptr gripper_scan (new PointCloud<PointXYZ>()),
-                              object_scan (new PointCloud<PointXYZ>());
-    return scanGripper(object_scan, gripper_scan);
-    // Filtrar gripper del scan
+bool getPlacingPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
     // Obtener mejor superficie
+    if (not Util::getStablePose(object_pc, gripper_pc, pose_out)){
+        ROS_ERROR("PLACE: Algo ocurrió al intentar obtener la pose estable");
+        return false;
+    }
+    return true;
 }
 bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
     // Mover gripper a posición inicial de scanning
@@ -333,7 +333,7 @@ int main(int argc, char **argv){
     r_driver->rgripper->goToPose(gripper_pose);*/
 
 // TESTEANDO SCANGRIPPER
-    cloud_pub = nh.advertise<PointCloud<PointXYZ> >("object_pc", 1);
+/*    cloud_pub = nh.advertise<PointCloud<PointXYZ> >("object_pc", 1);
     cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("gripper_pc", 1);
     ros::Duration(1).sleep();
     PointCloud<PointXYZ>::Ptr object_pc (new PointCloud<PointXYZ>()),
@@ -345,10 +345,34 @@ int main(int argc, char **argv){
     }
     ROS_DEBUG("PLACE: Publicando ambas nubes...");
     cloud_pub.publish(*object_pc);
-    cloud_pub2.publish(*gripper_pc);
+    cloud_pub2.publish(*gripper_pc);*/
 
     // END ZONA DE PRUEBAS
 
+// TESTEANDO SCANGRIPPER + GETPLACINGPOSE
+    cloud_pub = nh.advertise<PointCloud<PointXYZ> >("object_pc", 1);
+    cloud_pub2 = nh.advertise<PointCloud<PointXYZ> >("gripper_pc", 1);
+    pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose_estable", 1);
+    ros::Duration(1).sleep();
+    PointCloud<PointXYZ>::Ptr object_pc (new PointCloud<PointXYZ>()),
+                              gripper_pc (new PointCloud<PointXYZ>());
+    ROS_DEBUG("PLACE: Escaneando gripper...");
+    if (not scanGripper(object_pc, gripper_pc)){
+        ROS_ERROR("No se pudo escanear gripper");
+        endProgram(1);
+    }
+    ROS_DEBUG("PLACE: Publicando ambas nubes...");
+    cloud_pub.publish(*object_pc);
+    cloud_pub2.publish(*gripper_pc);
+    ROS_DEBUG("PLACE: Buscando pose de placing");
+    geometry_msgs::PoseStamped placing_pose;
+    if (not getPlacingPose(object_pc, gripper_pc, placing_pose)){
+        ROS_ERROR("No se pudo obtener pose de placing");
+        endProgram(1);
+    }
+    ROS_DEBUG("PLACE: Publicando pose de placing...");
+    pose_pub.publish(placing_pose);
+    
 
 /*
     cloud_pub = nh.advertise<PointCloud<PointXYZ> >("superficie", 1);
@@ -387,6 +411,7 @@ int main(int argc, char **argv){
         - Revisar problema de head driver de no hacer nada a veces (lanzar timeout)
         - Refinar filtro del gripper scanner:
             1) Filtrar mejor el entorno
+                Usar clustering?
             2) Reintentar poses si no funcionaron
     opcionales:
         - Evaluar corregir vista de la superficie encontrada (una vez encontrada, mirar hacia ella, volver a buscar y corregir nube)
