@@ -242,10 +242,15 @@ void prePick(string object, moveit::planning_interface::MoveGroup &group){
 }
 int main(int argc, char **argv){
     if (argc < 2 ){
+        printf("ERROR: Debe ingresar brazo a usar [l|r]\n");
+        exit(1);
+    }
+    if (argc < 3){
         printf("ERROR: Debe ingresar nombre de objeto a graspiar zi\n");
         exit(1);
     }
-    string grasp_object = argv[1];
+    char brazo = argv[1][0];
+    string grasp_object = argv[2];
     ros::init(argc,argv,"grasping_test");
     ros::NodeHandle nh;
     point_pub = nh.advertise<geometry_msgs::PointStamped>("posicion_objeto",1);
@@ -264,7 +269,7 @@ int main(int argc, char **argv){
     ROS_INFO("Iniciado");
     signal(SIGINT, signalHandler);
     // crear grupo brazo derecho
-    moveit::planning_interface::MoveGroup r_arm("right_arm");
+    moveit::planning_interface::MoveGroup r_arm((brazo == 'l' ? "left_arm" : "right_arm"));
     moveit::planning_interface::MoveGroup::Plan plan;
     // Tomar lata de cocacola
     ROS_INFO("Comenzando pick de '%s'",grasp_object.c_str());
