@@ -18,7 +18,7 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl/surface/convex_hull.h>
 #include <tf/transform_listener.h>
-#include "../Polymesh/Polymesh.h"
+// #include "../Polymesh/Polymesh.h"
 // #include "../RobotDriver/RobotDriver.h"
 
 using namespace std;
@@ -64,6 +64,8 @@ class Util{
         static const float GRIPPER_STABILIZE_TIME;
         static const float SCAN_PASSTHROUGH_Z;
         static const float SCAN_LEAFSIZE;
+        // GetPlacingPose
+        static const float PATCH_ANGLE_THRESHOLD;
         // Métodos
         static float toRad(float grad);
         static float toGrad(float rad);
@@ -77,11 +79,11 @@ class Util{
         // Utilidades específicas
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
-        static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);
+        // static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);
+        static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);
     protected:
     private:
         static bool isPointInsideBox(PointXYZ p, Box box);
-        static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);
 
 };
 

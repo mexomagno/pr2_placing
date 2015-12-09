@@ -38,7 +38,7 @@ const float Util::GRIPPER_STABILIZE_TIME  = 1;
 const float Util::SCAN_PASSTHROUGH_Z      = 0.5;
 const float Util::SCAN_LEAFSIZE           = 0.005;
 // Stable surface
-const double PATCH_ANGLE_THRESHOLD        = 0.2;
+const float Util::PATCH_ANGLE_THRESHOLD  = 0.2;
 
 // MÉTODOS
 Util::Util(){}
@@ -338,7 +338,7 @@ bool Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ
     extractor.filter(*object_out);
     return true;
 }
-bool Util::getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
+/*bool Util::getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
     // Verificar que ambas nubes están en el mismo frame
     if (object_pc->header.frame_id.compare(gripper_pc->header.frame_id) != 0){
         ROS_ERROR("UTIL: Nube de objeto y de gripper deben estar en el mismo frame de referencia");
@@ -402,14 +402,7 @@ bool Util::getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXY
     }
     return false;
 }
-
-// PRIVATE
-bool Util::isPointInsideBox(PointXYZ p, Box box){
-    bool in_x = (p.x > box.center[0] - box.size[0]/2.0) and (p.x < box.center[0] + box.size[0]/2.0);
-    bool in_y = (p.y > box.center[1] - box.size[1]/2.0) and (p.y < box.center[1] + box.size[1]/2.0);
-    bool in_z = (p.z > box.center[2] - box.size[2]/2.0) and (p.z < box.center[2] + box.size[2]/2.0);
-    return in_x and in_y and in_z;
-}
+*/
 bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane){
     /*
     Algoritmo:
@@ -444,4 +437,11 @@ bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoeffici
     }
     // printf("Nube NO es cortada por plano\n");
     return false;
+}
+// PRIVATE
+bool Util::isPointInsideBox(PointXYZ p, Box box){
+    bool in_x = (p.x > box.center[0] - box.size[0]/2.0) and (p.x < box.center[0] + box.size[0]/2.0);
+    bool in_y = (p.y > box.center[1] - box.size[1]/2.0) and (p.y < box.center[1] + box.size[1]/2.0);
+    bool in_z = (p.z > box.center[2] - box.size[2]/2.0) and (p.z < box.center[2] + box.size[2]/2.0);
+    return in_x and in_y and in_z;
 }

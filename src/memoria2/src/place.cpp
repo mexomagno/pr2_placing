@@ -3,6 +3,7 @@
  Este programa se preocupa de hacer todo lo necesario para lograr que el robot posicione el objeto
  */
 #include <string>
+#include <vector>
 #include <csignal>
 #include <ros/ros.h>
 #include <ros/console.h> // Para debuggear
@@ -15,6 +16,7 @@
 // Propios
 #include "RobotDriver/RobotDriver.h"
 #include "Util/Util.h"
+#include "Polymesh/Polymesh.h"
 
 
 using namespace std;
@@ -166,12 +168,74 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
     r_driver->head->lookAt(Util::BASE_FRAME, centroid.x, centroid.y, centroid.z);    
 }
 bool getPlacingPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
-    // Obtener mejor superficie
+/*    // Obtener mejor superficie
     if (not Util::getStablePose(object_pc, gripper_pc, pose_out)){
         ROS_ERROR("PLACE: Algo ocurrió al intentar obtener la pose estable");
         return false;
     }
-    return true;
+    return true;*/
+        // Verificar que ambas nubes están en el mismo frame
+    if (object_pc->header.frame_id.compare(gripper_pc->header.frame_id) != 0){
+        ROS_ERROR("UTIL: Nube de objeto y de gripper deben estar en el mismo frame de referencia");
+        return false;
+    }
+    // Crear convex hull del objeto. Internamente Polymesh calcula varias cosas útiles
+    Polymesh mesh = Polymesh(Util::getConvexHull(object_pc));
+    // Obtener listado de posibles parches estables
+    vector<vector<int> > patches; // Todos los parches posibles, ordenados desde el más grande al más pequeño
+    vector<double> patches_areas; // Sus areas correspondientes, en el mismo orden anterior.
+    mesh.getFlatPatches(Util::PATCH_ANGLE_THRESHOLD, patches, patches_areas);
+    // Obtener centro de masa
+    PointXYZ cm = mesh.getCenterOfMass();
+    // Iterar hasta encontrar un parche estable. Priorizar parches grandes
+    vector<int> best_patch;
+    double best_patch_area;
+    PointCloud<PointXYZ>::Ptr patch_plane(new PointCloud<PointXYZ>());
+    ModelCoefficients::Ptr patch_plane_coefs(new ModelCoefficients());
+    PointXYZ cm_proj;
+    for (int i=0; i<patches.size(); i++){
+        // Obtener plano representado por el parche
+        mesh.flattenPatch(patches[i], *patch_plane, patch_plane_coefs);
+        // proyectar centro de masa sobre plano
+        cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_plane);
+        // VERIFICACIÓN DE CONDICIONES:
+        //      - Es un plano estable?
+        //          * centro de masa se proyecta sobre parche?
+        //      - Puede el gripper llegar a esa posición?
+        //          * El gripper no es cortado por el plano de la superficie?
+        if (Polymesh::isPointInConvexPolygon(cm_proj, *patch_plane) and not Util::isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
+            best_patch = patches[i];
+            best_patch_area = patches_areas[i];
+            ROS_INFO("PLACE: Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
+            // Obtener transformación
+            Eigen::Matrix4f transformation = Util::getTransformation(object_pc->header.frame_id, Util::BASE_FRAME);
+            // Transformar pose
+            // a) obtener rotación de la transformación
+            Eigen::Matrix4f rotation;
+            rotation = transformation;
+            rotation.col(3) = Eigen::Vector4f(0, 0, 0, 1);
+            // b) Normalizar normal
+            Eigen::Vector4f surface_normal;
+            surface_normal << patch_plane_coefs->values[0], patch_plane_coefs->values[1], patch_plane_coefs->values[2], 1;
+            surface_normal.normalize();
+            // c) rotar normal
+            surface_normal = rotation*surface_normal;
+            // d) Obtener quaternion a partir de la normal
+            pose_out.pose.orientation = Util::coefsToQuaternionMsg(surface_normal[0], surface_normal[1], surface_normal[2]);
+            // e) Transportar posición
+            Eigen::Vector4f surface_centroid;
+            surface_centroid << cm_proj.x, cm_proj.y, cm_proj.z, 1;
+            surface_centroid = transformation*surface_centroid;
+            // f) guardar posición
+            pose_out.pose.position.x = surface_centroid[0];
+            pose_out.pose.position.y = surface_centroid[1];
+            pose_out.pose.position.z = surface_centroid[2];
+            pose_out.header.frame_id = Util::BASE_FRAME;
+            ROS_INFO("PLACE: Pose guardada, terminando");
+            return true;
+        }
+    }
+    return false;
 }
 bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
     // Mover gripper a posición inicial de scanning
@@ -413,8 +477,11 @@ int main(int argc, char **argv){
             1) Filtrar mejor el entorno
                 Usar clustering?
             2) Reintentar poses si no funcionaron
+        - Reparar dirección de pose encontrada
     opcionales:
+        - Evaluar mover método "getStablePose" de Util a este archivo.
         - Evaluar corregir vista de la superficie encontrada (una vez encontrada, mirar hacia ella, volver a buscar y corregir nube)
         - Evaluar reparar head driver para rotar pitch
         - Evaluar eliminar pose inicial del head driver al inicializarlo
+        - Evaluar suavizar (o "promediar") nube merged del objeto (separado del gripper)
  */
