@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
     message_generation
     moveit_ros_planning_interface
     gazebo_msgs
+    # filters
 )
 
 ## System dependencies are found with CMake's conventions
@@ -202,6 +203,13 @@ target_link_libraries(graspingtest ${catkin_LIBRARIES})
 add_executable(gripper_scanner src/gripper_scanner.cpp)
 add_dependencies(gripper_scanner memoria_generate_messages_cpp)
 target_link_libraries(gripper_scanner ${catkin_LIBRARIES})
+
+#### TEST SELF FILTER
+
+# #set(SF_D "/opt/ros/hydro/share/pr2_navigation_self_filter")
+# add_executable(self_filter src/self_filter.cpp)
+# add_dependencies(self_filter filters)
+# target_link_libraries(self_filter ${catkin_LIBRARIES} "/opt/ros/hydro/lib/libresource_retriever.so")
 
 #############
 ## Install ##
