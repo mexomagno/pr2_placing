@@ -61,6 +61,8 @@ class Util{
         static const string GRIPPER_FRAME_SUFFIX;
         static const float scan_position[];
         static const float scan_orientation[];
+        static const float tuck_position[];
+        static const float tuck_orientation[];
         static const float GRIPPER_STABILIZE_TIME;
         static const float SCAN_PASSTHROUGH_Z;
         static const float SCAN_LEAFSIZE;
@@ -70,12 +72,16 @@ class Util{
         static float toRad(float grad);
         static float toGrad(float rad);
         static geometry_msgs::Quaternion coefsToQuaternionMsg(float a, float b, float c);
+        static float angleBetweenVectors(float x1, float y1, float z1, float x2, float y2, float z2);
         // Operaciones con nubes de puntos
         static PointCloud<PointXYZ>::Ptr subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_in, float leafsize);
         static geometry_msgs::Point getCloudCentroid(PointCloud<PointXYZ>::Ptr cloud_in);
         static void getClosestPoint(PointCloud<PointXYZ>::Ptr cloud, geometry_msgs::PointStamped &closest_point, float &closest_point_distance);
         static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
         static PolygonMesh getConvexHull(PointCloud<PointXYZ>::Ptr cloud);
+        // Transformaciones
+        static geometry_msgs::PoseStamped transformPose(geometry_msgs::PoseStamped pose_in, Eigen::Matrix4f transf);
+        static geometry_msgs::PointStamped transformPoint(geometry_msgs::PointStamped point_in, Eigen::Matrix4f transf);
         // Utilidades específicas
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);

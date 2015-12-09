@@ -34,6 +34,8 @@ const float Util::SCAN_ROLL_DELTA         = Util::PI/2.0;
 const string Util::GRIPPER_FRAME_SUFFIX   = "_gripper_tool_frame";
 const float Util::scan_position[]         = {0.6, 0, 1.2};
 const float Util::scan_orientation[]      = {0, -Util::PI/2.0, 0}; //R, P, Y
+const float Util::tuck_position[]         = {0, 0.45, 0.48}; // Relativo a baseframe
+const float Util::tuck_orientation[]      = {Util::PI/2.0, Util::PI/2.0, 0}; // relativo a baseframe
 const float Util::GRIPPER_STABILIZE_TIME  = 1;
 const float Util::SCAN_PASSTHROUGH_Z      = 0.5;
 const float Util::SCAN_LEAFSIZE           = 0.005;
@@ -58,9 +60,14 @@ geometry_msgs::Quaternion Util::coefsToQuaternionMsg(float a, float b, float c){
     float yaw = (a==0?toRad(90):atan(b/a)) + (a>=0?0:toRad(180));
     return tf::createQuaternionMsgFromRollPitchYaw(0,pitch,yaw);
 }
-/*PointCloud<PointXYZ> Util::scanGripper(char which){
-
-}*/
+float Util::angleBetweenVectors(float x1, float y1, float z1, float x2, float y2, float z2){
+    Eigen::Vector3f v1(x1, y1, z1),
+                    v2(x2, y2, z2);
+    float angle = acos(v1.normalized().dot(v2.normalized()));
+    if (angle > Util::PI)
+        ROS_DEBUG("UTIL: WARNING: angulo entre vectores mayor a 180 (%f)", Util::toGrad(angle));
+    return angle;
+}
 // Operaciones con nubes de puntos
 PointCloud<PointXYZ>::Ptr Util::subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_in, float leafsize){
     PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>());
@@ -164,6 +171,18 @@ PolygonMesh Util::getConvexHull(PointCloud<PointXYZ>::Ptr cloud){
     chull.reconstruct(mesh);
     return mesh;
 }
+geometry_msgs::PoseStamped Util::transformPose(geometry_msgs::PoseStamped pose_in, Eigen::Matrix4f transf){
+    // Obtener componentes vectoriales
+    
+    // Obtener matriz de rotación
+    Eigen::Matrix4f rot = transf;
+    rot.col(3) = Eigen::Vector4f(0, 0, 0, 1);
+
+}
+geometry_msgs::PointStamped Util::transformPoint(geometry_msgs::PointStamped, Eigen::Matrix4f transf){
+
+}
+
 // Utilidades específicas
 /**
  * searchPlacingSurface: Función que busca iterativamente en una nube de puntos la ocurrencia de una superficie plana sensata para efectuar el placing.
@@ -338,71 +357,6 @@ bool Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ
     extractor.filter(*object_out);
     return true;
 }
-/*bool Util::getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
-    // Verificar que ambas nubes están en el mismo frame
-    if (object_pc->header.frame_id.compare(gripper_pc->header.frame_id) != 0){
-        ROS_ERROR("UTIL: Nube de objeto y de gripper deben estar en el mismo frame de referencia");
-        return false;
-    }
-    // Crear convex hull del objeto. Internamente Polymesh calcula varias cosas útiles
-    Polymesh mesh = Polymesh(Util::getConvexHull(object_pc));
-    // Obtener listado de posibles parches estables
-    vector<vector<int> > patches; // Todos los parches posibles, ordenados desde el más grande al más pequeño
-    vector<double> patches_areas; // Sus areas correspondientes, en el mismo orden anterior.
-    mesh.getFlatPatches(PATCH_ANGLE_THRESHOLD, patches, patches_areas);
-    // Obtener centro de masa
-    PointXYZ cm = mesh.getCenterOfMass();
-    // Iterar hasta encontrar un parche estable. Priorizar parches grandes
-    vector<int> best_patch;
-    double best_patch_area;
-    PointCloud<PointXYZ>::Ptr patch_plane(new PointCloud<PointXYZ>());
-    ModelCoefficients::Ptr patch_plane_coefs(new ModelCoefficients());
-    PointXYZ cm_proj;
-    for (int i=0; i<patches.size(); i++){
-        // Obtener plano representado por el parche
-        mesh.flattenPatch(patches[i], *patch_plane, patch_plane_coefs);
-        // proyectar centro de masa sobre plano
-        cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_plane);
-        // VERIFICACIÓN DE CONDICIONES:
-        //      - Es un plano estable?
-        //          * centro de masa se proyecta sobre parche?
-        //      - Puede el gripper llegar a esa posición?
-        //          * El gripper no es cortado por el plano de la superficie?
-        if (Polymesh::isPointInConvexPolygon(cm_proj, *patch_plane) and not Util::isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
-            best_patch = patches[i];
-            best_patch_area = patches_areas[i];
-            ROS_INFO("UTIL: Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
-            // Obtener transformación
-            Eigen::Matrix4f transformation = Util::getTransformation(object_pc->header.frame_id, Util::BASE_FRAME);
-            // Transformar pose
-            // a) obtener rotación de la transformación
-            Eigen::Matrix4f rotation;
-            rotation = transformation;
-            rotation.col(3) = Eigen::Vector4f(0, 0, 0, 1);
-            // b) Normalizar normal
-            Eigen::Vector4f surface_normal;
-            surface_normal << patch_plane_coefs->values[0], patch_plane_coefs->values[1], patch_plane_coefs->values[2], 1;
-            surface_normal.normalize();
-            // c) rotar normal
-            surface_normal = rotation*surface_normal;
-            // d) Obtener quaternion a partir de la normal
-            pose_out.pose.orientation = Util::coefsToQuaternionMsg(surface_normal[0], surface_normal[1], surface_normal[2]);
-            // e) Transportar posición
-            Eigen::Vector4f surface_centroid;
-            surface_centroid << cm_proj.x, cm_proj.y, cm_proj.z, 1;
-            surface_centroid = transformation*surface_centroid;
-            // f) guardar posición
-            pose_out.pose.position.x = surface_centroid[0];
-            pose_out.pose.position.y = surface_centroid[1];
-            pose_out.pose.position.z = surface_centroid[2];
-            pose_out.header.frame_id = Util::BASE_FRAME;
-            ROS_INFO("UTIL: Pose guardada, terminando");
-            return true;
-        }
-    }
-    return false;
-}
-*/
 bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane){
     /*
     Algoritmo:
@@ -413,24 +367,24 @@ bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoeffici
             - Angulos menores a PI/2 son de un lado, mayores son de otro
             - Si aparecen puntos de ambos lados, retornar True, else, false.
     */
-    const double PI = 3.1416;
     Eigen::Vector3f normal = Eigen::Vector3f(coefs->values[0], coefs->values[1], coefs->values[2]);
-    normal.normalize();
+    // normal.normalize();
     // cout << "Normal: " << normal << endl;
     bool side;
     // Iterar sobre los puntos
     for (int i=0; i<cloud->points.size(); i++){
         // Calcular ángulo entre punto y normal
         Eigen::Vector3f delta = Eigen::Vector3f (p_plane.x, p_plane.y, p_plane.z) - Eigen::Vector3f(cloud->points[i].x, cloud->points[i].y, cloud->points[i].z);
-        delta.normalize();
-        double alpha = acos(normal.dot(delta));
+        // delta.normalize();
+        // double alpha = acos(normal.dot(delta));
+        float alpha = Util::angleBetweenVectors(normal[0], normal[1], normal[2], delta[0], delta[1], delta[2]);
         // printf ("Alpha: %f°\n", (alpha*180/PI));
         if (i==0){
-            side = (alpha < PI/2.0);
+            side = (alpha < Util::PI/2.0);
             // printf("Lado escogido: %s", side ? "true": "false");
             continue;
         }
-        if (side != (alpha < PI/2.0)){
+        if (side != (alpha < Util::PI/2.0)){
             // printf("Nube es cortada por plano\n");
             return true;
         }
