@@ -18,7 +18,7 @@ ros::Publisher base_cmd_pub_;
 void odomCallback(const nav_msgs::Odometry::ConstPtr& odom){
 	if (not store_odom)
         return;
-    ROS_DEBUG("RobotBaseDriver: Recibida odometría: (%f,%f,%f) (%f,%f,%f,%f)",odom->pose.pose.position.x,odom->pose.pose.position.y,odom->pose.pose.position.z,odom->pose.pose.orientation.x,odom->pose.pose.orientation.y,odom->pose.pose.orientation.z,odom->pose.pose.orientation.w);
+    // ROS_DEBUG("RobotBaseDriver: Recibida odometría: (%f,%f,%f) (%f,%f,%f,%f)",odom->pose.pose.position.x,odom->pose.pose.position.y,odom->pose.pose.position.z,odom->pose.pose.orientation.x,odom->pose.pose.orientation.y,odom->pose.pose.orientation.z,odom->pose.pose.orientation.w);
     // Actualizar última posición
     last_position.setX(odom->pose.pose.position.x);
     last_position.setY(odom->pose.pose.position.y);
@@ -95,6 +95,7 @@ bool RobotBaseDriver::goToPose(geometry_msgs::PoseStamped pose_goal){
 			return false;
 	}
 	ROS_DEBUG("RobotBaseDriver: Fin goToPose");
+	return true;
 }
 // PRIVATE
 bool RobotBaseDriver::turn(float angle){
@@ -128,7 +129,7 @@ bool RobotBaseDriver::turn(float angle){
 	}
 }
 bool RobotBaseDriver::travel(float distance, float angle){
-	ROS_DEBUG("RobotBaseDriver: Desplazar distancia: %f, angulo: %f", distance, angle);
+	ROS_DEBUG("RobotBaseDriver: Desplazar distancia: %f, angulo: %f", distance, Util::toGrad(angle));
 	ros::Rate rate(LOOP_FREQ);
 	store_odom = true;
 	rate.sleep();
