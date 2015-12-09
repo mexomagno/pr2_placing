@@ -55,8 +55,8 @@ bool moveToPose(const geometry_msgs::Pose &_pose, moveit::planning_interface::Mo
     _group.setPoseTarget(_pose);
     printf("pose reference frame: %s\n", _group.getPoseReferenceFrame().c_str());
     _group.setPoseReferenceFrame("/odom_combined");
-    //_group.setGoalOrientationTolerance(0.01);// Unidades??
-    //_group.setGoalPositionTolerance(0.01); // ???
+    _group.setGoalOrientationTolerance(0.1);// Unidades??
+    // _group.setGoalPositionTolerance(0.01); // ???
     _group.setGoalTolerance(0.01); // Radio de esfera de incertidumbre;
     _group.setNumPlanningAttempts(20); // Cantidad de intentos de plan. Default: 1
     _group.setPlanningTime(5); // Tiempo máximo que se puede tomar para planear. Default, 5s parece.
