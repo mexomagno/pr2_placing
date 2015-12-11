@@ -3,9 +3,7 @@ Panels:
     Help Height: 78
     Name: Displays
     Property Tree Widget:
-      Expanded:
-        - /gripper frame1
-        - /pose_estable1/Status1
+      Expanded: ~
       Splitter Ratio: 0.5
     Tree Height: 466
   - Class: rviz/Selection
@@ -575,6 +573,20 @@ Visualization Manager:
       Topic: /surface_centroid
       Value: true
     - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.3
+      Head Radius: 0.1
+      Name: surface_normal
+      Shaft Length: 1
+      Shaft Radius: 0.05
+      Shape: Arrow
+      Topic: /surface_normal
+      Value: true
+    - Alpha: 1
       Class: rviz/PointStamped
       Color: 0; 255; 255
       Enabled: true
@@ -676,6 +688,20 @@ Visualization Manager:
       Shape: Arrow
       Topic: /stable_pose
       Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 0; 0; 255
+      Enabled: true
+      Head Length: 0.03
+      Head Radius: 0.04
+      Name: surface_pose
+      Shaft Length: 0.2
+      Shaft Radius: 0.005
+      Shape: Arrow
+      Topic: /surface_pose
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -700,22 +726,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.866492
+      Distance: 0.83445
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.20115
-        Y: 0.160203
-        Z: 1.24278
+        X: 0.77507
+        Y: -0.368602
+        Z: 0.41778
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.554798
+      Pitch: 0.934796
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.74073
+      Yaw: 5.48572
     Saved: ~
 Window Geometry:
   Displays:

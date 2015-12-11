@@ -56,6 +56,7 @@ class Util{
         static const float DEFAULT_DESIRED_PITCH;
         static const float KINECT_STABILIZE_TIME;
         static const float ROBOT_FRONT_MARGIN;
+        static const int   FIND_SURFACE_POSE_RETRYS;
         // Gripper scanner
         static const float SCAN_ROLL_DELTA;
         static const string GRIPPER_FRAME_SUFFIX;
@@ -80,10 +81,11 @@ class Util{
         static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
         static PolygonMesh getConvexHull(PointCloud<PointXYZ>::Ptr cloud);
         // Transformaciones
-        static geometry_msgs::Pose transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf);
+        static Eigen::Vector3f transformVector(Eigen::Vector3f vector_in, Eigen::Matrix4f transf);
         static geometry_msgs::Point transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf);
+        static geometry_msgs::Pose transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf);
         // Utilidades específicas
-        static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination);
+        static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
         // static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);
         static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);

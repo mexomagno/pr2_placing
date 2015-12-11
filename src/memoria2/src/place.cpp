@@ -37,6 +37,7 @@ ros::Publisher closest_point_pub;
 // ros::Publisher surface_centroid_pub;
 ros::Publisher closest_pose_pub;
 ros::Publisher stable_pose_pub;
+ros::Publisher surface_pose_pub;
 
 
 // Pre-declaración de métodos
@@ -60,7 +61,7 @@ void signalHandler(int signum){
     ROS_INFO("Se recibe Ctrl+C");
     endProgram(0);
 }
-bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
+bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal){
     // Constantes
     const float min_yaw = -Util::PI/2.0; //-90°
     const float max_yaw = Util::PI/2.0;  // 90°
@@ -73,6 +74,7 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
     PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>()),
                               cloud_subsampled(new PointCloud<PointXYZ>()),
                               cloud_surface(new PointCloud<PointXYZ>());
+    ModelCoefficients::Ptr cloud_coefs(new ModelCoefficients());
     // Iterar y mirar alrededor
     while (yaw <= max_yaw){
         ROS_DEBUG("PLACE: Rotando a yaw = %f", Util::toGrad(yaw));
@@ -89,7 +91,7 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
         ROS_DEBUG("PLACE: %d puntos tras submuestreo", (int)cloud_subsampled->points.size());
         // Buscar un plano adecuado
         ROS_DEBUG("PLACE: Buscando superficie para placing...");
-        if (Util::searchPlacingSurface(cloud_subsampled, cloud_surface, 0.3, 0.8, Util::DEFAULT_DESIRED_PITCH)){
+        if (Util::searchPlacingSurface(cloud_subsampled, cloud_surface, surface_normal, 0.3, 0.8, Util::DEFAULT_DESIRED_PITCH)){
             ROS_DEBUG("PLACE: Encontrada");
             cloud_out = cloud_surface;
             return true;
@@ -115,7 +117,7 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
         ROS_DEBUG("PLACE: %d puntos tras submuestreo", (int)cloud_subsampled->points.size());
         // Buscar un plano adecuado
         ROS_DEBUG("PLACE: Buscando superficie para placing...");
-        if (Util::searchPlacingSurface(cloud_subsampled, cloud_surface, 0.3, 0.8, Util::DEFAULT_DESIRED_PITCH)){
+        if (Util::searchPlacingSurface(cloud_subsampled, cloud_surface, surface_normal, 0.3, 0.8, Util::DEFAULT_DESIRED_PITCH)){
             ROS_DEBUG("PLACE: Encontrada");
             cloud_out = cloud_surface;
             return true;
@@ -205,7 +207,7 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
 }
 bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
     bool gotopose_ok;
-/*    // Mover otro gripper a posición donde no moleste
+    // Mover otro gripper a posición donde no moleste
     geometry_msgs::PoseStamped tuck_pose;
     tuck_pose.pose.position.x = Util::tuck_position[0];
     tuck_pose.pose.position.y = (grasp_arm == 'l' ? Util::tuck_position[1]*-1 : Util::tuck_position[1]);
@@ -219,7 +221,7 @@ bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Pt
     if (not gotopose_ok){
         ROS_ERROR("PLACE: No se pudo tuckear brazo %s", grasp_arm == 'l' ? "derecho" : "izquierdo");
         return false;
-    }*/
+    }
     // Mover gripper a posición inicial de scanning
     geometry_msgs::PoseStamped scan_pose;
     scan_pose.header.frame_id = Util::BASE_FRAME;
@@ -322,7 +324,7 @@ bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Pt
  * @return            true en éxito, false en caso contrario
  */
 bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
-/*    // Obtener mejor superficie
+    /*    // Obtener mejor superficie
     if (not Util::getStablePose(object_pc, gripper_pc, pose_out)){
         ROS_ERROR("PLACE: Algo ocurrió al intentar obtener la pose estable");
         return false;
@@ -383,29 +385,41 @@ bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXY
  *                     una posición posible, obtiene una transformación entre la pose estable del objeto y la del spot encontrado, 
  *                     luego procede a calcular la pose del gripper para llegar a ese punto, y evalúa su factibilidad.
  *                     Si es factible, procede a soltar el objeto y retirar el gripper.
- * @param  stable_pose Pose más estable del objeto, relativa al gripper
+ * @param  stable_pose Pose más estable del objeto, RELATIVA AL GRIPPER
  * @param  surface_pc  Superficie de placing encontrada antes. Se ignorarán partes no vistas (no se extrapolará en el plano)
  * @return             True en éxito, false en caso contrario
  */
-bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::Ptr surface_pc){
-    // Convertir pose desde frame del gripper a frame base
+bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::Ptr surface_pc, geometry_msgs::PoseStamped surface_normal_pose){
+    // Obtener transformación, transformar pose y plano a baseframe
     geometry_msgs::PoseStamped stable_pose_base;
     stable_pose_base.header.frame_id = Util::BASE_FRAME;
-    // a) Obtener transformación
-    Eigen::Matrix4f transformation = Util::getTransformation(stable_pose.header.frame_id, Util::BASE_FRAME);
-    stable_pose_base.pose = Util::transformPose(stable_pose.pose, transformation);
-    // Convertir plano placing a frame base
-    
-    return true;
+    Eigen::Matrix4f tool_base_tf = Util::getTransformation(stable_pose.header.frame_id, Util::BASE_FRAME);
+    stable_pose_base.pose = Util::transformPose(stable_pose.pose, tool_base_tf);
+    Eigen::Matrix4f odom_base_tf = Util::getTransformation(Util::ODOM_FRAME, Util::BASE_FRAME);
+    PointCloud<PointXYZ>::Ptr surface_base_pc (new PointCloud<PointXYZ>());
+    transformPointCloud(*surface_pc, *surface_base_pc, odom_base_tf);
     // Iterar (hasta éxito o hasta máximo de intentos)
-    
-    //      Buscar pose en la mesa, alcanzable por el gripper (si falla, itera)
+    for (int i=0; i<(int)surface_pc->points.size(); i++){
+        ROS_DEBUG("PLACE: Mostrando posible punto de placing (indice %d)", i);
+        // Construyo una posible pose, basado en puntos de la superficie y la normal transformada
+        geometry_msgs::PoseStamped surface_pose;
+        surface_pose.header.frame_id = Util::BASE_FRAME;
+        surface_pose.pose.position.x = surface_pc->points[i].x;
+        surface_pose.pose.position.y = surface_pc->points[i].y;
+        surface_pose.pose.position.z = surface_pc->points[i].z;
+        surface_pose.pose.orientation = (Util::transformPose(surface_normal_pose.pose, odom_base_tf)).orientation;
+        surface_pose_pub.publish(surface_pose);
+        ros::Duration(0.3).sleep();
+        // Buscar pose en la mesa, alcanzable por el gripper (si falla, itera)
 
     //      obtiene transformación pose estable a pose alcanzable
     
     //      calcula pose ideal para el gripper + delta en Z
     
     //      Verifica factibilidad. (si falla, itera)
+    
+    }
+    return true;
     
     // posiciona gripper
     
@@ -528,16 +542,18 @@ int main(int argc, char **argv){
     // surface_centroid_pub = nh.advertise<geometry_msgs::PointStamped>("surface_centroid", 1);
     closest_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("closest_pose", 1);
     stable_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("stable_pose", 1);
+    surface_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("surface_pose", 1);
 
     ros::Duration(1).sleep();
     PointCloud<PointXYZ>::Ptr surface_cloud (new PointCloud<PointXYZ>());
-    if (not searchSurface(surface_cloud)){
+    geometry_msgs::PoseStamped surface_normal_pose;
+    if (not searchSurface(surface_cloud, surface_normal_pose)){
         ROS_ERROR("No se pudo obtener superficie");
         endProgram(1);
     }
     ROS_INFO("PLACE: Superficie encontrada (frame: %s). Publicando...", surface_cloud->header.frame_id.c_str());
     surface_pc_pub.publish(*surface_cloud);
-/*    ROS_INFO("PLACE: Dirigiéndose hacia ella");
+    /*    ROS_INFO("PLACE: Dirigiéndose hacia ella");
     if (not moveToSurface(surface_cloud)){
         ROS_ERROR("No se pudo ir hacia la superficie");
         endProgram(1);
@@ -562,7 +578,7 @@ int main(int argc, char **argv){
     stable_pose_pub.publish(placing_pose);
     stable_pose_pub.publish(placing_pose);
     stable_pose_pub.publish(placing_pose);
-    if (not placeObject(placing_pose, object_pc)){
+    if (not placeObject(placing_pose, surface_cloud, surface_normal_pose)){   
         ROS_ERROR("No se pudo hacer placing");
         endProgram(1);
     }

@@ -19,6 +19,7 @@ const string Util::ODOM_TOPIC                  = "/base_odometry/odom";
 // Otros
 const float Util::PI                      = 3.1416;
 const float Util::SUBSAMPLE_LEAFSIZE      = 0.05;
+const int   FIND_SURFACE_POSE_RETRYS      = 3;
 // segmentación
 const float WAIT_TF_TIMEOUT               = 1.0;
 const float SEG_THRESHOLD                 = 0.01;
@@ -171,6 +172,26 @@ PolygonMesh Util::getConvexHull(PointCloud<PointXYZ>::Ptr cloud){
     chull.reconstruct(mesh);
     return mesh;
 }
+Eigen::Vector3f Util::transformVector(Eigen::Vector3f vector_in, Eigen::Matrix4f transf){
+    Eigen::Vector4f vector_in_4f(vector_in[0], vector_in[1], vector_in[2], 1);
+    // Obtener rotación desde matriz de transformación
+    Eigen::Matrix4f rot;
+    rot = transf;
+    rot.col(3) = Eigen::Vector4f(0, 0, 0, 1);
+    Eigen::Vector4f vector_out_4f = rot*Eigen::Vector4f(vector_in[0], vector_in[1], vector_in[2], 1);
+    Eigen::Vector3f vector_out (vector_out_4f[0], vector_out_4f[1], vector_out_4f[2]);
+    return vector_out;
+}
+geometry_msgs::Point Util::transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf){
+    geometry_msgs::Point point_out;
+    Eigen::Vector4f point_4f;
+    point_4f << point_in.x, point_in.y, point_in.z, 1;
+    point_4f = transf*point_4f;
+    point_out.x = point_4f[0];
+    point_out.y = point_4f[1];
+    point_out.z = point_4f[2];
+    return point_out;
+}
 geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf){
     geometry_msgs::Pose pose_out;
     // Obtener rotación desde matriz de transformación
@@ -182,25 +203,15 @@ geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matr
     tf::quaternionMsgToTF(pose_in.orientation, tf_q);
     tf::Vector3 normal(1, 0, 0);
     normal = tf::quatRotate(tf_q, normal);
+    normal.normalize();
     // Rotar normal
-    Eigen::Vector4f normal_4f;
-    normal_4f << normal.x(), normal.y(), normal.z(), 1;
-    normal_4f = rot*normal_4f;
+    Eigen::Vector3f normal_vector (normal.x(), normal.y(), normal.z());
+    Eigen::Vector3f normal_rotated = Util::transformVector(normal_vector, transf);
     // Obtener quaternion desde normal rotada
-    pose_out.orientation = Util::coefsToQuaternionMsg(normal_4f[0], normal_4f[1], normal_4f[2]);
+    pose_out.orientation = Util::coefsToQuaternionMsg(normal_rotated[0], normal_rotated[1], normal_rotated[2]);
     // Transportar posición
     pose_out.position = Util::transformPoint(pose_in.position, transf);
     return pose_out;
-}
-geometry_msgs::Point Util::transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf){
-    geometry_msgs::Point point_out;
-    Eigen::Vector4f point_4f;
-    point_4f << point_in.x, point_in.y, point_in.z, 1;
-    point_4f = transf*point_4f;
-    point_out.x = point_4f[0];
-    point_out.y = point_4f[1];
-    point_out.z = point_4f[2];
-    return point_out;
 }
 
 // Utilidades específicas
@@ -214,11 +225,12 @@ geometry_msgs::Point Util::transformPoint(geometry_msgs::Point point_in, Eigen::
  * @return 
  * @param  cloud_out   : Donde se retornan los inliers
  */
-bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, float min_height, float max_height, float inclination){
+bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, float min_height, float max_height, float inclination){
     // variables auxiliares, para borrar
     ros::NodeHandle nh;
     // ros::Publisher point_pub1 = nh.advertise<geometry_msgs::PointStamped>("centroide_k", 1);
     ros::Publisher point_pub2 = nh.advertise<geometry_msgs::PointStamped>("surface_centroid", 1);
+    ros::Publisher surface_normal_pub = nh.advertise<geometry_msgs::PoseStamped>("surface_normal", 1);
     // ros::Publisher pc_pub1 = nh.advertise<PointCloud<PointXYZ> >("plano", 1);
     // ros::Publisher pc_pub2 = nh.advertise<PointCloud<PointXYZ> >("subsampled", 1);
     // pc_pub2.publish(*cloud_in);
@@ -278,20 +290,17 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
         if (cloud_centroid_base.point.z > min_height and cloud_centroid_base.point.z < max_height){
             // Primera prueba superada. Ahora, comprobar inclinación
             // Transformar normal del plano a odom frame. Para eso, tomar normal y rotarla, NO trasladarla
-            Eigen::Vector4f normal_kinect, normal_odom;
-            normal_kinect << coefs->values[0], coefs->values[1], coefs->values[2], 1;
-            normal_kinect.normalize();
-            Eigen::Matrix4f rotation;
-            rotation = transformation;
-            // Elimino componente de traslación y la aplico
-            rotation.col(3) = Eigen::Vector4f(0, 0, 0, 1);
-            normal_odom = rotation*normal_kinect;
+            Eigen::Vector3f normal_kinect (coefs->values[0], coefs->values[1], coefs->values[2]);
+            normal_kinect.normalize(); // redundante pero por si acaso.
+            Eigen::Vector3f normal_odom = Util::transformVector(normal_kinect, transformation);
+            // Corregir orientación para que apunte hacia arriba
+            if (normal_odom[2]<0)
+                normal_odom *= -1;
             // Obtener ángulo de inclinación de la normal, respecto al plano XY
             tf::Quaternion tf_q;
             tf::quaternionMsgToTF(Util::coefsToQuaternionMsg(normal_odom[0], normal_odom[1], normal_odom[2]), tf_q);
             double roll, pitch, yaw;
             tf::Matrix3x3(tf_q).getRPY(roll, pitch, yaw);
-            // El siguiente arreglo, puede ser un problema si se encuentra un techo bajo
             pitch = -abs(pitch);
             ROS_DEBUG("UTIL: Inclinación del plano respecto al suelo (plano XY): %f grados", Util::toGrad(-pitch));
             // Verificar segundo criterio de aceptación: Inclinación máxima
@@ -306,6 +315,15 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
                 // Transformar de frame kinect a odom frame
                 transformPointCloud(*cloud_out_pre, *cloud_out, transformation);
                 cloud_out->header.frame_id = Util::ODOM_FRAME;
+                // Guardar normal de la superficie, centrada en centroide y respecto a odom.
+                geometry_msgs::PoseStamped pose_normal;
+                pose_normal.header.frame_id = Util::ODOM_FRAME;
+                pose_normal.pose.position = cloud_centroid_base.point;
+                tf::quaternionTFToMsg(tf_q, pose_normal.pose.orientation);
+                surface_normal_pub.publish(pose_normal);
+                surface_normal_pub.publish(pose_normal);
+                surface_normal_pub.publish(pose_normal);
+                surface_normal = pose_normal;
                 return true;
             }
         }
