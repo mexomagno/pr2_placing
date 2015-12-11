@@ -126,6 +126,37 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out){
     return false;
 }
 bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
+    bool gotopose_ok;
+    // Mover otro gripper a posición donde no moleste
+    geometry_msgs::PoseStamped tuck_pose;
+    tuck_pose.pose.position.x = Util::tuck_position[0];
+    tuck_pose.pose.position.y = (grasp_arm == 'l' ? Util::tuck_position[1]*-1 : Util::tuck_position[1]);
+    tuck_pose.pose.position.z = Util::tuck_position[2];
+    tuck_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(Util::tuck_orientation[0], Util::tuck_orientation[1], Util::tuck_orientation[2]);
+    tuck_pose.header.frame_id = Util::BASE_FRAME;
+    if (grasp_arm == 'l')
+        gotopose_ok = r_driver->rgripper->goToPose(tuck_pose);
+    else
+        gotopose_ok = r_driver->lgripper->goToPose(tuck_pose);
+    if (not gotopose_ok){
+        ROS_ERROR("PLACE: No se pudo tuckear brazo %s", grasp_arm == 'l' ? "derecho" : "izquierdo");
+        return false;
+    }
+    // Mover objeto a pose de scanning, para no chocar con las cosas
+    geometry_msgs::PoseStamped scan_pose;
+    scan_pose.header.frame_id = Util::BASE_FRAME;
+    scan_pose.pose.position.x = Util::scan_position[0];
+    scan_pose.pose.position.y = Util::scan_position[1];
+    scan_pose.pose.position.z = Util::scan_position[2];
+    scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(Util::scan_orientation[0], Util::scan_orientation[1], Util::scan_orientation[2]);
+    if (grasp_arm == 'l')
+        gotopose_ok = r_driver->lgripper->goToPose(scan_pose);
+    else
+        gotopose_ok = r_driver->rgripper->goToPose(scan_pose);
+    if (not gotopose_ok){
+        ROS_ERROR("PLACE: No se pudo levantar gripper activo para desplazarse");
+        return false;
+    }
     // Transformar la nube de Odom a Base;
     Eigen::Matrix4f transformation = Util::getTransformation(cloud->header.frame_id, Util::BASE_FRAME);
     PointCloud<PointXYZ>::Ptr cloud_base (new PointCloud<PointXYZ>());
@@ -157,6 +188,7 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
         ROS_DEBUG("PLACE: Yendo a la pose...");
         if (not r_driver->base->goToPose(closest_pose)){
             ROS_ERROR("PLACE: No se pudo ir a la pose");
+            return false;
         }
         ROS_DEBUG("PLACE: Llegué a la pose");
     }
@@ -168,11 +200,12 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
     // Obtener centroide (respecto a la base)
     geometry_msgs::Point centroid = Util::getCloudCentroid(cloud_base);
     // Mirar hacia el centroide
-    r_driver->head->lookAt(Util::BASE_FRAME, centroid.x, centroid.y, centroid.z);    
+    r_driver->head->lookAt(Util::BASE_FRAME, centroid.x, centroid.y, centroid.z);
+    return true;    
 }
 bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
     bool gotopose_ok;
-    // Mover otro gripper a posición donde no moleste
+/*    // Mover otro gripper a posición donde no moleste
     geometry_msgs::PoseStamped tuck_pose;
     tuck_pose.pose.position.x = Util::tuck_position[0];
     tuck_pose.pose.position.y = (grasp_arm == 'l' ? Util::tuck_position[1]*-1 : Util::tuck_position[1]);
@@ -186,7 +219,7 @@ bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Pt
     if (not gotopose_ok){
         ROS_ERROR("PLACE: No se pudo tuckear brazo %s", grasp_arm == 'l' ? "derecho" : "izquierdo");
         return false;
-    }
+    }*/
     // Mover gripper a posición inicial de scanning
     geometry_msgs::PoseStamped scan_pose;
     scan_pose.header.frame_id = Util::BASE_FRAME;
@@ -504,11 +537,11 @@ int main(int argc, char **argv){
     }
     ROS_INFO("PLACE: Superficie encontrada (frame: %s). Publicando...", surface_cloud->header.frame_id.c_str());
     surface_pc_pub.publish(*surface_cloud);
-    ROS_INFO("PLACE: Dirigiéndose hacia ella");
+/*    ROS_INFO("PLACE: Dirigiéndose hacia ella");
     if (not moveToSurface(surface_cloud)){
         ROS_ERROR("No se pudo ir hacia la superficie");
         endProgram(1);
-    }
+    }*/
     PointCloud<PointXYZ>::Ptr object_pc (new PointCloud<PointXYZ>()),
                               gripper_pc (new PointCloud<PointXYZ>());
     ROS_DEBUG("PLACE: Escaneando gripper...");
@@ -526,6 +559,8 @@ int main(int argc, char **argv){
         endProgram(1);
     }
     ROS_DEBUG("PLACE: Publicando pose de placing...");
+    stable_pose_pub.publish(placing_pose);
+    stable_pose_pub.publish(placing_pose);
     stable_pose_pub.publish(placing_pose);
     if (not placeObject(placing_pose, object_pc)){
         ROS_ERROR("No se pudo hacer placing");
@@ -551,6 +586,7 @@ int main(int argc, char **argv){
         [DONE]- Reparar dirección de pose encontrada
             Siempre debe apuntar hacia "adentro"
         - Agregar vista desde "arriba" al scaneo
+        - Al llegar a la superficie, el robot debiera girar para quedar de frente al centroide de la superficie
     opcionales:
         [DONE]- Evaluar mover método "getStablePose" de Util a este archivo.
         - Evaluar corregir vista de la superficie encontrada (una vez encontrada, mirar hacia ella, volver a buscar y corregir nube)
