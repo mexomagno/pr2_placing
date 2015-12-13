@@ -26,6 +26,7 @@ class RobotGripperDriver{
         ~RobotGripperDriver();
         bool setOpening(float opening, float max_effort);
         string getWhich();
+        geometry_msgs::PoseStamped getCurrentPose();
         bool goToPose(geometry_msgs::PoseStamped pose);
     protected:
     private:

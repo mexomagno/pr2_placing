@@ -77,6 +77,9 @@ string RobotGripperDriver::getWhich(){
 				return "error";
 	}
 }
+geometry_msgs::PoseStamped RobotGripperDriver::getCurrentPose(){
+    return this->moveit_group_->getCurrentPose();
+}
 bool RobotGripperDriver::goToPose(geometry_msgs::PoseStamped pose){
 	this->moveit_group_->setPoseTarget(pose);
     ROS_DEBUG("RobotGripperDriver: Planeando para pose (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f, %.2f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);

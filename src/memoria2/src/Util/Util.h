@@ -84,7 +84,9 @@ class Util{
         static Eigen::Vector3f transformVector(Eigen::Vector3f vector_in, Eigen::Matrix4f transf);
         static geometry_msgs::Point transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf);
         static geometry_msgs::Pose transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf);
+        // static Eigen::Matrix4f getTransformBetweenPoses(geometry_msgs::Pose pose_ini, geometry_msgs::Pose pose_end);
         // Utilidades específicas
+        static Eigen::Vector3f quaternionMsgToVector(geometry_msgs::Quaternion q);
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
         // static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);

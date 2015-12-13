@@ -213,7 +213,49 @@ geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matr
     pose_out.position = Util::transformPoint(pose_in.position, transf);
     return pose_out;
 }
-
+/*Eigen::Matrix4f Util::getTransformBetweenPoses(geometry_msgs::Pose pose_ini, geometry_msgs::Pose pose_end){
+    // Algoritmo para rotación sacado de http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
+    // Transformar quaternions a vectores
+    tf::Quaternion tf_q;
+    tf::quaternionMsgToTF(pose_ini.orientation, tf_q);
+    tf::Vector3 normal1(1, 0, 0), normal2(1, 0, 0);
+    normal1 = tf::quatRotate(tf_q, normal2);
+    normal1.normalize();
+    Eigen::Vector3f pose_ini_orientation (normal1.x(), normal1.y(), normal1.z());
+    tf::quaternionMsgToTF(pose_end.orientation, tf_q);
+    normal2 = tf::quatRotate(tf_q, normal2);
+    normal2.normalize();
+    Eigen::Vector3f pose_end_orientation (normal2.x(), normal2.y(), normal2.z());
+    // Calcular matriz de rotación
+    Eigen::Vector3f v = pose_ini_orientation.cross(pose_end_orientation);
+    float s = v.norm();
+    float c = pose_ini_orientation.dot(pose_end_orientation);
+    Eigen::Matrix3f R = Eigen::Matrix3f::Identity();
+    // R = I + [v]x + [v]x^2(1-c/s)
+    Eigen::Matrix3f vskew;
+    vskew << 0, -v[2], v[1],
+             v[2], 0, -v[0],
+             -v[1], v[0], 0;
+    R = R + vskew + vskew*vskew*((1-c)/s);
+    // Crear matriz de traslación
+    Eigen::Vector3f T(pose_ini.position.x-pose_end.position.x, pose_ini.position.y-pose_end.position.y, pose_ini.position.z-pose_end.position.z);
+    // Juntar matrices y generar una sola matriz de transformación
+    Eigen::Matrix4f transformation;
+    transformation << R(0,0), R(0,1), R(0,2), T[0],
+                      R(1,0), R(1,1), R(1,2), T[1],
+                      R(2,0), R(2,1), R(2,2), T[2],
+                         0   ,    0   ,   0    ,  1;
+    ROS_DEBUG("UTIL: getTransformBetweenPoses( (%f, %f, %f) , (%f, %f, %f)) -> \nT: (%f, %f, %f)", pose_ini.position.x, pose_ini.position.y, pose_ini.position.z, pose_end.position.x, pose_end.position.x, pose_end.position.x, T[0], T[1], T[2]);
+    return transformation;
+}*/
+Eigen::Vector3f Util::quaternionMsgToVector(geometry_msgs::Quaternion q){
+    tf::Quaternion tf_q;
+    tf::quaternionMsgToTF(q, tf_q);
+    tf::Vector3 itongo(1, 0, 0);
+    itongo = tf::quatRotate(tf_q, itongo);
+    itongo.normalize(); // Redundante
+    return Eigen::Vector3f (itongo.x(), itongo.y(), itongo.z());
+}
 // Utilidades específicas
 /**
  * searchPlacingSurface: Función que busca iterativamente en una nube de puntos la ocurrencia de una superficie plana sensata para efectuar el placing.
