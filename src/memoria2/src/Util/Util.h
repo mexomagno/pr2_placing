@@ -57,6 +57,8 @@ class Util{
         static const float KINECT_STABILIZE_TIME;
         static const float ROBOT_FRONT_MARGIN;
         static const int   FIND_SURFACE_POSE_RETRYS;
+        static const float SURFACE_REFINING_THRESHOLD;
+        static const int   SURFACE_REFINING_ITERATIONS;
         // Gripper scanner
         static const float SCAN_ROLL_DELTA;
         static const string GRIPPER_FRAME_SUFFIX;

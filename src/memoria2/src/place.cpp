@@ -116,10 +116,8 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStam
             //      2) Mirar centroide
             //      3) Buscar superficie denuevo
             //      4) Iterar N veces
-            int max_iter = 2;
-            float z_thres = 0.02;
-            for (int i=0; i<max_iter; i++){
-                ROS_DEBUG("PLACE: Iteracion %d de %d", i, max_iter);
+            for (int i=0; i<Util::SURFACE_REFINING_ITERATIONS; i++){
+                ROS_DEBUG("PLACE: Iteracion %d de %d", i, Util::SURFACE_REFINING_ITERATIONS);
                 // Obtener centroide
                 geometry_msgs::Point centroid = Util::getCloudCentroid(cloud_surface);
                 // Mirar centroide
@@ -128,7 +126,7 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStam
                 // Buscar superficie denuevo
                 cloud = r_driver->sensors->kinect->getNewCloud();
                 cloud_subsampled = Util::subsampleCloud(cloud, Util::SUBSAMPLE_LEAFSIZE);
-                if (not Util::searchPlacingSurface(cloud_subsampled, cloud_surface, surface_normal, centroid.z - z_thres, centroid.z + z_thres, Util::DEFAULT_DESIRED_PITCH)){
+                if (not Util::searchPlacingSurface(cloud_subsampled, cloud_surface, surface_normal, centroid.z - Util::SURFACE_REFINING_THRESHOLD, centroid.z + Util::SURFACE_REFINING_THRESHOLD, Util::DEFAULT_DESIRED_PITCH)){
                     ROS_ERROR("PLACE: Superficie no pudo ser refinada. Este error no debiera ocurrir. Abortando");
                     return false;
                 }
