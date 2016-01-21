@@ -30,8 +30,11 @@ const float Util::DEFAULT_DESIRED_PITCH   = -Util::PI/2.0; // Inclinación desea
 const float PITCH_THRESHOLD               = 0.09;
 const float Util::KINECT_STABILIZE_TIME   = 1;
 const float Util::ROBOT_FRONT_MARGIN      = 0.5;
-const float SURFACE_REFINING_THRESHOLD    = 0.02;
-const int   SURFACE_REFINING_ITERATIONS   = 3;
+const float Util::SURFACE_REFINING_THRESHOLD    = 0.02;
+const int   Util::SURFACE_REFINING_ITERATIONS   = 3;
+const float Util::active_gripper_starting_position[] = {0, 0.7, 0.7};
+const float Util::active_gripper_starting_orientation[] = {0, -Util::PI/2.0, 0};
+
 // Gripper Scanner
 const float Util::SCAN_ROLL_DELTA         = Util::PI/2.0;
 const string Util::GRIPPER_FRAME_SUFFIX   = "_gripper_tool_frame";

@@ -63,7 +63,8 @@ void signalHandler(int signum){
 }
 bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal){
     bool gotopose_ok;
-    // Mover otro gripper a posición donde no moleste
+    // Mover gripper no activo a posición donde no moleste
+    ROS_DEBUG("PLACE: Quitar del campo visual al gripper inactivo");
     geometry_msgs::PoseStamped tuck_pose;
     tuck_pose.pose.position.x = Util::tuck_position[0];
     tuck_pose.pose.position.y = (grasp_arm == 'l' ? Util::tuck_position[1]*-1 : Util::tuck_position[1]);
@@ -74,6 +75,22 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStam
         gotopose_ok = r_driver->rgripper->goToPose(tuck_pose);
     else
         gotopose_ok = r_driver->lgripper->goToPose(tuck_pose);
+    if (not gotopose_ok){
+        ROS_ERROR("PLACE: No se pudo tuckear brazo %s", grasp_arm == 'l' ? "derecho" : "izquierdo");
+        return false;
+    }
+    // Mover gripper con objeto a posición donde no moleste
+    ROS_DEBUG("PLACE: Quitar del campo visual al gripper con objeto");
+    geometry_msgs::PoseStamped tuck_pose_active;
+    tuck_pose_active.pose.position.x = Util::active_gripper_starting_position[0];
+    tuck_pose_active.pose.position.y = (grasp_arm == 'r' ? Util::active_gripper_starting_position[1]*-1 : Util::active_gripper_starting_position[1]);
+    tuck_pose_active.pose.position.z = Util::active_gripper_starting_position[2];
+    tuck_pose_active.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(Util::active_gripper_starting_orientation[0], Util::active_gripper_starting_orientation[1], Util::active_gripper_starting_orientation[2]);
+    tuck_pose_active.header.frame_id = Util::BASE_FRAME;
+    if (grasp_arm == 'l')
+        gotopose_ok = r_driver->lgripper->goToPose(tuck_pose_active);
+    else
+        gotopose_ok = r_driver->rgripper->goToPose(tuck_pose_active);
     if (not gotopose_ok){
         ROS_ERROR("PLACE: No se pudo tuckear brazo %s", grasp_arm == 'l' ? "derecho" : "izquierdo");
         return false;

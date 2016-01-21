@@ -59,6 +59,8 @@ class Util{
         static const int   FIND_SURFACE_POSE_RETRYS;
         static const float SURFACE_REFINING_THRESHOLD;
         static const int   SURFACE_REFINING_ITERATIONS;
+        static const float active_gripper_starting_position[];
+        static const float active_gripper_starting_orientation[];
         // Gripper scanner
         static const float SCAN_ROLL_DELTA;
         static const string GRIPPER_FRAME_SUFFIX;
