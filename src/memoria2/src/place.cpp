@@ -109,6 +109,30 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStam
         ROS_DEBUG("PLACE: Buscando superficie para placing...");
         if (Util::searchPlacingSurface(cloud_subsampled, cloud_surface, surface_normal, 0.3, 0.8, Util::DEFAULT_DESIRED_PITCH)){
             ROS_DEBUG("PLACE: Encontrada");
+
+            ROS_DEBUG("PLACE: Refinando superficie");
+            // Repasar superficie:
+            //      1) Obtener centroide
+            //      2) Mirar centroide
+            //      3) Buscar superficie denuevo
+            //      4) Iterar N veces
+            int max_iter = 2;
+            float z_thres = 0.02;
+            for (int i=0; i<max_iter; i++){
+                ROS_DEBUG("PLACE: Iteracion %d de %d", i, max_iter);
+                // Obtener centroide
+                geometry_msgs::Point centroid = Util::getCloudCentroid(cloud_surface);
+                // Mirar centroide
+                r_driver->head->lookAt(cloud_surface->header.frame_id, centroid.x, centroid.y, centroid.z);
+                ros::Duration(Util::KINECT_STABILIZE_TIME).sleep();
+                // Buscar superficie denuevo
+                cloud = r_driver->sensors->kinect->getNewCloud();
+                cloud_subsampled = Util::subsampleCloud(cloud, Util::SUBSAMPLE_LEAFSIZE);
+                if (not Util::searchPlacingSurface(cloud_subsampled, cloud_surface, surface_normal, centroid.z - z_thres, centroid.z + z_thres, Util::DEFAULT_DESIRED_PITCH)){
+                    ROS_ERROR("PLACE: Superficie no pudo ser refinada. Este error no debiera ocurrir. Abortando");
+                    return false;
+                }
+            }
             cloud_out = cloud_surface;
             return true;
         }
