@@ -69,6 +69,8 @@ class Util{
         static const float SCAN_LEAFSIZE;
         // GetPlacingPose
         static const float PATCH_ANGLE_THRESHOLD;
+        static const float PLACING_Z_MARGIN;
+        static const float PLACING_BACKOFF_DISTANCE;
         // Métodos
         static float toRad(float grad);
         static float toGrad(float rad);

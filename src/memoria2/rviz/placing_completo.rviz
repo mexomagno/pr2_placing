@@ -3,11 +3,7 @@ Panels:
     Help Height: 78
     Name: Displays
     Property Tree Widget:
-      Expanded:
-        - /surface_normal1/Status1
-        - /pose_estable1
-        - /pose_estable1/Status1
-        - /gripper_future_pose1/Status1
+      Expanded: ~
       Splitter Ratio: 0.5
     Tree Height: 466
   - Class: rviz/Selection
@@ -538,6 +534,467 @@ Visualization Manager:
       Radius: 0.01
       Reference Frame: head_mount_kinect_rgb_optical_frame
       Value: true
+    - Class: moveit_rviz_plugin/PlanningScene
+      Enabled: true
+      Move Group Namespace: ""
+      Name: PlanningScene
+      Planning Scene Topic: planning_scene
+      Robot Description: robot_description
+      Scene Geometry:
+        Scene Alpha: 0.9
+        Scene Color: 50; 230; 50
+        Scene Display Time: 0.2
+        Show Scene Geometry: true
+        Voxel Coloring: Z-Axis
+        Voxel Rendering: Occupied Voxels
+      Scene Robot:
+        Attached Body Color: 150; 50; 150
+        Links:
+          All Links Enabled: true
+          Expand Joint Details: false
+          Expand Link Details: false
+          Expand Tree: false
+          Link Tree Style: Links in Alphabetic Order
+          base_bellow_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          base_footprint:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          base_laser_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          base_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          bl_caster_l_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          bl_caster_r_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          bl_caster_rotation_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          br_caster_l_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          br_caster_r_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          br_caster_rotation_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          double_stereo_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fl_caster_l_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fl_caster_r_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fl_caster_rotation_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fr_caster_l_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fr_caster_r_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fr_caster_rotation_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_kinect_ir_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_kinect_ir_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          head_mount_kinect_rgb_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_kinect_rgb_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          head_mount_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_prosilica_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_prosilica_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          head_pan_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_plate_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_tilt_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          high_def_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          high_def_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          imu_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_elbow_flex_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_forearm_cam_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_forearm_cam_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_forearm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_forearm_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_l_finger_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_l_finger_tip_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_gripper_l_finger_tip_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_led_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_gripper_motor_accelerometer_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_motor_screw_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_gripper_motor_slider_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_gripper_palm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_r_finger_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_r_finger_tip_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_tool_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_shoulder_lift_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_shoulder_pan_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_torso_lift_side_plate_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_upper_arm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_upper_arm_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_wrist_flex_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_wrist_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          laser_tilt_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          laser_tilt_mount_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          narrow_stereo_l_stereo_camera_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_l_stereo_camera_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_r_stereo_camera_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_r_stereo_camera_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          projector_wg6802418_child_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          projector_wg6802418_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_elbow_flex_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_forearm_cam_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_forearm_cam_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_forearm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_forearm_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_l_finger_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_l_finger_tip_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_gripper_l_finger_tip_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_led_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_gripper_motor_accelerometer_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_motor_screw_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_gripper_motor_slider_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_gripper_palm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_r_finger_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_r_finger_tip_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_tool_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_shoulder_lift_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_shoulder_pan_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_torso_lift_side_plate_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_upper_arm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_upper_arm_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_wrist_flex_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_wrist_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          sensor_mount_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          torso_lift_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          torso_lift_motor_screw_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_l_stereo_camera_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_l_stereo_camera_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_r_stereo_camera_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_r_stereo_camera_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+        Robot Alpha: 0.5
+        Show Robot Collision: false
+        Show Robot Visual: true
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -547,7 +1004,7 @@ Visualization Manager:
       Axis: Z
       Channel Name: intensity
       Class: rviz/PointCloud2
-      Color: 85; 255; 0
+      Color: 170; 85; 255
       Color Transformer: FlatColor
       Decay Time: 0
       Enabled: true
@@ -569,7 +1026,7 @@ Visualization Manager:
       Value: true
     - Alpha: 1
       Class: rviz/PointStamped
-      Color: 0; 85; 0
+      Color: 170; 85; 255
       Enabled: true
       History Length: 1
       Name: surface centroid
@@ -580,7 +1037,7 @@ Visualization Manager:
       Axes Length: 1
       Axes Radius: 0.1
       Class: rviz/Pose
-      Color: 0; 85; 0
+      Color: 170; 85; 255
       Enabled: true
       Head Length: 0.1
       Head Radius: 0.03
@@ -592,7 +1049,7 @@ Visualization Manager:
       Value: true
     - Alpha: 1
       Class: rviz/PointStamped
-      Color: 0; 255; 255
+      Color: 170; 85; 127
       Enabled: true
       History Length: 1
       Name: closest point
@@ -603,7 +1060,21 @@ Visualization Manager:
       Axes Length: 1
       Axes Radius: 0.1
       Class: rviz/Pose
-      Color: 0; 255; 127
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.03
+      Head Radius: 0.04
+      Name: pose_estable
+      Shaft Length: 0.2
+      Shaft Radius: 0.01
+      Shape: Arrow
+      Topic: /stable_pose
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 170; 0; 127
       Enabled: true
       Head Length: 0.3
       Head Radius: 0.1
@@ -682,21 +1153,21 @@ Visualization Manager:
       Axes Length: 1
       Axes Radius: 0.1
       Class: rviz/Pose
-      Color: 255; 25; 0
+      Color: 85; 255; 0
       Enabled: true
-      Head Length: 0.03
+      Head Length: 0.1
       Head Radius: 0.04
-      Name: pose_estable
-      Shaft Length: 0.2
+      Name: gripper_future_pose
+      Shaft Length: 0.4
       Shaft Radius: 0.01
       Shape: Arrow
-      Topic: /stable_pose
+      Topic: /gripper_future_pose
       Value: true
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.1
       Class: rviz/Pose
-      Color: 0; 0; 255
+      Color: 255; 85; 0
       Enabled: true
       Head Length: 0.03
       Head Radius: 0.04
@@ -710,7 +1181,7 @@ Visualization Manager:
       Axes Length: 1
       Axes Radius: 0.1
       Class: rviz/Pose
-      Color: 85; 255; 0
+      Color: 85; 170; 0
       Enabled: true
       Head Length: 0.1
       Head Radius: 0.04
@@ -719,20 +1190,6 @@ Visualization Manager:
       Shaft Radius: 0.01
       Shape: Arrow
       Topic: /gripper_pose
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 0; 255; 255
-      Enabled: true
-      Head Length: 0.1
-      Head Radius: 0.04
-      Name: gripper_future_pose
-      Shaft Length: 0.4
-      Shaft Radius: 0.01
-      Shape: Arrow
-      Topic: /gripper_future_pose
       Value: true
   Enabled: true
   Global Options:
@@ -758,22 +1215,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2.60458
+      Distance: 2.09221
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.986647
-        Y: -0.0501345
-        Z: 1.10355
+        X: 0.689178
+        Y: 0.0220533
+        Z: 0.983059
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.0747979
+      Pitch: 0.219795
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.78754
+      Yaw: 4.62755
     Saved: ~
 Window Geometry:
   Displays:
@@ -791,5 +1248,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1366
-  X: -8
-  Y: -4
+  X: -7
+  Y: 24

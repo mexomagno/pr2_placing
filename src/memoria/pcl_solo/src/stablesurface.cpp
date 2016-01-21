@@ -461,9 +461,9 @@ int main(int argc, char **argv){
     // Crear visualizador
     viewer = meshVis();
     // Visualizar nube de puntos
-    viewer->addPointCloud<pcl::PointXYZ>(cloud, "pointcloud");
-    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "pointcloud");
-    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 1.0, 1.0, "pointcloud");
+    // viewer->addPointCloud<pcl::PointXYZ>(cloud, "pointcloud");
+    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "pointcloud");
+    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 1.0, 1.0, "pointcloud");
 
     // Crear convex hull alrededor de nube
     pcl::PolygonMesh hull = getConvexHull(cloud);
@@ -472,8 +472,8 @@ int main(int argc, char **argv){
     viewer->setRepresentationToWireframeForAllActors();
     
     // Visualizar normales
-    drawPolygonMeshNormals(hull);
-    viewer->addText("Normales", LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*3, FONT_SIZE, NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2], "normals_text", 0);
+    //drawPolygonMeshNormals(hull);
+    //viewer->addText("Normales", LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*3, FONT_SIZE, NORMALS_COLOR[0], NORMALS_COLOR[1], NORMALS_COLOR[2], "normals_text", 0);
 
 
     /*// Obtener polígono más grande y su normal
@@ -502,12 +502,12 @@ int main(int argc, char **argv){
     viewer->addText("Centro de masa", LEFT_MARGIN, BOTTOM_MARGIN+FONT_SIZE+1, FONT_SIZE, CM_COLOR[0], CM_COLOR[1], CM_COLOR[2], "cm_text", 0);
     stringstream thres_text;
     thres_text << "Threshold: " << PATCH_ANGLE_THRESHOLD << " rad";
-    viewer->addText(thres_text.str(), LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*2, FONT_SIZE, 1, 1, 1, "thres_text", 0);
+    // viewer->addText(thres_text.str(), LEFT_MARGIN, BOTTOM_MARGIN+(FONT_SIZE+1)*2, FONT_SIZE, 1, 1, 1, "thres_text", 0);
     /*// Ver posición de las proyecciones
     printf("Centroide está %s del polígono\n", (pointInPolygon(ct_projected, biggest, hull) ? "DENTRO":"FUERA"));
     printf("Centro de Masa está %s del polígono\n", (pointInPolygon(cm_projected, biggest, hull) ? "DENTRO":"FUERA"));*/
     // Ver parche plano más grande
-    biggestFlatPatch(hull);
+    //biggestFlatPatch(hull);
     while (!viewer->wasStopped()){
         viewer->spinOnce(100);
         boost::this_thread::sleep (boost::posix_time::microseconds (100000));

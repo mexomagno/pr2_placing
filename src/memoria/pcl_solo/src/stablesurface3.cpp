@@ -160,7 +160,7 @@ int main(int argc, char** argv){
 	initBoxes();
 	PointCloud<PointXYZ>::Ptr gripper_pc (new PointCloud<PointXYZ>()), object_pc(new PointCloud<PointXYZ>());
 	isolateObject(cloud, gripper_pc, object_pc);
-	viewer.drawPointCloud(gripper_pc, "gripper_pc", GRIPPER_COLOR[0], GRIPPER_COLOR[1], GRIPPER_COLOR[2]);
+	viewer.drawPointCloud(gripper_pc, "gripper_pc", GRIPPER_COLOR[0], GRIPPER_COLOR[1], GRIPPER_COLOR[2],3);
 	viewer.drawPointCloud(object_pc, "object_pc", OBJECT_COLOR[0], OBJECT_COLOR[1], OBJECT_COLOR[2],3);
 	/*// Dibujar cajas
 	for (int i=0; i<gripper_boxes.size(); i++){
@@ -207,12 +207,14 @@ int main(int argc, char** argv){
 		// 			* centro de masa se proyecta sobre parche?
 		// 		- Puede el gripper llegar a esa posición?
 		// 			* El gripper no es cortado por el plano de la superficie?
+	// Dibujar plano
 		if (Polymesh::isPointInConvexPolygon(cm_proj, *patch_plane) and not isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
 			best_patch = patches[i];
 			best_patch_area = patches_areas[i];
 			printf("Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
-			viewer.addText("Posicion estable encontrada", "posicion_estable_label", 0, 1, 0);
+			viewer.addText("Gripper no cortado por el plano", "posicion_estable_label", 0, 1, 0);
 			plane_found = true;
+			viewer.viewer_->addPlane(*patch_plane_coefs, "Plano qlo", 0);
 			break;
 		}
 	}
@@ -221,7 +223,7 @@ int main(int argc, char** argv){
 		exit(0);
 	}
 	viewer.drawPolygonVector(best_patch, mesh.getPCLMesh(), "flat_patch", FLAT_SURFACE_COLOR[0], FLAT_SURFACE_COLOR[1], FLAT_SURFACE_COLOR[2], FLAT_SURFACE_WIRE_COLOR[0], FLAT_SURFACE_WIRE_COLOR[1], FLAT_SURFACE_WIRE_COLOR[2], FLAT_SURFACE_WIRE_WIDTH, FLAT_SURFACE_ALPHA);
-	viewer.drawPointCloud(patch_plane, "Flattened Patch", 1, 0, 0, 7);
+	viewer.drawPointCloud(patch_plane, "Flattened Patch", 0, 1, 0, 10);
 	viewer.drawPoint(cm, mesh.getPointCloud(), "Center of Mass", CM_COLOR[0], CM_COLOR[1], CM_COLOR[2]);
 	viewer.drawPoint(cm_proj, mesh.getPointCloud(), "Center of Mass projected", CM_COLOR[0]+(1-CM_COLOR[0])*LIGHT_FACTOR, CM_COLOR[1]+(1-CM_COLOR[1])*LIGHT_FACTOR, CM_COLOR[2]+(1-CM_COLOR[2])*LIGHT_FACTOR);
 	viewer.addText("Centro de Masa proyectado", "centro_de_masa_proy_label", CM_COLOR[0]+(1-CM_COLOR[0])*LIGHT_FACTOR, CM_COLOR[1]+(1-CM_COLOR[1])*LIGHT_FACTOR, CM_COLOR[2]+(1-CM_COLOR[2])*LIGHT_FACTOR);

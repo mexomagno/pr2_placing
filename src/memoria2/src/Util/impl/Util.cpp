@@ -35,13 +35,16 @@ const float Util::SCAN_ROLL_DELTA         = Util::PI/2.0;
 const string Util::GRIPPER_FRAME_SUFFIX   = "_gripper_tool_frame";
 const float Util::scan_position[]         = {0.6, 0, 1.2};
 const float Util::scan_orientation[]      = {0, -Util::PI/2.0, 0}; //R, P, Y
-const float Util::tuck_position[]         = {0, 0.45, 0.48}; // Relativo a baseframe
+const float Util::tuck_position[]         = {0, 0.40, 0.48}; // Relativo a baseframe
 const float Util::tuck_orientation[]      = {Util::PI/2.0, Util::PI/2.0, 0}; // relativo a baseframe
 const float Util::GRIPPER_STABILIZE_TIME  = 1;
 const float Util::SCAN_PASSTHROUGH_Z      = 0.5;
 const float Util::SCAN_LEAFSIZE           = 0.005;
 // Stable surface
 const float Util::PATCH_ANGLE_THRESHOLD  = 0.2;
+// Placing 
+const float Util::PLACING_Z_MARGIN        = 0.01; // Distancia desde el objeto a la superficie, donde soltarlo.
+const float Util::PLACING_BACKOFF_DISTANCE = 0.15; // Distancia hacia la que retroceder cuando se suelta el objeto
 
 // MÉTODOS
 Util::Util(){}
@@ -207,6 +210,7 @@ geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matr
     // Rotar normal
     Eigen::Vector3f normal_vector (normal.x(), normal.y(), normal.z());
     Eigen::Vector3f normal_rotated = Util::transformVector(normal_vector, transf);
+    normal_rotated.normalize();
     // Obtener quaternion desde normal rotada
     pose_out.orientation = Util::coefsToQuaternionMsg(normal_rotated[0], normal_rotated[1], normal_rotated[2]);
     // Transportar posición

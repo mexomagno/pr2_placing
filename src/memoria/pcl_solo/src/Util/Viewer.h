@@ -14,7 +14,6 @@ using namespace pcl;
 
 class Viewer{
 	/* variables internas */
-	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer_;
 	int n_text_; // Cantidad de textos añadidos. Para apilarlos sin sobreponerse.
 	vector<double> visualizations_;
 
@@ -26,6 +25,7 @@ class Viewer{
 	static const float NORMAL_SIZE_PONDERATOR = 0.15;
 
 public:
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer_;
 	// Constructor
 	Viewer(float r, float g, float b, float axisscale = 1.0);
 
