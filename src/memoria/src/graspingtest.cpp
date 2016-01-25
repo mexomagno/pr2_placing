@@ -178,7 +178,9 @@ void pick(string object, moveit::planning_interface::MoveGroup &group){
 }
 void prePick(string object, moveit::planning_interface::MoveGroup &group){
     ROS_INFO("COMIENZA PICK");
-
+    vector<double> joint_values = group.getCurrentJointValues();
+    for (int i = 0; i < joint_values.size(); i++)
+        printf("currentJointValues %d: %f\n", i, joint_values[i]);
     /* Esta función es un auxiliar para poder hacer grasp en gazebo*/
     // ###### Obtener posición del objeto
     ROS_INFO("Obteniendo posición de '%s'",object.c_str());
@@ -196,11 +198,19 @@ void prePick(string object, moveit::planning_interface::MoveGroup &group){
     // Guardar la pose actual
     //geometry_msgs::PoseStamped prev_pose = group.getCurrentPose();
     ROS_INFO("Situándose detras de la lata");
+    joint_values = group.getCurrentJointValues();
+    for (int i = 0; i < joint_values.size(); i++)
+        printf("currentJointValues %d: %f\n", i, joint_values[i]);
+    
     moveit::planning_interface::MoveGroup::Plan planner;
     if (not moveToPose(pose_lata, group, planner)){
         ROS_ERROR("Error al mover grupo");
         return;
     }
+    joint_values = group.getCurrentJointValues();
+    for (int i = 0; i < joint_values.size(); i++)
+        printf("currentJointValues %d: %f\n", i, joint_values[i]);
+    
     ROS_INFO("Abriendo Gripper");
     bool isright = (group.getName().compare("right_arm") == 0? true : false);
     gripperdriver_srv.request.right = isright;
@@ -211,6 +221,10 @@ void prePick(string object, moveit::planning_interface::MoveGroup &group){
         return;
     }
     ROS_INFO("Esperando que posicione objeto en el gripper...");
+    joint_values = group.getCurrentJointValues();
+    for (int i = 0; i < joint_values.size(); i++)
+        printf("currentJointValues %d: %f\n", i, joint_values[i]);
+    
     ros::Duration(1.0).sleep();    
     // ###### Cerrar gripper hasta máximo esfuerzo
     ROS_INFO("Cerrando Gripper");
@@ -222,6 +236,10 @@ void prePick(string object, moveit::planning_interface::MoveGroup &group){
         ROS_ERROR("Error retornado: '%s'",gripperdriver_srv.response.error.what.c_str());
         return;
     }
+    joint_values = group.getCurrentJointValues();
+    for (int i = 0; i < joint_values.size(); i++)
+        printf("currentJointValues %d: %f\n", i, joint_values[i]);
+    
     // ###### Levantar gripper a pose encima del objeto
     ROS_INFO("Moviendo objeto a posición de observación");
     group.setPoseReferenceFrame("base_footprint");
@@ -233,7 +251,10 @@ void prePick(string object, moveit::planning_interface::MoveGroup &group){
     final_pose.orientation.y = 0;
     final_pose.orientation.z = 0;
     final_pose.orientation.w = 1;
-
+    joint_values = group.getCurrentJointValues();
+    for (int i = 0; i < joint_values.size(); i++)
+        printf("currentJointValues %d: %f\n", i, joint_values[i]);
+    
     if (not moveToPose(final_pose, group, planner)){
         ROS_ERROR("Error al mover grupo");
         return;
@@ -268,9 +289,26 @@ int main(int argc, char **argv){
     gripperdriver_client = nh.serviceClient<memoria::GripperDriver>("gripper_driver");
     ROS_INFO("Iniciado");
     signal(SIGINT, signalHandler);
-    // crear grupo brazo derecho
+    // crear grupo para el brazo
     moveit::planning_interface::MoveGroup r_arm((brazo == 'l' ? "left_arm" : "right_arm"));
     moveit::planning_interface::MoveGroup::Plan plan;
+
+    // Mostrar informaciones varias
+    printf("getName: %s\n",r_arm.getName().c_str());
+    printf("getPlanningFrame: %s\n",r_arm.getPlanningFrame().c_str());
+    vector<string> active_joints = r_arm.getActiveJoints();
+    vector<string> joints = r_arm.getJoints();
+    for (int i=0; i<active_joints.size(); i++){
+        printf("getActiveJoint %d: %s\n", i, active_joints[i].c_str());
+    }
+    for (int i=0; i<joints.size(); i++){
+        printf("getJoint %d: %s\n", i, joints[i].c_str());
+    }
+    printf("getEndEffectorLink: %s\n", r_arm.getEndEffectorLink().c_str());
+    printf("getEndEffector: %s\n", r_arm.getEndEffector().c_str());
+    vector<double> joint_values = r_arm.getCurrentJointValues();
+
+
     // Tomar lata de cocacola
     ROS_INFO("Comenzando pick de '%s'",grasp_object.c_str());
     prePick(grasp_object, r_arm);
