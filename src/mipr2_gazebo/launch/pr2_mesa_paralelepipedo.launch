@@ -1,0 +1,64 @@
+<launch>
+<!-- declaro argumentos para usar dentro de los includes -->
+  <arg name="gui" default="false"/>
+  <param name="/use_sim_time" value="true" />
+  <arg name="paused" default="true"/>
+  <!-- TODO: throttled not implemented in gazebo_ros/empty_world.launch
+  <arg name="throttled" default="false"/>
+  -->
+  
+<!-- Lanzar mundo vacío  -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="gui" value="$(arg gui)" />
+    <arg name="paused" value="$(arg paused)" />
+    <!-- TODO: throttled not implemented in gazebo_ros/empty_world.launch
+    <arg name="throttled" value="$(arg throttled)" />
+    -->
+  </include>
+<!-- Lanzar el PR2 simulado por gazebo -->
+  <include file="$(find pr2_gazebo)/launch/pr2.launch"/>
+  <!-- -J r_upper_arm_roll_joint -1.64 -J r_shoulder_pan_joint -2.135 -J r_shoulder_lift_joint -0.02 -J r_forearm_roll_joint -1.64 -J r_elbow_flex_joint -2.07 -J r_wrist_flex_joint -1.68 -J r_wrist_roll_joint 1.40 --> 
+  <!-- Ya es incluido por pr2.launch: include file="$(find pr2_controller_configuration_gazebo)/launch/pr2_default_controllers.launch" /-->
+  
+
+<!-- Spawnear la mesa -->
+  <!-- PARA OBTENER TODOS LOS PARAMETROS POSIBLES DE spawn_model, HACER "rosrun gazebo_ros spawn_model -h" MIENTRAS SE EJECUTA ROS. -->
+  <param name="table_description" 
+   command="$(find xacro)/xacro.py /home/mexomagno/.gazebo/models/mesita/model.sdf" />
+  <node name="spawn_table" 
+    pkg="gazebo_ros" 
+    type="spawn_model" 
+    args="-sdf -param table_description -model mesita -x 0.9 -y 0 -z 0 -Y 1.5707" 
+    respawn="false" 
+    output="screen" />
+  <!-- Lo annterior sería equivalente por consola a: -->
+  <!-- rosrun gazebo_ros spawn_model -sdf -file /home/mexomagno/.gazebo/models/table/model.sdf -model mesita -x 1.5 -y 0 -z 0 -Y 1.5707 -->
+  <!-- Para eliminar modelo desde consola, llamar al servicio de gazebo y entregar nombre del modelo: -->
+  <!-- rosservice call /gazebo/delete_model mesita -->
+  
+<!-- Spawnear cubo madera -->
+  <node
+      name="spawn_paralelepipedo_madera"
+      pkg="gazebo_ros"
+      type="spawn_model"
+      args="-sdf -file /home/mexomagno/.gazebo/models/paralelepipedo/model.sdf -model paralelepipedo -x 0.9 -y -0.4 -z 0.51"
+      respawn="false"
+      output="screen" />
+  <!-- Subir el torso al máximo -->
+  <node 
+      name="call_rostopic"
+      pkg="rostopic"
+      type="rostopic"
+      args="pub -r 0.2  /torso_controller/command trajectory_msgs/JointTrajectory &quot; {joint_names: ['torso_lift_joint'], points : [ {positions: [0.34], velocities: [0.1]} ] }&quot;"
+      />
+  <!-- parameters that give you reasonable physics as well as good speed --> 
+  <!-- needed so that gripper joint stops on objects instead of oscillating forever-->
+  <node name="sor_pgs_iters" pkg="dynamic_reconfigure" type="dynparam" args="set gazebo sor_pgs_iters 50"/>
+  <node name="sor_pgs_w" pkg="dynamic_reconfigure" type="dynparam" args="set gazebo sor_pgs_w 1.0"/>
+  <node name="time_step" pkg="dynamic_reconfigure" type="dynparam" args="set gazebo time_step 0.001"/>
+  <!---->
+  <!-- No se qué hace esto pero tira error siempre-->
+<!--   <node name="move_pr2" pkg="pr2_gazebo" type="move_pr2"/> -->
+  <!---->
+
+</launch>
