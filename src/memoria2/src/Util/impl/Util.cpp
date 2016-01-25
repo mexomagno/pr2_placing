@@ -89,6 +89,12 @@ Eigen::Vector3f Util::quaternionMsgToVector(geometry_msgs::Quaternion ros_q){
     // Convertir a vector Eigen
     return Eigen::Vector3f(unitv.x(), unitv.y(), unitv.z());
 }
+Eigen::Quaternionf Util::eigenVectorToQuaternion(Eigen::Vector3f v){
+    Eigen::Quaternionf q;
+    q.w() = 0;
+    q.vec() = v;
+    return q;
+}
 // Operaciones con nubes de puntos
 PointCloud<PointXYZ>::Ptr Util::subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_in, float leafsize){
     PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>());
@@ -250,7 +256,17 @@ Eigen::Matrix3f Util::getRotationBetweenVectors(Eigen::Vector3f vini, Eigen::Vec
     vskew2 = vskew*vskew;
     return R + vskew + vskew2*((1-c)/s);
 }
-
+Eigen::Quaternionf Util::getQuaternionBetweenVectors(Eigen::Vector3f vini, Eigen::Vector3f vend){
+    vini.normalize();
+    vend.normalize();
+    Eigen::Vector3f cross = vini.cross(vend);
+    Eigen::Quaternionf rotation_q;
+    rotation_q.x() = cross.x();
+    rotation_q.y() = cross.y();
+    rotation_q.z() = cross.z();
+    rotation_q.w() = 1 + vini.dot(vend); // Asume que vini y vend están normalizados
+    return rotation_q;
+}
 /*Eigen::Matrix4f Util::getTransformBetweenPoses(geometry_msgs::Pose pose_ini, geometry_msgs::Pose pose_end){
     // Algoritmo para rotación sacado de http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
     // Transformar quaternions a vectores
