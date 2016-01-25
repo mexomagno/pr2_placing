@@ -53,6 +53,7 @@ const float Util::PLACING_BACKOFF_DISTANCE = 0.15; // Distancia hacia la que ret
 
 // MÉTODOS
 Util::Util(){}
+// Conversiones
 float Util::toGrad(float rad){
     return rad*180.0/PI;
 }
@@ -76,6 +77,17 @@ float Util::angleBetweenVectors(float x1, float y1, float z1, float x2, float y2
     if (angle > Util::PI)
         ROS_DEBUG("UTIL: WARNING: angulo entre vectores mayor a 180 (%f)", Util::toGrad(angle));
     return angle;
+}
+Eigen::Vector3f Util::quaternionMsgToVector(geometry_msgs::Quaternion ros_q){
+    // Convertir a quaternion de TF
+    tf::Quaternion tf_q;
+    tf::quaternionMsgToTF(ros_q, tf_q);
+    // Convertir quaternion a vector TF
+    tf::Vector3 unitv(1,0,0);
+    unitv = tf::quatRotate(tf_q, unitv);
+    unitv.normalize();
+    // Convertir a vector Eigen
+    return Eigen::Vector3f(unitv.x(), unitv.y(), unitv.z());
 }
 // Operaciones con nubes de puntos
 PointCloud<PointXYZ>::Ptr Util::subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_in, float leafsize){
@@ -180,6 +192,7 @@ PolygonMesh Util::getConvexHull(PointCloud<PointXYZ>::Ptr cloud){
     chull.reconstruct(mesh);
     return mesh;
 }
+// Transformaciones
 Eigen::Vector3f Util::transformVector(Eigen::Vector3f vector_in, Eigen::Matrix4f transf){
     Eigen::Vector4f vector_in_4f(vector_in[0], vector_in[1], vector_in[2], 1);
     // Obtener rotación desde matriz de transformación
@@ -222,6 +235,22 @@ geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matr
     pose_out.position = Util::transformPoint(pose_in.position, transf);
     return pose_out;
 }
+Eigen::Matrix3f Util::getRotationBetweenVectors(Eigen::Vector3f vini, Eigen::Vector3f vend){
+    Eigen::Vector3f norm_vini = vini.normalized();
+    Eigen::Vector3f norm_vend = vend.normalized();
+    Eigen::Vector3f v = norm_vini.cross(norm_vend);
+    float s = v.norm();
+    float c = norm_vini.dot(norm_vend);
+    printf("UTIL, getRotation: Angulo entre vectores: %f\n", Util::toGrad(acos(c)));
+    Eigen::Matrix3f R = Eigen::Matrix3f::Identity();
+    Eigen::Matrix3f vskew, vskew2;
+    vskew << 0, -v[2], v[1],
+             v[2], 0, -v[0],
+             -v[1], v[0], 0;
+    vskew2 = vskew*vskew;
+    return R + vskew + vskew2*((1-c)/s);
+}
+
 /*Eigen::Matrix4f Util::getTransformBetweenPoses(geometry_msgs::Pose pose_ini, geometry_msgs::Pose pose_end){
     // Algoritmo para rotación sacado de http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
     // Transformar quaternions a vectores
@@ -257,14 +286,14 @@ geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matr
     ROS_DEBUG("UTIL: getTransformBetweenPoses( (%f, %f, %f) , (%f, %f, %f)) -> \nT: (%f, %f, %f)", pose_ini.position.x, pose_ini.position.y, pose_ini.position.z, pose_end.position.x, pose_end.position.x, pose_end.position.x, T[0], T[1], T[2]);
     return transformation;
 }*/
-Eigen::Vector3f Util::quaternionMsgToVector(geometry_msgs::Quaternion q){
+/*Eigen::Vector3f Util::quaternionMsgToVector(geometry_msgs::Quaternion q){
     tf::Quaternion tf_q;
     tf::quaternionMsgToTF(q, tf_q);
     tf::Vector3 itongo(1, 0, 0);
     itongo = tf::quatRotate(tf_q, itongo);
     itongo.normalize(); // Redundante
     return Eigen::Vector3f (itongo.x(), itongo.y(), itongo.z());
-}
+}*/
 // Utilidades específicas
 /**
  * searchPlacingSurface: Función que busca iterativamente en una nube de puntos la ocurrencia de una superficie plana sensata para efectuar el placing.

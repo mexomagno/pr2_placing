@@ -75,11 +75,13 @@ class Util{
         static const float PATCH_ANGLE_THRESHOLD;
         static const float PLACING_Z_MARGIN;
         static const float PLACING_BACKOFF_DISTANCE;
-        // Métodos
+        // METODOS
+        // Conversiones
         static float toRad(float grad);
         static float toGrad(float rad);
         static geometry_msgs::Quaternion coefsToQuaternionMsg(float a, float b, float c);
         static float angleBetweenVectors(float x1, float y1, float z1, float x2, float y2, float z2);
+        static Eigen::Vector3f quaternionMsgToVector(geometry_msgs::Quaternion ros_q);
         // Operaciones con nubes de puntos
         static PointCloud<PointXYZ>::Ptr subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_in, float leafsize);
         static geometry_msgs::Point getCloudCentroid(PointCloud<PointXYZ>::Ptr cloud_in);
@@ -90,9 +92,10 @@ class Util{
         static Eigen::Vector3f transformVector(Eigen::Vector3f vector_in, Eigen::Matrix4f transf);
         static geometry_msgs::Point transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf);
         static geometry_msgs::Pose transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf);
+        static Eigen::Matrix3f getRotationBetweenVectors(Eigen::Vector3f v1, Eigen::Vector3f v2);
         // static Eigen::Matrix4f getTransformBetweenPoses(geometry_msgs::Pose pose_ini, geometry_msgs::Pose pose_end);
         // Utilidades específicas
-        static Eigen::Vector3f quaternionMsgToVector(geometry_msgs::Quaternion q);
+        // static Eigen::Vector3f quaternionMsgToVector(geometry_msgs::Quaternion q);
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
         // static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);

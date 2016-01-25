@@ -425,6 +425,7 @@ bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXY
  *                     una posición posible, obtiene una transformación entre la pose estable del objeto y la del spot encontrado, 
  *                     luego procede a calcular la pose del gripper para llegar a ese punto, y evalúa su factibilidad.
  *                     Si es factible, procede a soltar el objeto y retirar el gripper.
+ *                     Se implementa además una corrección al método de obtención de transformación, que obtiene sentido erróneo a veces.
  * @param  stable_pose Pose más estable del objeto, RELATIVA AL GRIPPER
  * @param  surface_pc  Superficie de placing encontrada antes, RELATIVA A ODOM. Se ignorarán partes no vistas (no se extrapolará en el plano)
  * @param  surface_normal_pose Pose RELATIVA A ODOM centrada en el centroide de la superficie, y orientada normal a la superficie.
@@ -434,6 +435,12 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
     ros::NodeHandle nh_;
     ros::Publisher gripper_pose_pub = nh_.advertise<geometry_msgs::PoseStamped>("gripper_pose",1);
     ros::Publisher gripper_future_pose_pub = nh_.advertise<geometry_msgs::PoseStamped>("gripper_future_pose",1);
+
+    // test de correctitud de transformación 
+    ros::Publisher test_pose_ini_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_ini_unitv", 1);
+    ros::Publisher test_pose_end_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_end_unitv", 1);
+    ros::Publisher test_pose_transformed_end_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_end_transformed", 1);
+    ros::Publisher test_pose_transformed_end_quat_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_end_transformed_quat", 1);
 
 
     // Obtener transformación, transformar pose y plano a baseframe
@@ -475,29 +482,47 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
         ROS_DEBUG("PLACE: Calculando y mostrando futura posible pose del gripper");
         geometry_msgs::PoseStamped gripper_future_pose;
         gripper_future_pose.header.frame_id = Util::BASE_FRAME;
+        Eigen::Vector3f pose_ini_orientation = Util::quaternionMsgToVector(stable_pose_base.pose.orientation);
+        Eigen::Vector3f pose_end_orientation = Util::quaternionMsgToVector(new_surface_pose.pose.orientation);
         // Calcular matriz rotación R = I + [v]x + [v]x^2(1-c/s)
         // Recordar: Esto manda: stable_pose_base -> new_surface_pose
         //           se quiere llevar gripper_pose_base a una pose correcta
-        tf::Quaternion tf_q;
-        tf::quaternionMsgToTF(stable_pose_base.pose.orientation, tf_q);
-        tf::Vector3 normal1(1, 0, 0), normal2(1, 0, 0);
-        normal1 = tf::quatRotate(tf_q, normal1);
-        normal1.normalize();
-        Eigen::Vector3f pose_ini_orientation (normal1.x(), normal1.y(), normal1.z());
-        tf::quaternionMsgToTF(new_surface_pose.pose.orientation, tf_q);
-        normal2 = tf::quatRotate(tf_q, normal2);
-        normal2.normalize();
-        Eigen::Vector3f pose_end_orientation (normal2.x(), normal2.y(), normal2.z());
         // Calcular rotación
-        Eigen::Vector3f v = pose_ini_orientation.cross(pose_end_orientation);
-        float s = v.norm();
-        float c = pose_ini_orientation.dot(pose_end_orientation);
-        Eigen::Matrix3f R = Eigen::Matrix3f::Identity();
-        Eigen::Matrix3f vskew;
-        vskew << 0, -v[2], v[1],
-                 v[2], 0, -v[0],
-                 -v[1], v[0], 0;
-        R = R + vskew + vskew*vskew*((1-c)/s);
+        Eigen::Matrix3f R = Util::getRotationBetweenVectors(pose_ini_orientation, pose_end_orientation);
+        // TESTEO DE R
+        // Ahora, pruebo si efectivamente R me lleva desde pose inicial a pose final
+        Eigen::Vector3f test_orientation_obj_end = R*pose_ini_orientation;
+        geometry_msgs::PoseStamped test_pose_transformed_end;
+        test_pose_transformed_end.header.frame_id = Util::BASE_FRAME;
+        test_pose_transformed_end.pose.position = new_surface_pose.pose.position;
+        test_pose_transformed_end.pose.orientation = Util::coefsToQuaternionMsg(test_orientation_obj_end[0], test_orientation_obj_end[1], test_orientation_obj_end[2]);
+        test_pose_transformed_end_pub.publish(test_pose_transformed_end);
+        test_pose_transformed_end_pub.publish(test_pose_transformed_end);
+        test_pose_transformed_end_pub.publish(test_pose_transformed_end);
+
+        // ROTACION CON QUATERNION
+        Eigen::Vector3f a = pose_ini_orientation.cross(pose_end_orientation);
+        Eigen::Quaternionf rotation_q, p, rotated_p;
+        rotation_q.x() = a.x();
+        rotation_q.y() = a.y();
+        rotation_q.z() = a.z();
+        rotation_q.w() = 1 + pose_ini_orientation.dot(pose_end_orientation);
+        rotation_q.normalize();
+
+        p.w() = 0;
+        p.vec() = pose_ini_orientation;
+        rotated_p = rotation_q*p*rotation_q.inverse();
+        rotated_p.normalize();
+        Eigen::Vector3f rotated_orientation = rotated_p.vec();
+        // TEST ROTACION CON QUATERNION
+        geometry_msgs::PoseStamped test_pose_transformed_end_quat;
+        test_pose_transformed_end_quat.header.frame_id = Util::BASE_FRAME;
+        test_pose_transformed_end_quat.pose.position = new_surface_pose.pose.position;
+        test_pose_transformed_end_quat.pose.orientation = Util::coefsToQuaternionMsg(rotated_orientation[0], rotated_orientation[1], rotated_orientation[2]);
+        test_pose_transformed_end_quat_pub.publish(test_pose_transformed_end_quat);
+        test_pose_transformed_end_quat_pub.publish(test_pose_transformed_end_quat);
+        test_pose_transformed_end_quat_pub.publish(test_pose_transformed_end_quat);
+
         // Usar valores de pose que manda para transformar gripper_pose_base
         Eigen::Vector3f gripper_p (gripper_pose_base.pose.position.x, gripper_pose_base.pose.position.y, gripper_pose_base.pose.position.z);
         Eigen::Vector3f gripper_q = Util::quaternionMsgToVector(gripper_pose_base.pose.orientation);
@@ -509,12 +534,11 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
         gripper_p += p2;
         gripper_p[2] += Util::PLACING_Z_MARGIN;
         // calcula pose ideal para el gripper + delta en Z
-/*        gripper_future_pose.pose.position.x = gripper_p[0];
+        /*  gripper_future_pose.pose.position.x = gripper_p[0];
         gripper_future_pose.pose.position.y = gripper_p[1];
         gripper_future_pose.pose.position.z = gripper_p[2];
         gripper_future_pose.pose.orientation = Util::coefsToQuaternionMsg(gripper_q[0], gripper_q[1], gripper_q[2]);
-*/
-        // TEST
+        */
         // Rotar pose alrededor de la normal de la pose tentativa
         if (gripper_q[0] < 0){
             ROS_DEBUG("PLACE: Pose apunta hacia el robot... rotando");
@@ -533,7 +557,7 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
         gripper_future_pose_pub.publish(gripper_future_pose);
         gripper_future_pose_pub.publish(gripper_future_pose);
         // Intentar ir a la pose
-        bool gotopose_ok;
+        /*bool gotopose_ok;
         if (grasp_arm == 'l')
             gotopose_ok = r_driver->lgripper->goToPose(gripper_future_pose);
         else
@@ -558,7 +582,7 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
                 r_driver->rgripper->setOpening(0, 1);
             }
             return true;
-        }
+        }*/
         // END TEST
 
         ros::Duration(0.3).sleep();
