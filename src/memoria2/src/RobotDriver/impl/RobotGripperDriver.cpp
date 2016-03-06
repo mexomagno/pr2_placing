@@ -52,7 +52,6 @@ RobotGripperDriver::~RobotGripperDriver(){
  * @return            : True en éxito. Por ahora no hay condición para False.
  */
 bool RobotGripperDriver::setOpening(float opening, float max_effort = MAX_EFFORT){
-	ROS_DEBUG("RobotGripperDriver: Soy el %s gripper, topic: %s", this->getWhich().c_str(), gripper_status_.getTopic().c_str());
 	ROS_DEBUG("RobotGripperDriver: Seteando %s gripper apertura %f",this->getWhich().c_str(), opening);
 	float position = (MAX_OPENING - MIN_OPENING)*opening + MIN_OPENING;
 	pr2_controllers_msgs::Pr2GripperCommandActionGoal action_goal;

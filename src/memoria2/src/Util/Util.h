@@ -16,8 +16,11 @@
 #include <pcl/common/centroid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/PolygonMesh.h>
+#include <pcl/surface/concave_hull.h>
 #include <pcl/surface/convex_hull.h>
 #include <tf/transform_listener.h>
+#include <pcl/ModelCoefficients.h>
+#include <pcl/filters/project_inliers.h>
 // #include "../Polymesh/Polymesh.h"
 // #include "../RobotDriver/RobotDriver.h"
 
@@ -97,9 +100,9 @@ class Util{
         static Eigen::Quaternionf getQuaternionBetweenVectors(Eigen::Vector3f vini, Eigen::Vector3f vend);
         // static Eigen::Matrix4f getTransformBetweenPoses(geometry_msgs::Pose pose_ini, geometry_msgs::Pose pose_end);
         // Utilidades específicas
-        // static Eigen::Vector3f quaternionMsgToVector(geometry_msgs::Quaternion q);
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
+        static PointIndices::Ptr getFactiblePlacingPointsIndices(PointCloud<PointXYZ>::Ptr cloud_in, geometry_msgs::PoseStamped surface_normal_pose, float base_area);
         // static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);
         static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);
     protected:

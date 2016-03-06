@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /chull1
+        - /chull1/Status1
         - /flat proj1
       Splitter Ratio: 0.5
     Tree Height: 466
@@ -822,8 +823,8 @@ Visualization Manager:
       Axis: Z
       Channel Name: intensity
       Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: ""
+      Color: 255; 0; 0
+      Color Transformer: FlatColor
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
@@ -832,11 +833,11 @@ Visualization Manager:
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: chull
-      Position Transformer: ""
+      Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.01
+      Size (m): 0.02
       Style: Spheres
       Topic: /chull
       Use Fixed Frame: true
@@ -852,7 +853,7 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: ""
+      Color Transformer: Intensity
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
@@ -861,7 +862,7 @@ Visualization Manager:
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: flat proj
-      Position Transformer: ""
+      Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
       Size (Pixels): 3
@@ -895,22 +896,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.34273
+      Distance: 2.26559
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.782422
-        Y: -0.0255609
-        Z: 0.93903
+        X: 0.447704
+        Y: 0.157793
+        Z: 0.788985
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.299797
+      Pitch: 0.254797
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.03753
+      Yaw: 5.36753
     Saved: ~
 Window Geometry:
   Displays:

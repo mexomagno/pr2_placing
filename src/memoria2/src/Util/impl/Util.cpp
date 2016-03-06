@@ -492,6 +492,61 @@ bool Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ
     extractor.filter(*object_out);
     return true;
 }
+PointIndices::Ptr Util::getFactiblePlacingPointsIndices(PointCloud<PointXYZ>::Ptr surface_in, geometry_msgs::PoseStamped surface_normal_pose, float base_area){
+    ros::NodeHandle nh_;
+    ros::Publisher test_proj_pub;
+    ros::Publisher test_chull_pub;
+    test_chull_pub = nh_.advertise<PointCloud<PointXYZ> >("chull", 1);
+    test_proj_pub = nh_.advertise<PointCloud<PointXYZ> >("flat_proj", 1);
+    ros::Duration(1.0).sleep();
+    // Preprocesamiento de nube de puntos de la superficie.
+    //      En este punto se quiere descartar los más puntos posibles que signifiquen poses
+    //      peligrosas, tanto del borde de la superficie como cercanas a otros objetos.
+    
+    // Quitar puntos de borde. 
+    //      Algoritmo: - Obtener concave hull del plano (representa el borde de la superficie)
+    //                 - Descartar todos los puntos cercanos a algún punto del concave hull
+    
+    // Congregar puntos de nube en objeto de indices
+    PointIndices::Ptr inliers (new PointIndices());
+    inliers->indices.resize((int)surface_in->points.size());
+    for (int i=0; i<(int)inliers->indices.size(); i++)
+        inliers->indices[i] = i;
+    printf("UTIL: Nro puntos de superficie: %d\n", (int)surface_in->points.size());
+    // Obtener coeficientes del plano a partir de la normal
+    Eigen::Vector3f normal_orientation_vector = Util::quaternionMsgToVector(surface_normal_pose.pose.orientation);
+    ModelCoefficients::Ptr surface_coefs (new ModelCoefficients());
+    surface_coefs->values.resize(4);
+    surface_coefs->values[0] = normal_orientation_vector[0];
+    surface_coefs->values[1] = normal_orientation_vector[1];
+    surface_coefs->values[2] = normal_orientation_vector[2];
+    surface_coefs->values[3] = -surface_normal_pose.pose.position.z;
+    // proyectar puntos sobre su modelo representado
+    PointCloud<PointXYZ>::Ptr surface_projected (new PointCloud<PointXYZ>());
+    ProjectInliers<PointXYZ> proj;
+    proj.setModelType(SACMODEL_PLANE);
+    proj.setIndices(inliers);
+    proj.setInputCloud(surface_in);
+    proj.setModelCoefficients(surface_coefs);
+    proj.filter(*surface_projected);
+    test_proj_pub.publish(surface_projected);
+    test_proj_pub.publish(surface_projected);
+    test_proj_pub.publish(surface_projected);
+    printf("Place: Nro puntos de proyeccion: %d\n", (int)surface_projected->points.size());
+    // Obtener concave hull
+    PointCloud<PointXYZ>::Ptr cloud_hull (new PointCloud<PointXYZ>());
+    ConcaveHull<PointXYZ> chull;
+    chull.setInputCloud(surface_projected);
+    chull.setAlpha(0.1);
+    chull.reconstruct(*cloud_hull);
+    printf("Place: Nro puntos chull: %d\n", (int)cloud_hull->points.size());
+    test_chull_pub.publish(cloud_hull);
+    test_chull_pub.publish(cloud_hull);
+    test_chull_pub.publish(cloud_hull);
+
+    return inliers;
+}
+
 bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane){
     /*
     Algoritmo:

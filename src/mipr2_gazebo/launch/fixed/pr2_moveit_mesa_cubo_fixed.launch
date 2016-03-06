@@ -1,0 +1,14 @@
+<launch>
+    <!-- Cargar PR2 con cubo de madera -->
+    <include file="$(find mipr2_gazebo)/launch/fixed/pr2_mesa_cubo_fixed.launch">
+        <arg name="gui" value="false" />
+    </include>
+    <!-- Cargar contexto moveit -->
+    <include file="$(find mipr2_gazebo)/launch/fixed/moveit_demo_fixed.launch">
+        <arg name="db" value="false" />
+        <arg name="debug" value="false" />
+        <arg name="launch_rviz" value="false"/>
+    </include>
+    <!-- Lanzar gzclient -->
+    <!-- <node pkg="gazebo_ros" type="gzclient" name="gzclient"/> -->
+</launch>

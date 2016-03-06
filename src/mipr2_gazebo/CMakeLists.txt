@@ -4,7 +4,11 @@ project(mipr2_gazebo)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS
+	geometry_msgs
+	roscpp
+	std_msgs
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -106,11 +110,14 @@ catkin_package(
 # target_link_libraries(mipr2_gazebo_node
 #   ${catkin_LIBRARIES}
 # )
-
+include_directories(
+    ${catkin_INCLUDE_DIRS}
+)
 #############
 ## Install ##
 #############
-
+add_executable(my_cube_spawner src/my_cube_spawner.cpp)
+target_link_libraries(my_cube_spawner ${catkin_LIBRARIES})
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 

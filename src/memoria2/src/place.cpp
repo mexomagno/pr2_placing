@@ -7,6 +7,7 @@
 #include <csignal>
 #include <ros/ros.h>
 #include <ros/console.h> // Para debuggear
+#include <algorithm>
 // Mensajes
 #include <geometry_msgs/PoseStamped.h>
 // PCL
@@ -32,6 +33,7 @@ char grasp_arm;
 ros::Publisher object_pc_pub;
 ros::Publisher gripper_pc_pub;
 ros::Publisher surface_pc_pub;
+
 
 ros::Publisher closest_point_pub;
 // ros::Publisher surface_centroid_pub;
@@ -107,7 +109,6 @@ bool searchSurface(PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStam
     PointCloud<PointXYZ>::Ptr cloud(new PointCloud<PointXYZ>()),
                               cloud_subsampled(new PointCloud<PointXYZ>()),
                               cloud_surface(new PointCloud<PointXYZ>());
-    ModelCoefficients::Ptr cloud_coefs(new ModelCoefficients());
     // Iterar y mirar alrededor
     while (yaw <= max_yaw){
         ROS_DEBUG("PLACE: Rotando a yaw = %f", Util::toGrad(yaw));
@@ -362,8 +363,8 @@ bool scanGripper(PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Pt
  * @param  gripper_pc nube de puntos del gripper
  * @param  pose_out   Pose resultante, RELATIVA AL GRIPPER
  * @return            true en éxito, false en caso contrario
- */
-bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out){
+ */ 
+bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out, float &base_area){
     /*    // Obtener mejor superficie
     if (not Util::getStablePose(object_pc, gripper_pc, pose_out)){
         ROS_ERROR("PLACE: Algo ocurrió al intentar obtener la pose estable");
@@ -402,6 +403,7 @@ bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXY
         if (Polymesh::isPointInConvexPolygon(cm_proj, *patch_plane) and not Util::isPointCloudCutByPlane(gripper_pc, patch_plane_coefs, patch_plane->points[0])){
             best_patch = patches[i];
             best_patch_area = patches_areas[i];
+            base_area = best_patch_area;
             ROS_INFO("PLACE: Se ha encontrado un plano estable (de area %.2f)\n", best_patch_area);
             // Ajustar dirección de la normal de la pose (debe apuntar hacia dentro del gripper)
             float alpha = Util::angleBetweenVectors(cm_proj.x, cm_proj.y, cm_proj.z, patch_plane_coefs->values[0], patch_plane_coefs->values[1], patch_plane_coefs->values[2]);
@@ -431,10 +433,13 @@ bool getStableObjectPose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXY
  * @param  surface_normal_pose Pose RELATIVA A ODOM centrada en el centroide de la superficie, y orientada normal a la superficie.
  * @return             True en éxito, false en caso contrario
  */
-bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::Ptr surface_pc, geometry_msgs::PoseStamped surface_normal_pose){
+bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::Ptr surface_pc, geometry_msgs::PoseStamped surface_normal_pose, float base_area){
     ros::NodeHandle nh_;
     ros::Publisher gripper_pose_pub = nh_.advertise<geometry_msgs::PoseStamped>("gripper_pose",1);
     ros::Publisher gripper_future_pose_pub = nh_.advertise<geometry_msgs::PoseStamped>("gripper_future_pose",1);
+
+    // Eliminar puntos donde no puede ocurrir el placing
+    PointIndices::Ptr placing_points = Util::getFactiblePlacingPointsIndices(surface_pc, surface_normal_pose, base_area);
 
     // test de correctitud de transformación 
     ros::Publisher test_pose_ini_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_ini_unitv", 1);
@@ -452,14 +457,20 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
     PointCloud<PointXYZ>::Ptr surface_base_pc (new PointCloud<PointXYZ>());
     transformPointCloud(*surface_pc, *surface_base_pc, odom_to_base_tf);
     // Iterar (hasta éxito o hasta máximo de intentos)
+    // Crear arreglo de 0 a surface_pc->points.size()
+    int pc_indices[(int)surface_pc->points.size()];
+    for (int i=0; i<(int)surface_pc->points.size(); i++)
+        pc_indices[i] = i;
+    // Desordenar indices
+    random_shuffle(&pc_indices[0], &pc_indices[(int)surface_pc->points.size()-1]);
     for (int i=0; i<(int)surface_pc->points.size(); i++){
         ROS_DEBUG("PLACE: Mostrando posible punto de placing (indice %d)", i);
         // Construyo una posible pose, basado en puntos de la superficie y la normal transformada
         geometry_msgs::PoseStamped new_surface_pose;
         new_surface_pose.header.frame_id = Util::BASE_FRAME;
-        new_surface_pose.pose.position.x = surface_pc->points[i].x;
-        new_surface_pose.pose.position.y = surface_pc->points[i].y;
-        new_surface_pose.pose.position.z = surface_pc->points[i].z;
+        new_surface_pose.pose.position.x = surface_pc->points[pc_indices[i]].x;
+        new_surface_pose.pose.position.y = surface_pc->points[pc_indices[i]].y;
+        new_surface_pose.pose.position.z = surface_pc->points[pc_indices[i]].z;
         new_surface_pose.pose.orientation = (Util::transformPose(surface_normal_pose.pose, odom_to_base_tf)).orientation;
         surface_pose_pub.publish(new_surface_pose);
         surface_pose_pub.publish(new_surface_pose);
@@ -547,7 +558,7 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
         gripper_future_pose_pub.publish(gripper_future_pose);
         gripper_future_pose_pub.publish(gripper_future_pose);
         // Intentar ir a la pose
-        /*bool gotopose_ok;
+        bool gotopose_ok;
         if (grasp_arm == 'l')
             gotopose_ok = r_driver->lgripper->goToPose(gripper_future_pose);
         else
@@ -563,16 +574,18 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
             gripper_backoff_pose.pose.position.z = backoff_position[2];
             if (grasp_arm == 'l'){
                 r_driver->lgripper->setOpening(1, -1);
+                ros::Duration(1.0).sleep();
                 r_driver->lgripper->goToPose(gripper_backoff_pose);
-                r_driver->lgripper->setOpening(0, 1);
+                r_driver->lgripper->setOpening(0, 10);
             }
             else{
                 r_driver->rgripper->setOpening(1, -1);
+                ros::Duration(1.0).sleep();
                 r_driver->rgripper->goToPose(gripper_backoff_pose);
-                r_driver->rgripper->setOpening(0, 1);
+                r_driver->rgripper->setOpening(0, 100);
             }
             return true;
-        }*/
+        }
         // END TEST
 
         ros::Duration(0.3).sleep();
@@ -580,7 +593,36 @@ bool placeObject(geometry_msgs::PoseStamped stable_pose, PointCloud<PointXYZ>::P
     return false;
     
 }
+void place(moveit::planning_interface::MoveGroup &group, geometry_msgs::PoseStamped placing_pose){
+    vector<moveit_msgs::PlaceLocation> loc;
+    moveit_msgs::PlaceLocation g;
+    g.place_pose = placing_pose;
 
+    g.pre_place_approach.direction.vector.z = -1.0;
+    g.post_place_retreat.direction.vector.x = -1.0;
+    g.post_place_retreat.direction.header.frame_id = Util::BASE_FRAME;
+    stringstream gripper_frame_id;
+    gripper_frame_id << grasp_arm << "_wrist_roll_link";
+    g.pre_place_approach.direction.header.frame_id = gripper_frame_id.str();
+    g.pre_place_approach.min_distance = 0.1;
+    g.pre_place_approach.desired_distance = 0.2;
+    g.post_place_retreat.min_distance = 0.1;
+    g.post_place_retreat.desired_distance = 0.25;
+    stringstream gripper_joint;
+    gripper_joint << grasp_arm << "_gripper_joint";
+    g.post_place_posture.joint_names.resize(1, gripper_joint.str());
+    g.post_place_posture.points.resize(1);
+    g.post_place_posture.points[0].positions.resize(1);
+    g.post_place_posture.points[0].positions[0] = 1;
+
+    loc.push_back(g);
+    group.setSupportSurfaceName("mesa");
+
+    // Agregar path constraints
+    // 
+    group.setPlannerId("RRTConnectkConfigDefault");
+    group.place("part", loc);
+}
 
 /**
  * main: Ejecuta todo lo necesario para efectuar placing
@@ -721,7 +763,8 @@ int main(int argc, char **argv){
     gripper_pc_pub.publish(*gripper_pc);
     ROS_DEBUG("PLACE: Buscando pose de placing");
     geometry_msgs::PoseStamped placing_pose;
-    if (not getStableObjectPose(object_pc, gripper_pc, placing_pose)){
+    float base_area;
+    if (not getStableObjectPose(object_pc, gripper_pc, placing_pose, base_area)){
         ROS_ERROR("No se pudo obtener pose de placing");
         endProgram(1);
     }
@@ -729,7 +772,7 @@ int main(int argc, char **argv){
     stable_pose_pub.publish(placing_pose);
     stable_pose_pub.publish(placing_pose);
     stable_pose_pub.publish(placing_pose);
-    if (not placeObject(placing_pose, surface_cloud, surface_normal_pose)){   
+    if (not placeObject(placing_pose, surface_cloud, surface_normal_pose, base_area)){   
         ROS_ERROR("No se pudo hacer placing");
         endProgram(1);
     }

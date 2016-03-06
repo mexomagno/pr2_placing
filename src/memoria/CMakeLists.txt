@@ -204,6 +204,12 @@ add_executable(gripper_scanner src/gripper_scanner.cpp)
 add_dependencies(gripper_scanner memoria_generate_messages_cpp)
 target_link_libraries(gripper_scanner ${catkin_LIBRARIES})
 
+#### EJECUTABLE PICKPLACE
+
+add_executable(pickplace src/pickplace.cpp)
+target_link_libraries(pickplace ${catkin_LIBRARIES})
+
+
 #### TEST SELF FILTER
 
 # #set(SF_D "/opt/ros/hydro/share/pr2_navigation_self_filter")

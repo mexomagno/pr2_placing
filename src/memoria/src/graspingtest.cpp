@@ -30,7 +30,7 @@ const float lata_length=0.15;
 
 
 // VARIABLES GLOBALES
-
+char grasp_arm;
 //PlanScenMon psm;
 //tf::TransformListener tfl;
 ros::Publisher planning_scene_pub;
@@ -176,6 +176,51 @@ void pick(string object, moveit::planning_interface::MoveGroup &group){
     ROS_INFO("TERMINA PICK");
 
 }
+
+void pick2(string object, moveit::planning_interface::MoveGroup &group){
+
+    // Pedir pose del objeto
+    gms_srv.request.model_name = object;
+    if (not getmodelstate_client.call(gms_srv)){
+        ROS_ERROR("Error al llamar servicio de Gazebo 'get_model_state'");
+        return;
+    }
+    geometry_msgs::PoseStamped grasping_pose;
+    grasping_pose.pose = gms_srv.response.pose;
+    grasping_pose.header.frame_id = "odom_combined";
+    vector<moveit_msgs::Grasp> grasps;
+    moveit_msgs::Grasp g;
+    g.grasp_pose = grasping_pose;
+
+    g.pre_grasp_approach.direction.vector.x        = 1.0;
+    stringstream gripper_frame_id;
+    gripper_frame_id << grasp_arm << "_wrist_roll_link";
+    g.pre_grasp_approach.direction.header.frame_id = gripper_frame_id.str();
+    g.pre_grasp_approach.min_distance              = 0.2;
+    g.pre_grasp_approach.desired_distance          = 0.4;
+
+    g.post_grasp_retreat.direction.header.frame_id = "base_footprint";
+    g.post_grasp_retreat.direction.vector.z        = 1.0;
+    g.post_grasp_retreat.min_distance              = 0.1;
+    g.post_grasp_retreat.desired_distance          = 0.25;
+    stringstream gripper_joint;
+    gripper_joint << grasp_arm << "_gripper_joint";
+    g.pre_grasp_posture.joint_names.resize(1, gripper_joint.str());
+    g.pre_grasp_posture.points.resize(1);
+    g.pre_grasp_posture.points[0].positions.resize(1);
+    g.pre_grasp_posture.points[0].positions[0]     = 1;
+
+    g.grasp_posture.joint_names.resize(1, gripper_joint.str());
+    g.grasp_posture.points.resize(1);
+    g.grasp_posture.points[0].positions.resize(1);
+    g.grasp_posture.points[0].positions[0]         = 0;
+
+    grasps.push_back(g);
+    group.setSupportSurfaceName("table");
+    group.pick("part", grasps);
+
+}
+
 void prePick(string object, moveit::planning_interface::MoveGroup &group){
     ROS_INFO("COMIENZA PICK");
     vector<double> joint_values = group.getCurrentJointValues();
@@ -271,6 +316,7 @@ int main(int argc, char **argv){
         exit(1);
     }
     char brazo = argv[1][0];
+    grasp_arm = brazo;
     string grasp_object = argv[2];
     ros::init(argc,argv,"grasping_test");
     ros::NodeHandle nh;
@@ -293,6 +339,38 @@ int main(int argc, char **argv){
     moveit::planning_interface::MoveGroup r_arm((brazo == 'l' ? "left_arm" : "right_arm"));
     moveit::planning_interface::MoveGroup::Plan plan;
 
+   /* // Crear objeto para interactuar con el mundo
+    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+    // Crear objeto definidor de collision object
+    moveit_msgs::CollisionObject collision_object;
+    collision_object.header.frame_id = r_arm.getPlanningFrame();
+    collision_object.id = grasp_object;
+    // Crear caja para añadir al mundo
+    shape_msgs::SolidPrimitive primitive;
+    primitive.type = primitive.BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[0] = 0.08;
+    primitive.dimensions[1] = 0.08;
+    primitive.dimensions[2] = 0.08;
+    // Crear pose para la caja
+    geometry_msgs::Pose box_pose;
+    box_pose.orientation.w = 1;
+    box_pose.position.x = 0.7;
+    box_pose.position.y = 0;
+    box_pose.position.z = 0.55;
+
+    // Añadir primitiva al collision object
+    collision_object.primitives.push_back(primitive);
+    collision_object.primitive_poses.push_back(box_pose);
+    collision_object.operation = collision_object.ADD;
+    vector<moveit_msgs::CollisionObject> collision_objects;
+    collision_objects.push_back(collision_object);
+
+    // Añadir el collision object al mundo
+    planning_scene_interface.addCollisionObjects(collision_objects);
+    sleep(2.0);*/
+
+
     // Mostrar informaciones varias
     printf("getName: %s\n",r_arm.getName().c_str());
     printf("getPlanningFrame: %s\n",r_arm.getPlanningFrame().c_str());
@@ -312,5 +390,6 @@ int main(int argc, char **argv){
     // Tomar lata de cocacola
     ROS_INFO("Comenzando pick de '%s'",grasp_object.c_str());
     prePick(grasp_object, r_arm);
+    // pick2(grasp_object, r_arm);
     return 0;
 }
