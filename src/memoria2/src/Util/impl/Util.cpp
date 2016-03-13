@@ -75,7 +75,7 @@ float Util::angleBetweenVectors(float x1, float y1, float z1, float x2, float y2
                     v2(x2, y2, z2);
     float angle = acos(v1.normalized().dot(v2.normalized()));
     if (angle > Util::PI)
-        ROS_DEBUG("UTIL: WARNING: angulo entre vectores mayor a 180 (%f)", Util::toGrad(angle));
+        ROS_INFO("UTIL: WARNING: angulo entre vectores mayor a 180 (%f)", Util::toGrad(angle));
     return angle;
 }
 Eigen::Vector3f Util::quaternionMsgToVector(geometry_msgs::Quaternion ros_q){
@@ -124,12 +124,12 @@ void Util::getClosestPoint(PointCloud<PointXYZ>::Ptr cloud, geometry_msgs::Point
         tf::StampedTransform stamped_tf;
         string cloud_frame = cloud->header.frame_id;
         try{
-            ROS_DEBUG("UTIL: Esperando transformación disponible...");
+            ROS_INFO("UTIL: Esperando transformación disponible...");
             while (not tf_listener.waitForTransform(cloud_frame, Util::BASE_FRAME, ros::Time(0), ros::Duration(WAIT_TF_TIMEOUT))){
                 ROS_ERROR("UTIL: Transformación no pudo ser obtenida en %f segundos",WAIT_TF_TIMEOUT);
                 //iterar
             }
-            ROS_DEBUG("UTIL: Transformación obtenida");
+            ROS_INFO("UTIL: Transformación obtenida");
             tf_listener.lookupTransform(cloud_frame, Util::BASE_FRAME, ros::Time(0), stamped_tf);
         }
         catch(tf::TransformException ex){
@@ -142,9 +142,9 @@ void Util::getClosestPoint(PointCloud<PointXYZ>::Ptr cloud, geometry_msgs::Point
         kdtree->setInputCloud(cloud->makeShared());
     vector<int> nearest_index(1);
     vector<float> nearest_dist(1);
-    ROS_DEBUG("UTIL: Buscando el punto más cercano");
+    ROS_INFO("UTIL: Buscando el punto más cercano");
     kdtree->nearestKSearch(PointXYZ(0,0,0), 1, nearest_index, nearest_dist);
-    ROS_DEBUG("UTIL: Punto más cercano es (%f, %f, %f) a distancia %fm", cloud->points[nearest_index[0]].x,cloud->points[nearest_index[0]].y, cloud->points[nearest_index[0]].z, nearest_dist[0]);
+    ROS_INFO("UTIL: Punto más cercano es (%f, %f, %f) a distancia %fm", cloud->points[nearest_index[0]].x,cloud->points[nearest_index[0]].y, cloud->points[nearest_index[0]].z, nearest_dist[0]);
     geometry_msgs::PointStamped closest_point_base;
     closest_point_base.header.frame_id = Util::BASE_FRAME;
     closest_point_base.point.x = cloud->points[nearest_index[0]].x;
@@ -162,12 +162,12 @@ Eigen::Matrix4f Util::getTransformation(string frame_ini, string frame_end){
     if (frame_ini.compare(frame_end) == 0)
         return transformation;
     try{
-        ROS_DEBUG("UTIL: Esperando transformacion disponible...");
+        ROS_INFO("UTIL: Esperando transformacion disponible...");
         if (not tf_listener.waitForTransform(frame_end, frame_ini, transform_time, ros::Duration(WAIT_TF_TIMEOUT))){
             ROS_ERROR("UTIL: Transformacion no pudo ser obtenida antes del timeout (%fs)", WAIT_TF_TIMEOUT);
             return transformation;
         }
-        ROS_DEBUG("UTIL: Guardando transformacion");
+        ROS_INFO("UTIL: Guardando transformacion");
         tf_listener.lookupTransform(frame_end, frame_ini, ros::Time(0), stamped_tf);
     }
     catch (tf::TransformException ex){
@@ -299,7 +299,7 @@ Eigen::Quaternionf Util::getQuaternionBetweenVectors(Eigen::Vector3f vini, Eigen
                       R(1,0), R(1,1), R(1,2), T[1],
                       R(2,0), R(2,1), R(2,2), T[2],
                          0   ,    0   ,   0    ,  1;
-    ROS_DEBUG("UTIL: getTransformBetweenPoses( (%f, %f, %f) , (%f, %f, %f)) -> \nT: (%f, %f, %f)", pose_ini.position.x, pose_ini.position.y, pose_ini.position.z, pose_end.position.x, pose_end.position.x, pose_end.position.x, T[0], T[1], T[2]);
+    ROS_INFO("UTIL: getTransformBetweenPoses( (%f, %f, %f) , (%f, %f, %f)) -> \nT: (%f, %f, %f)", pose_ini.position.x, pose_ini.position.y, pose_ini.position.z, pose_end.position.x, pose_end.position.x, pose_end.position.x, T[0], T[1], T[2]);
     return transformation;
 }*/
 /*Eigen::Vector3f Util::quaternionMsgToVector(geometry_msgs::Quaternion q){
@@ -321,7 +321,7 @@ Eigen::Quaternionf Util::getQuaternionBetweenVectors(Eigen::Vector3f vini, Eigen
  * @return 
  * @param  cloud_out   : Donde se retornan los inliers
  */
-bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, float min_height, float max_height, float inclination){
+bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, geometry_msgs::PointStamped &surface_centroid, float min_height, float max_height, float inclination){
     // variables auxiliares, para borrar
     ros::NodeHandle nh;
     // ros::Publisher point_pub1 = nh.advertise<geometry_msgs::PointStamped>("centroide_k", 1);
@@ -360,14 +360,14 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
             ROS_INFO("UTIL: Superficie muy pequeña (%f%% de un mímino de %f%% del total de puntos)", inliers->indices.size()*100.0/init_cloud_size, MIN_SEGMENTED_SURFACE_PERCENT);
             return false;
         }
-        ROS_DEBUG("UTIL: Se obtuvo un modelo con %i puntos", (int)inliers->indices.size());
+        ROS_INFO("UTIL: Se obtuvo un modelo con %i puntos", (int)inliers->indices.size());
         extractor.setInputCloud(cloud_in);
         extractor.setIndices(inliers);
         extractor.setNegative(false);
         extractor.filter(*cloud_plane);
         // Verificar primer criterio de aceptación: Altura mínima
         // pc_pub1.publish(*cloud_plane);
-        ROS_DEBUG("UTIL: Area aproximada de la superficie: %fm2", Util::SUBSAMPLE_LEAFSIZE*Util::SUBSAMPLE_LEAFSIZE*(int)inliers->indices.size());
+        ROS_INFO("UTIL: Area aproximada de la superficie: %fm2", Util::SUBSAMPLE_LEAFSIZE*Util::SUBSAMPLE_LEAFSIZE*(int)inliers->indices.size());
         geometry_msgs::PointStamped cloud_centroid, cloud_centroid_base;
         cloud_centroid.point = Util::getCloudCentroid(cloud_plane);
         cloud_centroid.header.frame_id = cloud_in->header.frame_id;
@@ -381,7 +381,7 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
         cloud_centroid_base.header.frame_id = Util::ODOM_FRAME;
         cloud_centroid_base.point = Util::transformPoint(cloud_centroid.point, transformation);
         // tf_listener.transformPoint(Util::ODOM_FRAME, cloud_centroid, cloud_centroid_base);
-        ROS_DEBUG("UTIL: Centroide según base: (%f, %f, %f)", cloud_centroid_base.point.x, cloud_centroid_base.point.y, cloud_centroid_base.point.z);
+        ROS_INFO("UTIL: Centroide según base: (%f, %f, %f)", cloud_centroid_base.point.x, cloud_centroid_base.point.y, cloud_centroid_base.point.z);
         point_pub2.publish(cloud_centroid_base);
         if (cloud_centroid_base.point.z > min_height and cloud_centroid_base.point.z < max_height){
             // Primera prueba superada. Ahora, comprobar inclinación
@@ -398,7 +398,7 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
             double roll, pitch, yaw;
             tf::Matrix3x3(tf_q).getRPY(roll, pitch, yaw);
             pitch = -abs(pitch);
-            ROS_DEBUG("UTIL: Inclinación del plano respecto al suelo (plano XY): %f grados", Util::toGrad(-pitch));
+            ROS_INFO("UTIL: Inclinación del plano respecto al suelo (plano XY): %f grados", Util::toGrad(-pitch));
             // Verificar segundo criterio de aceptación: Inclinación máxima
             if (inclination - PITCH_THRESHOLD < pitch and pitch < inclination + PITCH_THRESHOLD){
                 ROS_INFO("UTIL: Superficie encontrada");
@@ -420,6 +420,7 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
                 surface_normal_pub.publish(pose_normal);
                 surface_normal_pub.publish(pose_normal);
                 surface_normal = pose_normal;
+                surface_centroid = cloud_centroid_base;
                 return true;
             }
         }
@@ -436,13 +437,13 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
     return false;
 }
 bool Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out){
-    ROS_DEBUG("UTIL: Comienza filtro del gripper");
+    ROS_INFO("UTIL: Comienza filtro del gripper");
     if (cloud_in->header.frame_id.find(Util::GRIPPER_FRAME_SUFFIX) == string::npos){
         ROS_ERROR("UTIL: No se puede filtrar gripper: Frame de nube es incorrecto");
         ROS_ERROR("UTIL: Frame debe contener '%s' pero era '%s'", Util::GRIPPER_FRAME_SUFFIX.c_str(), cloud_in->header.frame_id.c_str());
         return false;
     }
-    ROS_DEBUG("UTIL: Agregando boxes al filtro");
+    ROS_INFO("UTIL: Agregando boxes al filtro");
     vector<Box> gripper_boxes;
     // inicializar boxes. Total y absolutamente HARDCODEADO, basado en observaciones.
     Box box1;
@@ -460,7 +461,7 @@ bool Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ
     box3.size[0] = 0.02; box3.size[1] = 0.11; box3.size[2] = 0.052;
     gripper_boxes.push_back(box3);
 
-    ROS_DEBUG("UTIL: Borrando brazo");
+    ROS_INFO("UTIL: Borrando brazo");
     PointCloud<PointXYZ>::Ptr cloud_out (new PointCloud<PointXYZ>());
     // Borrar primer pedazo
     PassThrough<PointXYZ> pass;
@@ -472,7 +473,7 @@ bool Util::gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ
     /*    PointCloud<PointXYZ>::Ptr object_pc(new PointCloud<PointXYZ>()),
                               gripper_pc(new PointCloud<PointXYZ>());*/
     // Capturar índices de puntos dentro de paralelepípedo
-    ROS_DEBUG("UTIL: Separando gripper del objeto según boxes");
+    ROS_INFO("UTIL: Separando gripper del objeto según boxes");
     PointIndices::Ptr inliers (new PointIndices());
     for (int i=0; i < cloud_out->points.size(); i++){
         for (int j=0; j < gripper_boxes.size(); j++){

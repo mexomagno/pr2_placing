@@ -9,7 +9,9 @@
   <arg name="debug" default="false"/>
   <arg name="physics" default="ode"/>
   <arg name="verbose" default="false"/>
-  <arg name="world_name" default="worlds/empty_world_fixed.world"/> <!-- Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+  <arg name="world_name" default="$(find mipr2_gazebo)/worlds/my_empty_world.world" />
+  <arg name="quick_world_name" default="$(find mipr2_gazebo)/worlds/my_empty_world_quick.world" />
+  <arg name="quick_simulation" default="false" />
 
   <!-- set use_sim_time flag -->
   <group if="$(arg use_sim_time)">
@@ -26,9 +28,11 @@
   <arg unless="$(arg debug)" name="script_type" value="gzserver"/>
   <arg     if="$(arg debug)" name="script_type" value="debug"/>
 
-  <!-- start gazebo server-->
+  <!-- start gazebo server. Elegir mundo rápido o mundo normal según argumento -->
   <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="false" output="screen"
-  args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)" />
+  args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)" unless="$(arg quick_simulation)"/>
+  <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="false" output="screen"
+  args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg quick_world_name)" if="$(arg quick_simulation)"/>
 	
   <!-- start gazebo client -->
   <group if="$(arg gui)">

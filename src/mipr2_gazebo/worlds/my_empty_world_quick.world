@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<sdf version="1.4">
+  <world name="default">
+    <scene>
+        <shadows>0</shadows>
+    </scene>
+    <physics type="ode"> 
+      <!-- Sugeridas por wiki RyCh -->
+      <real_time_update_rate>250</real_time_update_rate>
+      <!-- Default 250 -->
+      <max_step_size>0.0035</max_step_size>
+      <!-- Default 0.0035 -->
+      <!-- Sugeridas por Jennifer Buehler para su plugin -->
+      <gravity>0 0 -9.8</gravity> 
+      <ode> 
+        <solver> 
+          <type>quick</type> 
+          <iters>50</iters> 
+          <precon_iters>0</precon_iters> 
+          <sor>1.300000</sor> 
+        </solver> 
+        <constraints> 
+          <cfm>0.000000</cfm> 
+          <erp>0.200000</erp> 
+          <contact_max_correcting_vel>100.000000</contact_max_correcting_vel> 
+          <contact_surface_layer>0.001000</contact_surface_layer> 
+        </constraints> 
+      </ode> 
+
+      
+    </physics> 
+    <!-- A global light source -->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <!-- A ground plane -->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+  </world>
+</sdf>

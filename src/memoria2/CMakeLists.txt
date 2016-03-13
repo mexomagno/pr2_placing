@@ -155,10 +155,16 @@ set(SOURCES ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotDriver.cpp
             ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotSensors/impl/RobotSensors.cpp
             ${PROJECT_SOURCE_DIR}/src/RobotDriver/RobotSensors/impl/Kinect.cpp
             ${PROJECT_SOURCE_DIR}/src/Polymesh/impl/Polymesh.cpp
-            ${PROJECT_SOURCE_DIR}/src/Util/impl/Util.cpp)
+            ${PROJECT_SOURCE_DIR}/src/Util/impl/Util.cpp
+            ${PROJECT_SOURCE_DIR}/src/PlacedObject/impl/PlacedObject.cpp
+            ${PROJECT_SOURCE_DIR}/src/PlacingSurface/impl/PlacingSurface.cpp
+            )
 
-add_executable(place src/place.cpp ${SOURCES})
-target_link_libraries(place ${catkin_LIBRARIES})
+# add_executable(place src/place.cpp ${SOURCES})
+# target_link_libraries(place ${catkin_LIBRARIES})
+
+add_executable(place2 src/place2.cpp ${SOURCES})
+target_link_libraries(place2 ${catkin_LIBRARIES})
 
 #############
 ## Install ##

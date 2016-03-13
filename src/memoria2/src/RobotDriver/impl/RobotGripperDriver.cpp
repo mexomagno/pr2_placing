@@ -20,7 +20,7 @@ RobotGripperDriver::RobotGripperDriver(const string which){
     	return;
     }
     this->which_   = which[0];
-    ROS_DEBUG("RobotGripperDriver: Creando gripper %c", this->which_);
+    ROS_INFO("RobotGripperDriver: Creando gripper %c", this->which_);
     this->nh_      = new ros::NodeHandle;
     GOAL_TOPIC     = which + Util::GRIPPER_GOAL_TOPIC_SUFFIX;
     STATUS_TOPIC   = which + Util::GRIPPER_STATUS_TOPIC_SUFFIX;
@@ -28,20 +28,20 @@ RobotGripperDriver::RobotGripperDriver(const string which){
     gripper_status_ = this->nh_->subscribe(STATUS_TOPIC, 1, statusCallback);
     
     string group_s = (this->which_ == 'l' ? "left_arm" : "right_arm");
-    ROS_DEBUG("RobotGripperDriver: Inicializando grupo '%s'", group_s.c_str());
+    ROS_INFO("RobotGripperDriver: Inicializando grupo '%s'", group_s.c_str());
     // moveit::planning_interface::MoveGroup group(group_s.c_str());
     this->moveit_group_ = new moveit::planning_interface::MoveGroup(group_s.c_str());
-    ROS_DEBUG("RobotGripperDriver: Creando e iniciando spinner");
+    ROS_INFO("RobotGripperDriver: Creando e iniciando spinner");
     this->spinner_ = new ros::AsyncSpinner(1);
     this->spinner_->start();
-    ROS_DEBUG("RobotGripperDriver: grupo iniciado");
+    ROS_INFO("RobotGripperDriver: grupo iniciado");
 }
 RobotGripperDriver::~RobotGripperDriver(){
-    ROS_DEBUG("RobotGripperDriver: Destruyendo nodehandle");
+    ROS_INFO("RobotGripperDriver: Destruyendo nodehandle");
     delete this->nh_;
-    ROS_DEBUG("RobotGripperDriver: Destruyendo moveit_group");
+    ROS_INFO("RobotGripperDriver: Destruyendo moveit_group");
     delete this->moveit_group_;
-    ROS_DEBUG("RobotGripperDriver: Deteniendo y destruyendo spinner");
+    ROS_INFO("RobotGripperDriver: Deteniendo y destruyendo spinner");
     this->spinner_->stop();
     delete this->spinner_;
 }
@@ -52,7 +52,7 @@ RobotGripperDriver::~RobotGripperDriver(){
  * @return            : True en éxito. Por ahora no hay condición para False.
  */
 bool RobotGripperDriver::setOpening(float opening, float max_effort = MAX_EFFORT){
-	ROS_DEBUG("RobotGripperDriver: Seteando %s gripper apertura %f",this->getWhich().c_str(), opening);
+	ROS_INFO("RobotGripperDriver: Seteando %s gripper apertura %f",this->getWhich().c_str(), opening);
 	float position = (MAX_OPENING - MIN_OPENING)*opening + MIN_OPENING;
 	pr2_controllers_msgs::Pr2GripperCommandActionGoal action_goal;
 	action_goal.goal.command.position = position;
@@ -65,7 +65,7 @@ bool RobotGripperDriver::setOpening(float opening, float max_effort = MAX_EFFORT
 		ros::Duration(RESEND_DELAY).sleep();
 		ros::spinOnce();
 	}
-	ROS_DEBUG("RobotGripperDriver: %s gripper movido", this->getWhich().c_str());
+	ROS_INFO("RobotGripperDriver: %s gripper movido", this->getWhich().c_str());
 	return true;
 }
 string RobotGripperDriver::getWhich(){
@@ -81,11 +81,11 @@ geometry_msgs::PoseStamped RobotGripperDriver::getCurrentPose(){
 }
 bool RobotGripperDriver::goToPose(geometry_msgs::PoseStamped pose){
 	this->moveit_group_->setPoseTarget(pose);
-    ROS_DEBUG("RobotGripperDriver: Planeando para pose (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f, %.2f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
+    ROS_INFO("RobotGripperDriver: Planeando para pose (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f, %.2f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
     bool plan_done = this->moveit_group_->plan(this->planner_);
-    ROS_DEBUG("RobotGripperDriver: Plan %s", plan_done ? "EXITOSO" : "FALLIDO");
+    ROS_INFO("RobotGripperDriver: Plan %s", plan_done ? "EXITOSO" : "FALLIDO");
     if (plan_done){
-    	ROS_DEBUG("RobotGripperDriver: Ejecutando plan...");
+    	ROS_INFO("RobotGripperDriver: Ejecutando plan...");
     	this->moveit_group_->move();
     }
     return plan_done;

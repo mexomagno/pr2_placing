@@ -10,20 +10,20 @@ const float WAIT_CONTROLLER_TIMEOUT = 5.0;
 // Constructor y Destructor
 RobotHeadDriver::RobotHeadDriver(){
     // Crear cliente de movimiento
-    ROS_DEBUG("RobotHeadDriver: Creando nuevo objeto RobotHeadDriver");
-    ROS_DEBUG("RobotHeadDriver: Creando cliente para servicio POINT_HEAD_CONTROLLER");
+    ROS_INFO("RobotHeadDriver: Creando nuevo objeto RobotHeadDriver");
+    ROS_INFO("RobotHeadDriver: Creando cliente para servicio POINT_HEAD_CONTROLLER");
     this->phc_ = new PointHeadClient(POINT_HEAD_CONTROLLER, true);
-    ROS_DEBUG("RobotHeadDriver: Esperando servicio cada %f s", WAIT_CONTROLLER_TIMEOUT);
+    ROS_INFO("RobotHeadDriver: Esperando servicio cada %f s", WAIT_CONTROLLER_TIMEOUT);
     while (!this->phc_->waitForServer(ros::Duration(WAIT_CONTROLLER_TIMEOUT))){
-        ROS_DEBUG("RobotHeadDriver: Esperando al point_head_action_server...");
+        ROS_INFO("RobotHeadDriver: Esperando al point_head_action_server...");
     }
-    ROS_DEBUG("RobotHeadDriver: Mirando hacia el frente");
+    ROS_INFO("RobotHeadDriver: Mirando hacia el frente");
     // Mirar hacia el frente
     this->lookAt(Util::BASE_FRAME,10,0,1.5);
 }
 RobotHeadDriver::~RobotHeadDriver(){
     // Eliminar cliente
-    ROS_DEBUG("RobotHeadDriver: Destruyendo cliente servicio POINT_HEAD_CONTROLLER");
+    ROS_INFO("RobotHeadDriver: Destruyendo cliente servicio POINT_HEAD_CONTROLLER");
     delete this->phc_;
 }
 bool RobotHeadDriver::lookAt(string frame_id, double x, double y, double z){
@@ -66,7 +66,7 @@ bool RobotHeadDriver::sendLookAt(string frame_id, geometry_msgs::Point p){
     goal.pointing_axis.z = 1;
     goal.max_velocity = HEAD_MAX_VELOCITY;
     goal.min_duration = ros::Duration(HEAD_MIN_DURATION);
-    ROS_DEBUG("RobotHeadDriver: Enviando Goal al robot...");
+    ROS_INFO("RobotHeadDriver: Enviando Goal al robot...");
     this->phc_->sendGoal(goal);
     if (not this->phc_->waitForResult(ros::Duration(HEAD_TIMEOUT))){
         ROS_ERROR("RobotHeadDriver: Timeout antes de llegar a pose final");

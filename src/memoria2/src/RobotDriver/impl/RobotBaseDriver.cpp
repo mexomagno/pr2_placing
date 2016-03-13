@@ -18,7 +18,7 @@ ros::Publisher base_cmd_pub_;
 void odomCallback(const nav_msgs::Odometry::ConstPtr& odom){
 	if (not store_odom)
         return;
-    // ROS_DEBUG("RobotBaseDriver: Recibida odometría: (%f,%f,%f) (%f,%f,%f,%f)",odom->pose.pose.position.x,odom->pose.pose.position.y,odom->pose.pose.position.z,odom->pose.pose.orientation.x,odom->pose.pose.orientation.y,odom->pose.pose.orientation.z,odom->pose.pose.orientation.w);
+    // ROS_INFO("RobotBaseDriver: Recibida odometría: (%f,%f,%f) (%f,%f,%f,%f)",odom->pose.pose.position.x,odom->pose.pose.position.y,odom->pose.pose.position.z,odom->pose.pose.orientation.x,odom->pose.pose.orientation.y,odom->pose.pose.orientation.z,odom->pose.pose.orientation.w);
     // Actualizar última posición
     last_position.setX(odom->pose.pose.position.x);
     last_position.setY(odom->pose.pose.position.y);
@@ -33,17 +33,17 @@ void odomCallback(const nav_msgs::Odometry::ConstPtr& odom){
 // Constructor y Destructor
 RobotBaseDriver::RobotBaseDriver(){
 	// ros::init("RobotBaseDriver_node");
-	ROS_DEBUG("RobotBaseDriver: Creando nodeHandle");
+	ROS_INFO("RobotBaseDriver: Creando nodeHandle");
 	nh_ = new ros::NodeHandle;
 	// Subscribir a mensajes de odometría
-	ROS_DEBUG("RobotBaseDriver: Creando subscriber odom");
+	ROS_INFO("RobotBaseDriver: Creando subscriber odom");
 	odom_sub_ = nh_->subscribe<nav_msgs::Odometry>(Util::ODOM_TOPIC, 1, odomCallback);
 	// Publicar mensajes para base cmd
-	ROS_DEBUG("RobotBaseDriver: Creando publisher twist");
+	ROS_INFO("RobotBaseDriver: Creando publisher twist");
 	base_cmd_pub_ = nh_->advertise<geometry_msgs::Twist>(Util::BASE_CONTROLLER_TOPIC, 1);
 }
 RobotBaseDriver::~RobotBaseDriver(){
-	ROS_DEBUG("RobotBaseDriver: Destruyendo nodeHandle");
+	ROS_INFO("RobotBaseDriver: Destruyendo nodeHandle");
 	delete nh_;
 }
 /*bool RobotBaseDriver::goToPose(const string frame_id, geometry_msgs::PoseStamped pose){
@@ -62,26 +62,26 @@ bool RobotBaseDriver::goToPose(geometry_msgs::PoseStamped pose_goal){
 		return false;
 	}
 	geometry_msgs::Pose robot_pose = pose_goal.pose;
-	ROS_DEBUG("RobotBaseDriver: Pose buscada: (%f, %f, %f)", robot_pose.position.x, robot_pose.position.y, robot_pose.position.z);
+	ROS_INFO("RobotBaseDriver: Pose buscada: (%f, %f, %f)", robot_pose.position.x, robot_pose.position.y, robot_pose.position.z);
 	// 1) DESPLAZAR BASE
 	if (robot_pose.position.x != 0 or robot_pose.position.y != 0){
 		// Calcular distancia desde robot a nueva pose
 		float distance = sqrt(robot_pose.position.x*robot_pose.position.x + robot_pose.position.y*robot_pose.position.y);
-		ROS_DEBUG("RobotBaseDriver: Trasladando base");
+		ROS_INFO("RobotBaseDriver: Trasladando base");
 		tf::Vector3 xend( robot_pose.position.x, robot_pose.position.y, robot_pose.position.z);
 		tf::Vector3 anglestart (1,0,0);
 		float angle = anglestart.angle(xend)*(robot_pose.position.y < 0 ? -1 : 1); // Corrige problema de ángulo siempre positivo
-		ROS_DEBUG("RobotBaseDriver: Angulo dirección desplazamiento: %f", Util::toGrad(angle));
+		ROS_INFO("RobotBaseDriver: Angulo dirección desplazamiento: %f", Util::toGrad(angle));
 		// Corrección de distancia
 		distance = distance - DISTANCE_CORRECTION - DISTANCE_PRE_TURN;
 		if (not travel(distance, angle))
 			return false;
 	}
 	else{
-		ROS_DEBUG("RobotBaseDriver: Recibida pose en mismo lugar");
+		ROS_INFO("RobotBaseDriver: Recibida pose en mismo lugar");
 	}
 	// 2) ROTAR BASE
-	ROS_DEBUG("RobotBaseDriver: Rotando base");
+	ROS_INFO("RobotBaseDriver: Rotando base");
 	geometry_msgs::Quaternion q = robot_pose.orientation;
 	float angle = atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y + q.z*q.z));
 	// Corrección de ángulo
@@ -90,16 +90,16 @@ bool RobotBaseDriver::goToPose(geometry_msgs::PoseStamped pose_goal){
 		return false;
 	// 3) MOVER ULTIMO POCO
 	if (robot_pose.position.x != 0 or robot_pose.position.y != 0){
-		ROS_DEBUG("RobotBaseDriver: Terminando de acercarse");
+		ROS_INFO("RobotBaseDriver: Terminando de acercarse");
 		if (not travel(DISTANCE_PRE_TURN, 0))
 			return false;
 	}
-	ROS_DEBUG("RobotBaseDriver: Fin goToPose");
+	ROS_INFO("RobotBaseDriver: Fin goToPose");
 	return true;
 }
 // PRIVATE
 bool RobotBaseDriver::turn(float angle){
-	ROS_DEBUG("RobotBaseDriver: Girar %f grados", Util::toGrad(angle));
+	ROS_INFO("RobotBaseDriver: Girar %f grados", Util::toGrad(angle));
 	ros::Rate rate(LOOP_FREQ);
 	store_odom = true;
 	rate.sleep();
@@ -120,7 +120,7 @@ bool RobotBaseDriver::turn(float angle){
 		if (traveled_angle > (angle < 0 ? -angle : angle)) done = true;
 	}
 	if (done){
-		ROS_DEBUG("Giro real fue: %f grados", Util::toGrad(traveled_angle));
+		ROS_INFO("Giro real fue: %f grados", Util::toGrad(traveled_angle));
 		return true;
 	}
 	else{
@@ -129,7 +129,7 @@ bool RobotBaseDriver::turn(float angle){
 	}
 }
 bool RobotBaseDriver::travel(float distance, float angle){
-	ROS_DEBUG("RobotBaseDriver: Desplazar distancia: %f, angulo: %f", distance, Util::toGrad(angle));
+	ROS_INFO("RobotBaseDriver: Desplazar distancia: %f, angulo: %f", distance, Util::toGrad(angle));
 	ros::Rate rate(LOOP_FREQ);
 	store_odom = true;
 	rate.sleep();
@@ -156,12 +156,12 @@ bool RobotBaseDriver::travel(float distance, float angle){
 		// Actualizar posición odométrica
 		ros::spinOnce();
 		traveled_dist = start_position.distance(last_position);
-		ROS_DEBUG("RobotBaseDriver: Distancia navegada = %fm", traveled_dist);
+		ROS_INFO("RobotBaseDriver: Distancia navegada = %fm", traveled_dist);
 		if (traveled_dist > (distance < 0 ? -distance : distance)) done = true;
 	}
 	store_odom = false;
 	if (done){
-		ROS_DEBUG("RobotBaseDriver: Desplazamiento real fue: %fm", traveled_dist);
+		ROS_INFO("RobotBaseDriver: Desplazamiento real fue: %fm", traveled_dist);
 		return true;
 	}
 	else{

@@ -162,7 +162,7 @@
 
   <!-- intento por agregar plugin de gazebo, fix propuesto por jennifer -->
   <gazebo>
-      <plugin name="gazebo_grasp_fix" filename="$(find mipr2_gazebo)/gazebo_grasp_plugin/devel/lib/libgazebo_grasp_fix.so">
+      <plugin name="gazebo_grasp_fix" filename="$(find mipr2_gazebo)/gazebo_grasp_plugin3/build/devel/lib/libgazebo_grasp_fix.so">
           <palm_link> l_wrist_roll_link </palm_link>
           <gripper_link> l_gripper_l_finger_link </gripper_link>
           <gripper_link> l_gripper_r_finger_link </gripper_link>
@@ -173,6 +173,15 @@
           <gripper_link> r_gripper_r_finger_link </gripper_link>
           <gripper_link> r_gripper_l_finger_tip_link </gripper_link>
           <gripper_link> r_gripper_r_finger_tip_link </gripper_link>
+
+          <!-- Configuraciones ajustables -->
+          <disable_collisions_on_attach>false</disable_collisions_on_attach>
+          <!-- <forces_angle_tolerance>100</forces_angle_tolerance> -->
+          <!-- <update_rate>4</update_rate> -->
+          <!-- <grip_count_threshold>4</grip_count_threshold> -->
+          <!-- <max_grip_count>8</max_grip_count> -->
+          <release_tolerance>0.0005</release_tolerance>
+          <!-- <contact_topic>__default_topic__</contact_topic> -->
       </plugin>
   </gazebo>
   <!-- Fin intento de plugin -->
