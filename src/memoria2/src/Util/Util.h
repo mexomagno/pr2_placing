@@ -21,6 +21,10 @@
 #include <tf/transform_listener.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/filters/project_inliers.h>
+#include <moveit_msgs/PlanningScene.h>
+#include <moveit_msgs/AttachedCollisionObject.h>
+#include <moveit_msgs/CollisionObject.h>
+#include <shape_msgs/SolidPrimitive.h>
 // #include "../Polymesh/Polymesh.h"
 // #include "../RobotDriver/RobotDriver.h"
 
@@ -105,6 +109,8 @@ class Util{
         static PointIndices::Ptr getFactiblePlacingPointsIndices(PointCloud<PointXYZ>::Ptr cloud_in, geometry_msgs::PoseStamped surface_normal_pose, float base_area);
         // static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);
         static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);
+
+        static void disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
     protected:
     private:
         static bool isPointInsideBox(PointXYZ p, Box box);

@@ -583,6 +583,78 @@ bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoeffici
     // printf("Nube NO es cortada por plano\n");
     return false;
 }
+
+void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
+    ROS_INFO("UTIL: %s esfera",(disable ? "removiendo" : "attachando"));
+    // Creando collision object
+    moveit_msgs::CollisionObject co;
+    // Frame de referencia para la pose
+    co.header.frame_id = "l_gripper_tool_frame";
+    // co.header.stamp = ros::Time(0);
+    // Nombre del objeto
+    co.id = "my_collision_object";
+    // Creando shape
+    shape_msgs::SolidPrimitive shape;
+    shape.type = shape.SPHERE;
+    const float shape_size = 0.3;
+    shape.dimensions.push_back(shape_size); // x
+    shape.dimensions.push_back(shape_size); // y
+    shape.dimensions.push_back(shape_size); // z 
+    // Definiendo pose
+    geometry_msgs::Pose co_pose;
+    co_pose.position.x = co_pose.position.y = co_pose.position.z = co_pose.orientation.x = co_pose.orientation.y = co_pose.orientation.z = 0;
+    co_pose.orientation.w = 1;
+    co.primitives.push_back(shape);
+    co.primitive_poses.push_back(co_pose);
+
+    // Creando attached collision object
+    moveit_msgs::AttachedCollisionObject aco;
+    // Se attacha al gripper
+    aco.link_name = "l_wrist_roll_link";
+
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); // redundante
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); // redundante
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); // redundante
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); // redundante
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
+
+    // links que salen en RViz y no en gazebo
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
+    aco.touch_links.push_back("base_link");
+
+    // Primero lo removeremos
+    // co.operation = co.REMOVE;
+    // // Removiendo objeto
+    // aco.object = co;
+    // ROS_INFO("Removiendo '%s'", co.id.c_str());
+    // attached_object_pub.publish(aco);
+    // // Ahora lo agregamos
+    // ros::Duration(1).sleep();
+    co.operation = (disable ? (co.REMOVE) : (co.ADD));
+    aco.object = co;
+    ROS_INFO("UTIL: %s colisiones para gripper", (disable ? "Deshabilitando" : "Habilitando"), co.id.c_str());
+    attached_object_pub.publish(aco);
+    attached_object_pub.publish(aco);
+    attached_object_pub.publish(aco);
+    if (disable){
+        // Eliminarlo del collision world también
+        ROS_INFO("UTIL: Borrando del world");
+        collision_object_pub.publish(co);
+        collision_object_pub.publish(co);
+        collision_object_pub.publish(co);
+    }
+    ros::Duration(0.5).sleep();
+}
+
+
+
 // PRIVATE
 bool Util::isPointInsideBox(PointXYZ p, Box box){
     bool in_x = (p.x > box.center[0] - box.size[0]/2.0) and (p.x < box.center[0] + box.size[0]/2.0);

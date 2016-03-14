@@ -9,10 +9,7 @@
 #include <algorithm>
 // Mensajes
 #include <geometry_msgs/PoseStamped.h>
-#include <moveit_msgs/PlanningScene.h>
-#include <moveit_msgs/AttachedCollisionObject.h>
-#include <moveit_msgs/CollisionObject.h>
-#include <shape_msgs/SolidPrimitive.h>
+
 // PCL
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -45,6 +42,10 @@ ros::Publisher closest_point_pub;
 ros::Publisher closest_pose_pub;
 ros::Publisher stable_pose_pub;
 ros::Publisher surface_pose_pub;
+
+// Publicador de attached collision objects
+ros::Publisher aco_pub;
+ros::Publisher co_pub;
 
 
 // Pre-declaración de métodos
@@ -99,6 +100,7 @@ bool getPlacedObject(){
         return false;
     }
     // Mover gripper a posición inicial de scanning
+    ROS_INFO("PLACE: Mover gripper activo a pose de scaneo");
     geometry_msgs::PoseStamped scan_pose;
     scan_pose.header.frame_id = Util::BASE_FRAME;
     scan_pose.pose.position.x = Util::scan_position[0];
@@ -133,6 +135,8 @@ bool getPlacedObject(){
     Eigen::Matrix4f transformation;
     // Scanear
     while ( 1 ){
+        // Activar octomap, desactivar bola collision object
+        Util::disableGripperCollisions(grasp_arm, true, aco_pub, co_pub);
         // Pedir nube de kinect
         cloud = r_driver->sensors->kinect->getNewCloud();
         ROS_INFO("PLACE: nube recibida desde kinect: %d puntos, frame: %s", (int)cloud->points.size(), cloud->header.frame_id.c_str());
@@ -181,6 +185,8 @@ bool getPlacedObject(){
             the_object->computeStablePose();
             return true;
         }
+        // desactivar octomap, activar collision object
+        Util::disableGripperCollisions(grasp_arm, false, aco_pub, co_pub);
         ROS_INFO("PLACE: Posicionandose psra siguiente scan");
         scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
         if (grasp_arm == 'l')
@@ -617,83 +623,16 @@ int main(int argc, char **argv){
     stable_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("stable_pose", 1);
     surface_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("surface_pose", 1);
 
-    ros::Publisher planning_pub = nh.advertise<moveit_msgs::PlanningScene>("/move_group/monitored_planning_scene", 1);
-    ros::Publisher aco_pub = nh.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object", 10);
-    ros::Publisher co_pub = nh.advertise<moveit_msgs::CollisionObject>("/collision_object", 10);
+    aco_pub = nh.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object", 10);
+    co_pub = nh.advertise<moveit_msgs::CollisionObject>("/collision_object", 10);
     
 
-    ros::Duration(2).sleep();
+    ros::Duration(1).sleep();
 
 // TESTEANDO NUEVO ORDEN: SCAN -> POSE ESTABLE -> SEARCH SURFACE -> PLACE
 
-    // Borrar octomap
-    // ROS_INFO("PLACE: Intentando borrar octomap");
-    // moveit_msgs::PlanningScene clear_octomap;
-    // planning_pub.publish(clear_octomap);
-    ROS_INFO("PLACE: Attachando esfera");
-    // Creando collision object
-    moveit_msgs::CollisionObject co;
-    // Frame de referencia para la pose
-    co.header.frame_id = "l_gripper_tool_frame";
-    // co.header.stamp = ros::Time(0);
-    // Nombre del objeto
-    co.id = "my_collision_object";
-    // Creando shape
-    shape_msgs::SolidPrimitive shape;
-    shape.type = shape.SPHERE;
-    const float shape_size = 0.3;
-    shape.dimensions.push_back(shape_size); // x
-    shape.dimensions.push_back(shape_size); // y
-    shape.dimensions.push_back(shape_size); // z 
-    // Definiendo pose
-    geometry_msgs::Pose co_pose;
-    co_pose.position.x = co_pose.position.y = co_pose.position.z = co_pose.orientation.x = co_pose.orientation.y = co_pose.orientation.z = 0;
-    co_pose.orientation.w = 1;
-    co.primitives.push_back(shape);
-    co.primitive_poses.push_back(co_pose);
-
-    // Creando attached collision object
-    moveit_msgs::AttachedCollisionObject aco;
-    // Se attacha al gripper
-    aco.link_name = "l_wrist_roll_link";
-
-    aco.touch_links.push_back("l_gripper_r_finger_tip_link"); // redundante
-    aco.touch_links.push_back("l_gripper_r_finger_link"); // redundante
-    aco.touch_links.push_back("l_gripper_l_finger_tip_link"); // redundante
-    aco.touch_links.push_back("l_gripper_l_finger_link"); // redundante
-    aco.touch_links.push_back("l_wrist_roll_link"); // redundante
-    aco.touch_links.push_back("l_wrist_flex_link");
-    aco.touch_links.push_back("l_forearm_roll_link");
-    aco.touch_links.push_back("l_elbow_flex_link");
-    aco.touch_links.push_back("l_upper_arm_roll_link");
-    aco.touch_links.push_back("base_link");
-
-    // links que salen en RViz y no en gazebo
-    aco.touch_links.push_back("l_forearm_link");
-    aco.touch_links.push_back("l_gripper_motor_accelerometer_link");
-    aco.touch_links.push_back("l_gripper_palm_link");
-    aco.touch_links.push_back("l_upper_arm_link");
-
-
-    
-    
-
-
-    // Primero lo removeremos
-    co.operation = co.REMOVE;
-    // Removiendo objeto
-    aco.object = co;
-    ROS_INFO("Removiendo '%s'", co.id.c_str());
-    aco_pub.publish(aco);
-    // Ahora lo agregamos
-    ros::Duration(1).sleep();
-    co.operation = co.ADD;
-    aco.object = co;
-    ROS_INFO("Agregando '%s'", co.id.c_str());
-    aco_pub.publish(aco);
-    // collision_pub.publish(aco);
-    // collision_pub.publish(aco);
-
+    // Desactivar octomap en esfera
+    Util::disableGripperCollisions(grasp_arm, false, aco_pub, co_pub);
 
 
     the_object = new PlacedObject();
