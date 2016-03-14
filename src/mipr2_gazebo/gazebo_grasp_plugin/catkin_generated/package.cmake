@@ -1,7 +1,0 @@
-set(_CATKIN_CURRENT_PACKAGE "gazebo_grasp_plugin")
-set(gazebo_grasp_plugin_MAINTAINER "Jennifer Buehler <jennifer.e.buehler@gmail.com>")
-set(gazebo_grasp_plugin_DEPRECATED "")
-set(gazebo_grasp_plugin_VERSION "0.0.0")
-set(gazebo_grasp_plugin_BUILD_DEPENDS "gazebo_ros" "geometry_msgs" "roscpp" "std_msgs")
-set(gazebo_grasp_plugin_RUN_DEPENDS "gazebo_ros" "geometry_msgs" "roscpp" "std_msgs")
-set(gazebo_grasp_plugin_BUILDTOOL_DEPENDS "catkin")
