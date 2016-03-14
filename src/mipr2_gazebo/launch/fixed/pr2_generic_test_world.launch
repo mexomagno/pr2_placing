@@ -27,7 +27,7 @@ La superficie por defecto a utilizar es "mesita" -->
 \tContexto Moveit: \t$(arg moveit)\n
 \tRviz: \t\t\t$(arg rviz)\n
 \tModo rápido: \t\t$(arg quick)\n
-\tSpawnear cubo: \t$(arg cube)\n'"
+\tSpawnear cubo: \t\t$(arg cube)\n'"
         output="screen"/>
 
 

@@ -10,7 +10,7 @@ const string Util::KINECT_FRAME                = "/head_mount_kinect_rgb_optical
 
 // Tópicos
 const string Util::KINECT_TOPIC                = "/head_mount_kinect/depth_registered/points";
-const string Util::KINECT_TOPIC_SELF_FILTERED  = "/head_mount_kinect/depth_registered/points";
+const string Util::KINECT_TOPIC_SELF_FILTERED  = "/move_group/moveit_self_filtered";
 const string Util::GRIPPER_GOAL_TOPIC_SUFFIX   = "_gripper_controller/gripper_action/goal";
 const string Util::GRIPPER_STATUS_TOPIC_SUFFIX = "_gripper_controller/gripper_action/result";
 const string Util::BASE_CONTROLLER_TOPIC       = "/base_controller/command";

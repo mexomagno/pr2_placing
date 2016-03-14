@@ -9,6 +9,10 @@
 #include <algorithm>
 // Mensajes
 #include <geometry_msgs/PoseStamped.h>
+#include <moveit_msgs/PlanningScene.h>
+#include <moveit_msgs/AttachedCollisionObject.h>
+#include <moveit_msgs/CollisionObject.h>
+#include <shape_msgs/SolidPrimitive.h>
 // PCL
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -516,15 +520,21 @@ bool placeObject(){
             gripper_backoff_pose.pose.position.y = backoff_position[1];
             gripper_backoff_pose.pose.position.z = backoff_position[2];
             if (grasp_arm == 'l'){
+                ROS_INFO("PLACE: Abriendo gripper izquierdo");
                 r_driver->lgripper->setOpening(1, -1);
                 ros::Duration(1.0).sleep();
+                ROS_INFO("PLACE: Retrocediendo gripper");
                 r_driver->lgripper->goToPose(gripper_backoff_pose);
+                ROS_INFO("PLACE: Cerrando gripper izquierdo");
                 r_driver->lgripper->setOpening(0, 10);
             }
             else{
+                ROS_INFO("PLACE: Abriendo gripper derecho");
                 r_driver->rgripper->setOpening(1, -1);
                 ros::Duration(1.0).sleep();
+                ROS_INFO("PLACE: Retrocediendo gripper");
                 r_driver->rgripper->goToPose(gripper_backoff_pose);
+                ROS_INFO("PLACE: Cerrando gripper derecho");
                 r_driver->rgripper->setOpening(0, 100);
             }
             return true;
@@ -607,9 +617,85 @@ int main(int argc, char **argv){
     stable_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("stable_pose", 1);
     surface_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("surface_pose", 1);
 
-    ros::Duration(1).sleep();
+    ros::Publisher planning_pub = nh.advertise<moveit_msgs::PlanningScene>("/move_group/monitored_planning_scene", 1);
+    ros::Publisher aco_pub = nh.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object", 10);
+    ros::Publisher co_pub = nh.advertise<moveit_msgs::CollisionObject>("/collision_object", 10);
+    
+
+    ros::Duration(2).sleep();
 
 // TESTEANDO NUEVO ORDEN: SCAN -> POSE ESTABLE -> SEARCH SURFACE -> PLACE
+
+    // Borrar octomap
+    // ROS_INFO("PLACE: Intentando borrar octomap");
+    // moveit_msgs::PlanningScene clear_octomap;
+    // planning_pub.publish(clear_octomap);
+    ROS_INFO("PLACE: Attachando esfera");
+    // Creando collision object
+    moveit_msgs::CollisionObject co;
+    // Frame de referencia para la pose
+    co.header.frame_id = "l_gripper_tool_frame";
+    // co.header.stamp = ros::Time(0);
+    // Nombre del objeto
+    co.id = "my_collision_object";
+    // Creando shape
+    shape_msgs::SolidPrimitive shape;
+    shape.type = shape.SPHERE;
+    const float shape_size = 0.3;
+    shape.dimensions.push_back(shape_size); // x
+    shape.dimensions.push_back(shape_size); // y
+    shape.dimensions.push_back(shape_size); // z 
+    // Definiendo pose
+    geometry_msgs::Pose co_pose;
+    co_pose.position.x = co_pose.position.y = co_pose.position.z = co_pose.orientation.x = co_pose.orientation.y = co_pose.orientation.z = 0;
+    co_pose.orientation.w = 1;
+    co.primitives.push_back(shape);
+    co.primitive_poses.push_back(co_pose);
+
+    // Creando attached collision object
+    moveit_msgs::AttachedCollisionObject aco;
+    // Se attacha al gripper
+    aco.link_name = "l_wrist_roll_link";
+
+    aco.touch_links.push_back("l_gripper_r_finger_tip_link"); // redundante
+    aco.touch_links.push_back("l_gripper_r_finger_link"); // redundante
+    aco.touch_links.push_back("l_gripper_l_finger_tip_link"); // redundante
+    aco.touch_links.push_back("l_gripper_l_finger_link"); // redundante
+    aco.touch_links.push_back("l_wrist_roll_link"); // redundante
+    aco.touch_links.push_back("l_wrist_flex_link");
+    aco.touch_links.push_back("l_forearm_roll_link");
+    aco.touch_links.push_back("l_elbow_flex_link");
+    aco.touch_links.push_back("l_upper_arm_roll_link");
+    aco.touch_links.push_back("base_link");
+
+    // links que salen en RViz y no en gazebo
+    aco.touch_links.push_back("l_forearm_link");
+    aco.touch_links.push_back("l_gripper_motor_accelerometer_link");
+    aco.touch_links.push_back("l_gripper_palm_link");
+    aco.touch_links.push_back("l_upper_arm_link");
+
+
+    
+    
+
+
+    // Primero lo removeremos
+    co.operation = co.REMOVE;
+    // Removiendo objeto
+    aco.object = co;
+    ROS_INFO("Removiendo '%s'", co.id.c_str());
+    aco_pub.publish(aco);
+    // Ahora lo agregamos
+    ros::Duration(1).sleep();
+    co.operation = co.ADD;
+    aco.object = co;
+    ROS_INFO("Agregando '%s'", co.id.c_str());
+    aco_pub.publish(aco);
+    // collision_pub.publish(aco);
+    // collision_pub.publish(aco);
+
+
+
     the_object = new PlacedObject();
     the_surface = new PlacingSurface();
     // Obtener objeto con su pose estable
@@ -618,6 +704,12 @@ int main(int argc, char **argv){
         endProgram(1);
     }
     ROS_INFO("Objeto obtenido. Obteniendo superficie");
+    object_pc_pub.publish(the_object->object_pc);
+    object_pc_pub.publish(the_object->object_pc);
+    object_pc_pub.publish(the_object->object_pc);
+    gripper_pc_pub.publish(the_object->gripper_pc);
+    gripper_pc_pub.publish(the_object->gripper_pc);
+    gripper_pc_pub.publish(the_object->gripper_pc);
     // Buscar superficie según limitaciones del objeto
     if (not getPlacingSurface()){
         ROS_ERROR("No se pudo obtener superficie de placing");

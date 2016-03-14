@@ -22,7 +22,7 @@ Kinect::Kinect(){
 	ROS_DEBUG("KINECT: Creando nodehandle");
 	this->nh_ = new ros::NodeHandle;
 	ROS_DEBUG("KINECT: Subscribiendose a topico de kinect");
-	this->cloud_sub_ = this->nh_->subscribe<PointCloud<PointXYZ> >(Util::KINECT_TOPIC, 1, kinectCallback);
+	this->cloud_sub_ = this->nh_->subscribe<PointCloud<PointXYZ> >(Util::KINECT_TOPIC_SELF_FILTERED, 1, kinectCallback);
 	PointCloud<PointXYZ>::Ptr temp_cloud1 (new PointCloud<PointXYZ>()), temp_cloud2 (new PointCloud<PointXYZ>());
 	this->last_cloud_ = temp_cloud1;
 	last_cloud = temp_cloud2;
