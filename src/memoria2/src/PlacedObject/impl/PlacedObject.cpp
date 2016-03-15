@@ -4,8 +4,49 @@ PlacedObject::PlacedObject(){
 
 }
 
-void PlacedObject::setClouds(PointCloud<PointXYZ>::Ptr new_object_pc, PointCloud<PointXYZ>::Ptr new_gripper_pc){
+void PlacedObject::setCloud(PointCloud<PointXYZ>::Ptr new_object_pc){
 	object_pc = new_object_pc;
+
+
+    // Construir nube que modela al gripper 
+    ROS_INFO("PLACEDOBJECT: Creando nube que modela al gripper");
+    // if (cloud_in->header.frame_id.find(Util::GRIPPER_FRAME_SUFFIX) == string::npos){
+    //     ROS_ERROR("UTIL: No se puede filtrar gripper: Frame de nube es incorrecto");
+    //     ROS_ERROR("UTIL: Frame debe contener '%s' pero era '%s'", Util::GRIPPER_FRAME_SUFFIX.c_str(), cloud_in->header.frame_id.c_str());
+    //     return false;
+    // }
+    ROS_INFO("PLACEDOBJECT: Creando boxes");
+    vector<Box> gripper_boxes;
+    // inicializar boxes. Total y absolutamente HARDCODEADO, basado en observaciones.
+    Box box1;
+    box1.center[0] = -0.095; box1.center[1] = box1.center[2] = 0;
+    box1.size[0] = 0.098; box1.size[1] = 0.16; box1.size[2] = 0.061;
+    gripper_boxes.push_back(box1);
+    // Dedos del gripper
+    Box box2;
+    box2.center[0] = -0.03; box2.center[1] = box2.center[2] = 0;
+    box2.size[0] = 0.105; box2.size[1] = 0.18; box2.size[2] = 0.03;
+    gripper_boxes.push_back(box2);
+    // Pedazo cuando está cerrado
+    Box box3;
+    box3.center[0] = -0.042; box3.center[1] = box3.center[2] = 0;
+    box3.size[0] = 0.02; box3.size[1] = 0.11; box3.size[2] = 0.052;
+    gripper_boxes.push_back(box3);
+
+    // Crear nube de puntos para cada box
+    ROS_INFO("PLACEDOBJECT: Creando nubes de puntos para cada box");
+    PointCloud<PointXYZ>::Ptr new_gripper_pc (new PointCloud<PointXYZ>());
+    new_gripper_pc->header.frame_id = object_pc->header.frame_id;
+    for (int i=0; i < gripper_boxes.size(); i++){
+        // Agregar un punto en cada esquina del box
+        for (int j = 0; j < 8; j++){
+            PointXYZ new_point;
+            new_point.x = gripper_boxes[i].center[0] + (gripper_boxes[i].size[0]/2.0)*((j/4) % 2 == 0 ? -1 : 1);
+            new_point.y = gripper_boxes[i].center[1] + (gripper_boxes[i].size[1]/2.0)*((j/2) % 2 == 0 ? -1 : 1);
+            new_point.z = gripper_boxes[i].center[2] + (gripper_boxes[i].size[2]/2.0)*(j     % 2 == 0 ? -1 : 1);
+            new_gripper_pc->points.push_back(new_point);
+        }
+    }
 	gripper_pc = new_gripper_pc;
 }
 void PlacedObject::setBaseArea(float new_base_area){

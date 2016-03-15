@@ -637,6 +637,7 @@ void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publi
     aco.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
     aco.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
     aco.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
 
     // links que salen en RViz y no en gazebo
     aco.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
@@ -644,15 +645,6 @@ void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publi
     aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
     aco.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
     aco.touch_links.push_back("base_link");
-
-    // Primero lo removeremos
-    // co.operation = co.REMOVE;
-    // // Removiendo objeto
-    // aco.object = co;
-    // ROS_INFO("Removiendo '%s'", co.id.c_str());
-    // attached_object_pub.publish(aco);
-    // // Ahora lo agregamos
-    // ros::Duration(1).sleep();
     co.operation = (disable ? (co.REMOVE) : (co.ADD));
     aco.object = co;
     ROS_INFO("UTIL: %s colisiones para gripper", (disable ? "Deshabilitando" : "Habilitando"), co.id.c_str());
@@ -694,8 +686,7 @@ void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publi
             // ok, no está
             break;
         }  
-        // Dessuscribir automáticamente por salir del scope
-              
+        // Dessuscribir automáticamente por salir del scope     
     }
 }
 

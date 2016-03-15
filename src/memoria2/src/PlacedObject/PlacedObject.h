@@ -13,6 +13,14 @@
 using namespace std;
 using namespace pcl;
 
+#ifndef STRUCT_BOX
+#define STRUCT_BOX
+struct box{
+    float center[3];
+    float size[3];
+};
+typedef struct box Box;
+#endif // STRUCT_BOX
 class PlacedObject{
 	// VARIABLES INTERNAS
 		
@@ -30,7 +38,7 @@ public:
 	// MÉTODOS
 	PlacedObject();
 	// setters
-	void setClouds(PointCloud<PointXYZ>::Ptr object_cloud, PointCloud<PointXYZ>::Ptr gripper_cloud);
+	void setCloud(PointCloud<PointXYZ>::Ptr object_cloud);
 	void setBaseArea(float new_base_area);
 	// void setStablePose(geometry_msgs::PoseStamped stable_pose);
 

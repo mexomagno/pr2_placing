@@ -81,7 +81,6 @@ void signalHandler(int signum){
  */
 bool getPlacedObject(){
     bool gotopose_ok;
-    PointCloud<PointXYZ>::Ptr gripper_out (new PointCloud<PointXYZ>());
     PointCloud<PointXYZ>::Ptr object_out (new PointCloud<PointXYZ>());
     // Mover gripper no activo a posición donde no moleste
     ROS_INFO("PLACE: Quitar del campo visual al gripper inactivo");
@@ -172,17 +171,18 @@ bool getPlacedObject(){
             }
             ROS_INFO("PLACE: Union resulto en nube de %d puntos", (int)merged->points.size());
             // Filtrar gripper_out
-            ROS_INFO("PLACE: Filtrando scans");
-            if (not Util::gripperFilter(merged, object_out, gripper_out)){
-                ROS_ERROR("PLACE: Algo ocurrio al intentar filtrar el gripper");
-                return false;
-            }
-            ROS_INFO("PLACE: Objeto: %d puntos. Gripper: %d puntos.", (int)object_out->points.size(), (int)gripper_out->points.size());
-            object_out->header.frame_id = GRIPPER_FRAME;
-            gripper_out->header.frame_id = GRIPPER_FRAME;
-            the_object->setClouds(object_out, gripper_out);
+            // ROS_INFO("PLACE: Filtrando scans");
+            // if (not Util::gripperFilter(merged, object_out, gripper_out)){
+            //     ROS_ERROR("PLACE: Algo ocurrio al intentar filtrar el gripper");
+            //     return false;
+            // }
+            object_out = merged;
+            // gripper_out->header.frame_id = GRIPPER_FRAME;
+            the_object->setCloud(object_out);
+            ROS_INFO("PLACE: Objeto: %d puntos. Gripper: %d puntos.", (int)the_object->object_pc->points.size(), (int)the_object->gripper_pc->points.size());
             // Obtener pose estable y otras características
             the_object->computeStablePose();
+            Util::disableGripperCollisions(grasp_arm, false, aco_pub, co_pub);
             return true;
         }
         // desactivar octomap, activar collision object
@@ -649,6 +649,9 @@ int main(int argc, char **argv){
     gripper_pc_pub.publish(the_object->gripper_pc);
     gripper_pc_pub.publish(the_object->gripper_pc);
     gripper_pc_pub.publish(the_object->gripper_pc);
+    stable_pose_pub.publish(the_object->stable_pose);
+    stable_pose_pub.publish(the_object->stable_pose);
+    stable_pose_pub.publish(the_object->stable_pose);
     // Buscar superficie según limitaciones del objeto
     if (not getPlacingSurface()){
         ROS_ERROR("No se pudo obtener superficie de placing");

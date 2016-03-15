@@ -30,6 +30,9 @@
 
 using namespace std;
 using namespace pcl;
+
+#ifndef STRUCT_BOX
+#define STRUCT_BOX
 // Para uso en gripperfilter
 struct box{
     float center[3];
@@ -37,6 +40,7 @@ struct box{
 };
 typedef struct box Box;
 // FIN gripperfilter
+#endif // STRUCT_BOX
 
 // Forward declaration de la clase RobotDriver
 class Util{
