@@ -532,7 +532,7 @@ bool placeObject(){
                 ROS_INFO("PLACE: Retrocediendo gripper");
                 r_driver->lgripper->goToPose(gripper_backoff_pose);
                 ROS_INFO("PLACE: Cerrando gripper izquierdo");
-                r_driver->lgripper->setOpening(0, 10);
+                r_driver->lgripper->setOpening(0, 1000);
             }
             else{
                 ROS_INFO("PLACE: Abriendo gripper derecho");
@@ -541,7 +541,7 @@ bool placeObject(){
                 ROS_INFO("PLACE: Retrocediendo gripper");
                 r_driver->rgripper->goToPose(gripper_backoff_pose);
                 ROS_INFO("PLACE: Cerrando gripper derecho");
-                r_driver->rgripper->setOpening(0, 100);
+                r_driver->rgripper->setOpening(0, 1000);
             }
             return true;
         }

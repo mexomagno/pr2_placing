@@ -51,6 +51,11 @@ const float Util::PATCH_ANGLE_THRESHOLD  = 0.2;
 const float Util::PLACING_Z_MARGIN        = 0.01; // Distancia desde el objeto a la superficie, donde soltarlo.
 const float Util::PLACING_BACKOFF_DISTANCE = 0.15; // Distancia hacia la que retroceder cuando se suelta el objeto
 
+
+// Simples variables
+bool get_world = false;
+vector<moveit_msgs::CollisionObject> objects;
+
 // MÉTODOS
 Util::Util(){}
 // Conversiones
@@ -583,6 +588,17 @@ bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoeffici
     // printf("Nube NO es cortada por plano\n");
     return false;
 }
+void worldCallback(const moveit_msgs::PlanningScene::Ptr &scene){
+    if (not get_world)
+        return;
+    // Llegó un mensaje del world. Guardar lista de objetos
+    ROS_INFO("UTIL: Recibiendo update del world");
+    objects.clear();
+    for (int i = 0; i<(int)(scene->world.collision_objects.size()) ; i++){
+        objects.push_back(scene->world.collision_objects[i]);
+    }
+    get_world = false;
+}
 
 void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
     ROS_INFO("UTIL: %s esfera",(disable ? "removiendo" : "attachando"));
@@ -643,14 +659,44 @@ void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publi
     attached_object_pub.publish(aco);
     attached_object_pub.publish(aco);
     attached_object_pub.publish(aco);
+    // Al desattacharlo automáticamente se pone en el world. Hay que eliminarlo también.
     if (disable){
-        // Eliminarlo del collision world también
-        ROS_INFO("UTIL: Borrando del world");
-        collision_object_pub.publish(co);
-        collision_object_pub.publish(co);
-        collision_object_pub.publish(co);
+        // Subscribir al tópico que informa del mundo para verificar que se borró el objeto
+        ros::NodeHandle nh_;
+        ros::Subscriber world_sub = nh_.subscribe("/move_group/monitored_planning_scene", 1, worldCallback);
+        ros::Duration(0.5).sleep();
+        while (1){
+            // Eliminarlo del collision world
+            ROS_INFO("UTIL: Borrando del world");
+            collision_object_pub.publish(co);
+            // Esperar actualización del estado del world
+            get_world = true;
+            while (get_world){
+                ros::Duration(0.5).sleep();
+            }
+            // En este punto, ya recibí una actualización de los collision objects del world
+            // si está vacío, ok
+            if ((int)objects.size() == 0){
+                break;
+            }
+            // Si no, revisar que no se encuentre el objeto en cuestión
+            bool restart_loop = false;
+            for (int i = 0; i < (int)objects.size(); i++){
+                if (objects[i].id == co.id){
+                    // Reintentar
+                    ROS_WARN("UTIL: '%s' todavía no desaparece del world. Reintentando...", co.id.c_str());
+                    restart_loop = true;
+                    break;
+                }
+            }
+            if (restart_loop)
+                continue;
+            // ok, no está
+            break;
+        }  
+        // Dessuscribir automáticamente por salir del scope
+              
     }
-    ros::Duration(0.5).sleep();
 }
 
 
