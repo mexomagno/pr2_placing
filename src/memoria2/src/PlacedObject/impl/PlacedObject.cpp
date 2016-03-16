@@ -52,9 +52,13 @@ void PlacedObject::setCloud(PointCloud<PointXYZ>::Ptr new_object_pc){
 void PlacedObject::setBaseArea(float new_base_area){
 	base_area = new_base_area;
 }
+// void PlacedObject::setBoundingBox(vector<PointXYZ> new_bounding_box){
+//     bounding_box = new_bounding_box;
+// }
+
 bool PlacedObject::computeStablePose(){
 	geometry_msgs::PoseStamped pose_out;
-	ROS_INFO("PLACEDOBJECT: Acá se debiera computar la pose estable");
+	ROS_INFO("PLACEDOBJECT: Realizando cálculo de pose estable");
 	    /*    // Obtener mejor superficie
     if (not Util::getStablePose(object_pc, gripper_pc, pose_out)){
         ROS_ERROR("PLACE: Algo ocurrió al intentar obtener la pose estable");
@@ -106,10 +110,32 @@ bool PlacedObject::computeStablePose(){
             pose_out.pose.orientation = Util::coefsToQuaternionMsg(patch_plane_coefs->values[0]*invert, patch_plane_coefs->values[1]*invert, patch_plane_coefs->values[2]*invert);
             pose_out.header.frame_id = object_pc->header.frame_id; // frame del gripper "tool"
             stable_pose = pose_out;
+            // Guardar bounding box
+            // setBoundingBox(mesh.getBoundingBox());
+            computeFeatures();
             ROS_INFO("PLACEDOBJECT: Pose guardada, terminando");
             return true;
         }
     }
     return false;
+}
 
+void PlacedObject::computeFeatures(){
+    MomentOfInertiaEstimation<PointXYZ> feature_extractor;
+    feature_extractor.setInputCloud(object_pc);
+    feature_extractor.compute();
+    PointXYZ min_obb, max_obb;
+    PointXYZ position_obb;
+    Eigen::Matrix3f rotation_obb;
+    feature_extractor.getOBB(min_obb, max_obb, position_obb, rotation_obb);
+    bounding_box.min = min_obb;
+    bounding_box.max = max_obb;
+    bounding_box.position.x = position_obb.x;
+    bounding_box.position.y = position_obb.y;
+    bounding_box.position.z = position_obb.z;
+    Eigen::Quaternionf temp_q (rotation_obb);
+    bounding_box.rotation.x = temp_q.x();
+    bounding_box.rotation.y = temp_q.y();
+    bounding_box.rotation.z = temp_q.z();
+    bounding_box.rotation.w = temp_q.w();
 }

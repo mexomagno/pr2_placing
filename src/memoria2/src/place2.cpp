@@ -98,6 +98,8 @@ bool getPlacedObject(){
         ROS_ERROR("PLACE: No se pudo tuckear brazo %s", grasp_arm == 'l' ? "derecho" : "izquierdo");
         return false;
     }
+    // Proteger gripper con bola para poder moverse
+    Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
     // Mover gripper a posición inicial de scanning
     ROS_INFO("PLACE: Mover gripper activo a pose de scaneo");
     geometry_msgs::PoseStamped scan_pose;
@@ -134,8 +136,8 @@ bool getPlacedObject(){
     Eigen::Matrix4f transformation;
     // Scanear
     while ( 1 ){
-        // Activar octomap, desactivar bola collision object
-        Util::disableGripperCollisions(grasp_arm, true, aco_pub, co_pub);
+        // Quitar esfera protectora del gripper
+        Util::enableDefaultGripperCollisions(aco_pub, co_pub, false, grasp_arm);
         // Pedir nube de kinect
         cloud = r_driver->sensors->kinect->getNewCloud();
         ROS_INFO("PLACE: nube recibida desde kinect: %d puntos, frame: %s", (int)cloud->points.size(), cloud->header.frame_id.c_str());
@@ -182,11 +184,13 @@ bool getPlacedObject(){
             ROS_INFO("PLACE: Objeto: %d puntos. Gripper: %d puntos.", (int)the_object->object_pc->points.size(), (int)the_object->gripper_pc->points.size());
             // Obtener pose estable y otras características
             the_object->computeStablePose();
-            Util::disableGripperCollisions(grasp_arm, false, aco_pub, co_pub);
+            // Attachar bounding box de objeto como collision object
+            Util::attachBoundingBoxToGripper(aco_pub, co_pub, grasp_arm, the_object->bounding_box);
+            // Util::disableGripperCollisions(grasp_arm, false, aco_pub, co_pub);
             return true;
         }
-        // desactivar octomap, activar collision object
-        Util::disableGripperCollisions(grasp_arm, false, aco_pub, co_pub);
+        // Proteger gripper con bola
+        Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
         ROS_INFO("PLACE: Posicionandose psra siguiente scan");
         scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
         if (grasp_arm == 'l')
@@ -421,12 +425,30 @@ bool placeObject(){
     // Eliminar puntos donde no puede ocurrir el placing
     PointIndices::Ptr placing_points = Util::getFactiblePlacingPointsIndices((the_surface->cloud), the_surface->normal, the_object->base_area);
 
-    // // test de correctitud de transformación 
-    // ros::Publisher test_pose_ini_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_ini_unitv", 1);
-    // ros::Publisher test_pose_end_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_end_unitv", 1);
-    // ros::Publisher test_pose_transformed_end_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_end_transformed", 1);
-    // ros::Publisher test_pose_transformed_end_quat_pub = nh_.advertise<geometry_msgs::PoseStamped>("pose_end_transformed_quat", 1);
-
+    // Volver a llevar gripper a pose de scan
+    geometry_msgs::PoseStamped scan_pose;
+    scan_pose.header.frame_id = Util::BASE_FRAME;
+    scan_pose.pose.position.x = Util::scan_position[0];
+    scan_pose.pose.position.y = Util::scan_position[1];
+    scan_pose.pose.position.z = Util::scan_position[2];
+    // Copia no constante de la orientación inicial de scanning
+    float scan_orientation[3];
+    scan_orientation[0] = Util::scan_orientation[0];
+    scan_orientation[1] = Util::scan_orientation[1];
+    scan_orientation[2] = Util::scan_orientation[2];
+    // Poner gripper en pose inicial
+    scan_orientation[0] += Util::SCAN_ROLL_DELTA;
+    scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
+    string GRIPPER_FRAME = (grasp_arm == 'l' ? "l" : "r") + Util::GRIPPER_FRAME_SUFFIX;
+    bool gotopose_ok;
+    if (grasp_arm == 'l')
+        gotopose_ok = r_driver->lgripper->goToPose(scan_pose);
+    else
+        gotopose_ok = r_driver->rgripper->goToPose(scan_pose);
+    if (not gotopose_ok){
+        ROS_ERROR("PLACE: No se pudo ir a la pose especificada");
+        return false;
+    }
 
     // Obtener transformación, transformar pose y plano a baseframe
     geometry_msgs::PoseStamped stable_pose_base;
@@ -511,7 +533,6 @@ bool placeObject(){
         gripper_future_pose_pub.publish(gripper_future_pose);
         gripper_future_pose_pub.publish(gripper_future_pose);
         // Intentar ir a la pose
-        bool gotopose_ok;
         if (grasp_arm == 'l')
             gotopose_ok = r_driver->lgripper->goToPose(gripper_future_pose);
         else
@@ -529,6 +550,7 @@ bool placeObject(){
                 ROS_INFO("PLACE: Abriendo gripper izquierdo");
                 r_driver->lgripper->setOpening(1, -1);
                 ros::Duration(1.0).sleep();
+                Util::detachBoundingBoxFromGripper(aco_pub, co_pub, grasp_arm);
                 ROS_INFO("PLACE: Retrocediendo gripper");
                 r_driver->lgripper->goToPose(gripper_backoff_pose);
                 ROS_INFO("PLACE: Cerrando gripper izquierdo");
@@ -538,6 +560,7 @@ bool placeObject(){
                 ROS_INFO("PLACE: Abriendo gripper derecho");
                 r_driver->rgripper->setOpening(1, -1);
                 ros::Duration(1.0).sleep();
+                Util::detachBoundingBoxFromGripper(aco_pub, co_pub, grasp_arm);
                 ROS_INFO("PLACE: Retrocediendo gripper");
                 r_driver->rgripper->goToPose(gripper_backoff_pose);
                 ROS_INFO("PLACE: Cerrando gripper derecho");
@@ -552,36 +575,36 @@ bool placeObject(){
     return false;
     
 }
-void place(moveit::planning_interface::MoveGroup &group, geometry_msgs::PoseStamped placing_pose){
-    vector<moveit_msgs::PlaceLocation> loc;
-    moveit_msgs::PlaceLocation g;
-    g.place_pose = placing_pose;
+// void place(moveit::planning_interface::MoveGroup &group, geometry_msgs::PoseStamped placing_pose){
+//     vector<moveit_msgs::PlaceLocation> loc;
+//     moveit_msgs::PlaceLocation g;
+//     g.place_pose = placing_pose;
 
-    g.pre_place_approach.direction.vector.z = -1.0;
-    g.post_place_retreat.direction.vector.x = -1.0;
-    g.post_place_retreat.direction.header.frame_id = Util::BASE_FRAME;
-    stringstream gripper_frame_id;
-    gripper_frame_id << grasp_arm << "_wrist_roll_link";
-    g.pre_place_approach.direction.header.frame_id = gripper_frame_id.str();
-    g.pre_place_approach.min_distance = 0.1;
-    g.pre_place_approach.desired_distance = 0.2;
-    g.post_place_retreat.min_distance = 0.1;
-    g.post_place_retreat.desired_distance = 0.25;
-    stringstream gripper_joint;
-    gripper_joint << grasp_arm << "_gripper_joint";
-    g.post_place_posture.joint_names.resize(1, gripper_joint.str());
-    g.post_place_posture.points.resize(1);
-    g.post_place_posture.points[0].positions.resize(1);
-    g.post_place_posture.points[0].positions[0] = 1;
+//     g.pre_place_approach.direction.vector.z = -1.0;
+//     g.post_place_retreat.direction.vector.x = -1.0;
+//     g.post_place_retreat.direction.header.frame_id = Util::BASE_FRAME;
+//     stringstream gripper_frame_id;
+//     gripper_frame_id << grasp_arm << "_wrist_roll_link";
+//     g.pre_place_approach.direction.header.frame_id = gripper_frame_id.str();
+//     g.pre_place_approach.min_distance = 0.1;
+//     g.pre_place_approach.desired_distance = 0.2;
+//     g.post_place_retreat.min_distance = 0.1;
+//     g.post_place_retreat.desired_distance = 0.25;
+//     stringstream gripper_joint;
+//     gripper_joint << grasp_arm << "_gripper_joint";
+//     g.post_place_posture.joint_names.resize(1, gripper_joint.str());
+//     g.post_place_posture.points.resize(1);
+//     g.post_place_posture.points[0].positions.resize(1);
+//     g.post_place_posture.points[0].positions[0] = 1;
 
-    loc.push_back(g);
-    group.setSupportSurfaceName("mesa");
+//     loc.push_back(g);
+//     group.setSupportSurfaceName("mesa");
 
-    // Agregar path constraints
-    // 
-    group.setPlannerId("RRTConnectkConfigDefault");
-    group.place("part", loc);
-}
+//     // Agregar path constraints
+//     // 
+//     group.setPlannerId("RRTConnectkConfigDefault");
+//     group.place("part", loc);
+// }
 
 /**
  * main: Ejecuta todo lo necesario para efectuar placing
@@ -630,9 +653,6 @@ int main(int argc, char **argv){
     ros::Duration(1).sleep();
 
 // TESTEANDO NUEVO ORDEN: SCAN -> POSE ESTABLE -> SEARCH SURFACE -> PLACE
-
-    // Desactivar octomap en esfera
-    Util::disableGripperCollisions(grasp_arm, false, aco_pub, co_pub);
 
 
     the_object = new PlacedObject();

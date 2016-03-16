@@ -189,6 +189,9 @@ PointXYZ Polymesh::getCentroid(int index){
 PointXYZ Polymesh::getCenterOfMass(){
     return cm_;
 }
+// vector<PointXYZ> Polymesh::getBoundingBox(){
+//     return bounding_box_;
+// }
 
 // Utilidades
 PointXYZ Polymesh::projectPointOverPolygon(PointXYZ p, int poly_index){
@@ -296,6 +299,8 @@ void Polymesh::flattenPatch(vector<int> patch, PointCloud<PointXYZ> &flatcloud, 
     PointXYZ position_obb;        // no se usará
     Eigen::Matrix3f rotation_obb; // no se usará
     feature_extractor.getOBB(min_obb, max_obb, position_obb, rotation_obb);
+    // bounding_box_.push_back(min_obb);
+    // bounding_box_.push_back(max_obb);
     double dx = abs(min_obb.x - max_obb.x);
     double dy = abs(min_obb.y - max_obb.y);
     double dz = abs(min_obb.z - max_obb.z);

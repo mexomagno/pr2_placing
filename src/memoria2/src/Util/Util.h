@@ -41,7 +41,16 @@ struct box{
 typedef struct box Box;
 // FIN gripperfilter
 #endif // STRUCT_BOX
-
+#ifndef STRUCT_BOUNDING_BOX
+#define STRUCT_BOUNDING_BOX
+struct bounding_box{
+    PointXYZ min;
+    PointXYZ max;
+    geometry_msgs::Point position;
+    geometry_msgs::Quaternion rotation;
+};
+typedef struct bounding_box BBOriented;
+#endif // STRUCT_BOUNDING_BOX
 // Forward declaration de la clase RobotDriver
 class Util{
     public:
@@ -114,10 +123,19 @@ class Util{
         // static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);
         static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);
 
-        static void disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
+        // Collision World
+        // static void disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, float radius = 0.15);
+        // static void enableCollisionBox(BBOriented bounding_box, string frame_id, bool enable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
+        // static void clearCollisionObjects(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
+
+        static void enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper, float radius = 0.15);
+        static void attachBoundingBoxToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper, BBOriented bounding_box);
+        static void detachBoundingBoxFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper);
+
     protected:
     private:
         static bool isPointInsideBox(PointXYZ p, Box box);
+        static void removeCollisionObjectFromWorld(ros::Publisher &collision_object_pub, moveit_msgs::CollisionObject co);
 
 };
 

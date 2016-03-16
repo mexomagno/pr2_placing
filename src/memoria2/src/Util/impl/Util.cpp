@@ -55,6 +55,7 @@ const float Util::PLACING_BACKOFF_DISTANCE = 0.15; // Distancia hacia la que ret
 // Simples variables
 bool get_world = false;
 vector<moveit_msgs::CollisionObject> objects;
+vector<moveit_msgs::AttachedCollisionObject> attached_objects;
 
 // MÉTODOS
 Util::Util(){}
@@ -597,10 +598,14 @@ void worldCallback(const moveit_msgs::PlanningScene::Ptr &scene){
     for (int i = 0; i<(int)(scene->world.collision_objects.size()) ; i++){
         objects.push_back(scene->world.collision_objects[i]);
     }
+    attached_objects.clear();
+    for (int i = 0; i < (int)(scene->robot_state.attached_collision_objects.size()) ; i++){
+        attached_objects.push_back(scene->robot_state.attached_collision_objects[i]);
+    }
     get_world = false;
 }
 
-void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
+/*void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, float radius){
     ROS_INFO("UTIL: %s esfera",(disable ? "removiendo" : "attachando"));
     // Creando collision object
     moveit_msgs::CollisionObject co;
@@ -612,7 +617,7 @@ void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publi
     // Creando shape
     shape_msgs::SolidPrimitive shape;
     shape.type = shape.SPHERE;
-    const float shape_size = 0.3;
+    const float shape_size = radius;
     shape.dimensions.push_back(shape_size); // x
     shape.dimensions.push_back(shape_size); // y
     shape.dimensions.push_back(shape_size); // z 
@@ -628,10 +633,10 @@ void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publi
     // Se attacha al gripper
     aco.link_name = "l_wrist_roll_link";
 
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); // redundante
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); // redundante
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); // redundante
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); // redundante
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
+    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
     aco.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
     aco.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
     aco.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
@@ -689,7 +694,331 @@ void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publi
         // Dessuscribir automáticamente por salir del scope     
     }
 }
+void Util::enableCollisionBox(BBOriented bounding_box, string frame_id, bool enable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
+    ROS_INFO("Agregando collision box");
+    // Crear shape
+    shape_msgs::SolidPrimitive shape;
+    shape.type = shape.BOX;
+    shape.dimensions.push_back(abs(bounding_box.min.x - bounding_box.max.x)); // x
+    shape.dimensions.push_back(abs(bounding_box.min.y - bounding_box.max.y)); // y
+    shape.dimensions.push_back(abs(bounding_box.min.z - bounding_box.max.z)); // z
+    geometry_msgs::Pose co_pose;
+    // co_pose.position.x = (bounding_box.min.x - bounding_box.max.x)/2;
+    // co_pose.position.y = (bounding_box.min.y - bounding_box.max.y)/2;
+    // co_pose.position.z = (bounding_box.min.z - bounding_box.max.z)/2;
+    co_pose.position = bounding_box.position;
+    co_pose.orientation = bounding_box.rotation;
 
+    moveit_msgs::CollisionObject co;
+    co.header.frame_id = frame_id;
+    co.id = "placed_object_collision_box";
+    co.primitives.push_back(shape);
+    co.primitive_poses.push_back(co_pose);
+    co.operation = (enable ? (co.ADD) : (co.REMOVE));
+
+    moveit_msgs::AttachedCollisionObject aco;
+    // Se attacha al gripper
+    aco.link_name = "l_wrist_roll_link";
+
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
+
+    // links que salen en RViz y no en gazebo
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_forearm_link" : "r_forearm_link");
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
+    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
+    aco.touch_links.push_back("base_link");
+    ROS_INFO("UTIL: %s colisiones para objeto manipulado", (enable ? "Habilitando" : "Deshabilitando"), co.id.c_str());
+    aco.object = co;
+    attached_object_pub.publish(aco);
+    attached_object_pub.publish(aco);
+    attached_object_pub.publish(aco);
+    if (not enable){
+        // Subscribir al tópico que informa del mundo para verificar que se borró el objeto
+        ros::NodeHandle nh_;
+        ros::Subscriber world_sub = nh_.subscribe("/move_group/monitored_planning_scene", 1, worldCallback);
+        ros::Duration(0.5).sleep();
+        while (1){
+            // Eliminarlo del collision world
+            ROS_INFO("UTIL: Borrando del world");
+            collision_object_pub.publish(co);
+            // Esperar actualización del estado del world
+            get_world = true;
+            while (get_world){
+                ros::Duration(0.5).sleep();
+            }
+            // En este punto, ya recibí una actualización de los collision objects del world
+            // si está vacío, ok
+            if ((int)objects.size() == 0){
+                break;
+            }
+            // Si no, revisar que no se encuentre el objeto en cuestión
+            bool restart_loop = false;
+            for (int i = 0; i < (int)objects.size(); i++){
+                if (objects[i].id == co.id){
+                    // Reintentar
+                    ROS_WARN("UTIL: '%s' todavía no desaparece del world. Reintentando...", co.id.c_str());
+                    restart_loop = true;
+                    break;
+                }
+            }
+            if (restart_loop)
+                continue;
+            // ok, no está
+            break;
+        }  
+        // Dessuscribir automáticamente por salir del scope
+        
+    }
+
+}
+void Util::clearCollisionObjects(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
+    // Subscribir al tópico que informa del mundo para verificar que se borró el objeto
+    ros::NodeHandle nh_;
+    ros::Subscriber world_sub = nh_.subscribe("/move_group/monitored_planning_scene", 1, worldCallback);
+    ros::Duration(0.5).sleep();
+    // Obtener estado del world
+    get_world = true;
+    while (get_world){
+        ros::Duration(0.5).sleep();
+    }
+    ROS_INFO("UTIL: Revisando y eliminando collision objects attachados");
+    int n_aco = (int)attached_objects.size();
+    int n_co = (int)objects.size();
+    if (n_aco > 0){
+        ROS_INFO("UTIL: No habian collision objects attachados");
+    }
+    else{
+        ROS_INFO("UTIL: Se encontraron %d attached collision objects", n_aco);
+        for (int i = 0; i < n_aco; i++){
+            attached_objects[i].object.operation = attached_objects[i].object.REMOVE;
+            attached_object_pub.publish(attached_objects[i].object);
+            ros::Duration(0.1).sleep();
+        }
+    }
+    // Actualizar objetos del world
+    get_world = true;
+    while (get_world){
+        ros::Duration(0.5).sleep();
+    }
+    ROS_INFO("UTIL: Eliminando cualquier collision object existente");
+    if ((int)objects.size() == 0){
+        ROS_INFO("UTIL: No habian collision objects");
+        return;
+    }
+    ROS_INFO("UTIL: Se encontraron %d collision objects. Eliminando...", (int)objects.size());
+    //     ROS_INFO("Agregando collision box");
+    // // Crear shape
+    // shape_msgs::SolidPrimitive shape;
+    // shape.type = shape.BOX;
+    // shape.dimensions.push_back(abs(bounding_box.min.x - bounding_box.max.x)); // x
+    // shape.dimensions.push_back(abs(bounding_box.min.y - bounding_box.max.y)); // y
+    // shape.dimensions.push_back(abs(bounding_box.min.z - bounding_box.max.z)); // z
+    // geometry_msgs::Pose co_pose;
+    // // co_pose.position.x = (bounding_box.min.x - bounding_box.max.x)/2;
+    // // co_pose.position.y = (bounding_box.min.y - bounding_box.max.y)/2;
+    // // co_pose.position.z = (bounding_box.min.z - bounding_box.max.z)/2;
+    // co_pose.position = bounding_box.position;
+    // co_pose.orientation = bounding_box.rotation;
+
+    // moveit_msgs::CollisionObject co;
+    // co.header.frame_id = frame_id;
+    // co.id = "placed_object_collision_box";
+    // co.primitives.push_back(shape);
+    // co.primitive_poses.push_back(co_pose);
+    // co.operation = (enable ? (co.ADD) : (co.REMOVE));
+
+    // moveit_msgs::AttachedCollisionObject aco;
+    // // Se attacha al gripper
+    // aco.link_name = "l_wrist_roll_link";
+
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
+
+    // // links que salen en RViz y no en gazebo
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_forearm_link" : "r_forearm_link");
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
+    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
+    // aco.touch_links.push_back("base_link");
+    // ROS_INFO("UTIL: %s colisiones para objeto manipulado", (enable ? "Habilitando" : "Deshabilitando"), co.id.c_str());
+    // aco.object = co;
+    // attached_object_pub.publish(aco);
+    // attached_object_pub.publish(aco);
+    // attached_object_pub.publish(aco);
+    while((int)objects.size() > 0){
+        moveit_msgs::CollisionObject co;
+        co = objects[0];
+        co.operation = co.REMOVE;
+        // Intentar borrar objeto
+        while (1){
+            collision_object_pub.publish(co);
+            get_world = true;
+            while (get_world){
+                ros::Duration(0.5).sleep();
+            }
+            // Revisar si se borró
+            if ((int)objects.size() == 0)
+                return;
+            bool retry = false;
+            for (int i = 0; i < (int)objects.size(); i++){
+                if (objects[i].id == co.id){
+                    // reintentar borrado
+                    retry = true;
+                    break;
+                }
+            }
+            if (retry){
+                ROS_WARN("UTIL: '%s' no se borra aun. Reintentando...", co.id.c_str());
+                continue;
+            }
+            break;
+        }
+    } 
+}*/
+
+/**
+ * enableDefaultGripperCollisions habilita o deshabilita la esfera de protección del gripper. Permite que se mueva libremente sin chocar con el objeto tomado.
+ * @param attached_object_pub  Publicador para objetos attachados al robot
+ * @param collision_object_pub Publicador para collision objects del world
+ * @param enable               Habilitar o deshabilitar
+ * @param which_gripper        Cual de los dos grippers
+ * @param radius               Tamaño de la bola. Tiene valor default.
+ */
+void Util::enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper, float radius){
+    // Crear collision object
+    moveit_msgs::CollisionObject co;
+    co.id = "gripper_collision_ball";
+    moveit_msgs::AttachedCollisionObject a_co;
+    a_co.link_name = (which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link");
+    co.header.frame_id = (which_gripper == 'l' ? "l_gripper_tool_frame" : "r_gripper_tool_frame");
+    // Crear shape y su pose, y añadirla
+    shape_msgs::SolidPrimitive shape;
+    shape.type = shape.SPHERE;
+    const float shape_size = radius;
+    shape.dimensions.push_back(shape_size); // x
+    shape.dimensions.push_back(shape_size); // y
+    shape.dimensions.push_back(shape_size); // z 
+    geometry_msgs::Pose co_pose;
+    co_pose.orientation.w = 1;
+    co.primitives.push_back(shape);
+    co.primitive_poses.push_back(co_pose);
+    // Configurar attached para agregar a gripper
+    // Agregando links permitidos
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
+    a_co.touch_links.push_back("base_link");
+    // Añadiendo objeto
+    if (enable){
+        co.operation = co.ADD;
+    }
+    else{
+        co.operation = co.REMOVE;
+    }
+    a_co.object = co;
+    // Publicar nuevo objeto attachado al robot
+    attached_object_pub.publish(a_co);
+    if (enable)
+        return;
+    ros::Duration(0.3).sleep();
+    // En este punto, el objeto está desattachado del robot pero existe en el mundo.
+    // Hay que eliminarlo ahora del mundo de manera segura.
+    Util::removeCollisionObjectFromWorld(collision_object_pub, co);
+}
+/**
+ * attachBoundingBoxToGripper Añade bounding box del objeto graspeado al gripper, para checkear colisiones al momento de planear con moveit
+ * @param attached_object_pub  Publicador para objetos attachados al robot
+ * @param collision_object_pub Publicador para collision objects del world
+ * @param which_gripper        Cual de los dos grippers
+ * @param bounding_box         Bounding box representado por struct personalizado
+ */
+void Util::attachBoundingBoxToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper, BBOriented bounding_box){
+    // Crear collision object
+    moveit_msgs::CollisionObject co;
+    co.id = "object_bounding_box";
+    moveit_msgs::AttachedCollisionObject a_co;
+    a_co.link_name = (which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link");
+    co.operation = co.ADD;
+    co.header.frame_id = (which_gripper == 'l' ? "l_gripper_tool_frame" : "r_gripper_tool_frame");
+    // Crear shape y su pose, y añadirla
+    shape_msgs::SolidPrimitive shape;
+    shape.type = shape.BOX;
+    shape.dimensions.push_back(abs(bounding_box.min.x - bounding_box.max.x)); // x
+    shape.dimensions.push_back(abs(bounding_box.min.y - bounding_box.max.y)); // y
+    shape.dimensions.push_back(abs(bounding_box.min.z - bounding_box.max.z)); // z
+    geometry_msgs::Pose co_pose;
+    co_pose.position = bounding_box.position;
+    co_pose.orientation = bounding_box.rotation;
+    // Configurar attached para agregar a gripper
+    // Agregando links permitidos
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
+    a_co.touch_links.push_back("base_link");
+    // Añadiendo objeto
+    a_co.object = co;
+    // Publicar nuevo objeto attachado al robot
+    attached_object_pub.publish(a_co);
+}
+
+/**
+ * detachBoundingBoxFromGripper elimina bounding box del objeto graspeado del gripper y luego del mundo.
+ * @param attached_object_pub  Publicador para objetos attachados al robot
+ * @param collision_object_pub Publicador para collision objects del world
+ * @param which_gripper        Cual de los dos grippers
+ */
+void Util::detachBoundingBoxFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper){
+    moveit_msgs::CollisionObject co;
+    co.id = "object_bounding_box";
+    moveit_msgs::AttachedCollisionObject a_co;
+    a_co.link_name = (which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link");
+    // Publicar dettach del robot
+    attached_object_pub.publish(a_co);
+    ros::Duration(0.3).sleep();
+    // En este punto, el objeto está desattachado del robot pero existe en el mundo.
+    // Hay que eliminarlo ahora del mundo de manera segura.
+    Util::removeCollisionObjectFromWorld(collision_object_pub, co);
+}
 
 
 // PRIVATE
@@ -698,4 +1027,41 @@ bool Util::isPointInsideBox(PointXYZ p, Box box){
     bool in_y = (p.y > box.center[1] - box.size[1]/2.0) and (p.y < box.center[1] + box.size[1]/2.0);
     bool in_z = (p.z > box.center[2] - box.size[2]/2.0) and (p.z < box.center[2] + box.size[2]/2.0);
     return in_x and in_y and in_z;
+}
+void Util::removeCollisionObjectFromWorld(ros::Publisher &collision_object_pub, moveit_msgs::CollisionObject co){
+    // Subscribir al tópico que informa del mundo para verificar que se borró el objeto
+    ros::NodeHandle nh_;
+    ros::Subscriber world_sub = nh_.subscribe("/move_group/monitored_planning_scene", 1, worldCallback);
+    ros::Duration(0.5).sleep();
+    co.operation = co.REMOVE;
+    while (1){
+        // Eliminarlo del collision world
+        ROS_INFO("UTIL: Borrando del world");
+        collision_object_pub.publish(co);
+        // Esperar actualización del estado del world
+        get_world = true;
+        while (get_world){
+            ros::Duration(0.5).sleep();
+        }
+        // En este punto, ya recibí una actualización de los collision objects del world
+        // si está vacío, ok
+        if ((int)objects.size() == 0){
+            break;
+        }
+        // Si no, revisar que no se encuentre el objeto en cuestión
+        bool restart_loop = false;
+        for (int i = 0; i < (int)objects.size(); i++){
+            if (objects[i].id == co.id){
+                // Reintentar
+                ROS_WARN("UTIL: '%s' todavía no desaparece del world. Reintentando...", co.id.c_str());
+                restart_loop = true;
+                break;
+            }
+        }
+        if (restart_loop)
+            continue;
+        // ok, no está
+        break;
+    }
+    ROS_INFO("UTIL: '%s' correctamente eliminado del mundo", co.id.c_str());  
 }

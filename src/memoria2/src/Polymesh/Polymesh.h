@@ -23,6 +23,8 @@ class Polymesh{
 	int poly_number_;
 	// PointCloud utilizable
 	PointCloud<PointXYZ>::Ptr meshcloud_;
+	// Bounding box
+	// vector<PointXYZ> bounding_box_;
 	// Lista de areas de polígonos
 	vector<double> poly_areas_;
 	// Lista de normales de polígonos
@@ -53,6 +55,7 @@ public:
 	Eigen::Vector3f getNormal(int index);
 	PointXYZ getCentroid(int index);
 	PointXYZ getCenterOfMass();
+	// vector<PointXYZ> getBoundingBox();
 	// --- Utilidades ---
 	PointXYZ projectPointOverPolygon(PointXYZ p, int poly_index);
 	static PointXYZ projectPointOverFlatPointCloud(PointXYZ p, PointCloud<PointXYZ>::Ptr cloud);
