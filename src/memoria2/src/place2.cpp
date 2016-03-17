@@ -47,6 +47,9 @@ ros::Publisher surface_pose_pub;
 ros::Publisher aco_pub;
 ros::Publisher co_pub;
 
+// Por ordenar
+geometry_msgs::PoseStamped last_scan_pose;
+
 
 // Pre-declaración de métodos
 void endProgram(int retcode);
@@ -99,6 +102,7 @@ bool getPlacedObject(){
         return false;
     }
     // Proteger gripper con bola para poder moverse
+    // Util::enableDefaultGripperCollisions(aco_pub, co_pub, false, grasp_arm);
     Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
     // Mover gripper a posición inicial de scanning
     ROS_INFO("PLACE: Mover gripper activo a pose de scaneo");
@@ -179,14 +183,15 @@ bool getPlacedObject(){
             //     return false;
             // }
             object_out = merged;
-            // gripper_out->header.frame_id = GRIPPER_FRAME;
             the_object->setCloud(object_out);
             ROS_INFO("PLACE: Objeto: %d puntos. Gripper: %d puntos.", (int)the_object->object_pc->points.size(), (int)the_object->gripper_pc->points.size());
             // Obtener pose estable y otras características
             the_object->computeStablePose();
             // Attachar bounding box de objeto como collision object
-            Util::attachBoundingBoxToGripper(aco_pub, co_pub, grasp_arm, the_object->bounding_box);
-            // Util::disableGripperCollisions(grasp_arm, false, aco_pub, co_pub);
+            // Util::attachBoundingBoxToGripper(aco_pub, co_pub, grasp_arm, the_object->bounding_box);
+            // Attachar mesh del objeto como collisio object al robot
+            Util::attachMeshToGripper(aco_pub, co_pub, grasp_arm, the_object->polymesh);
+            last_scan_pose = scan_pose;
             return true;
         }
         // Proteger gripper con bola
@@ -426,25 +431,11 @@ bool placeObject(){
     PointIndices::Ptr placing_points = Util::getFactiblePlacingPointsIndices((the_surface->cloud), the_surface->normal, the_object->base_area);
 
     // Volver a llevar gripper a pose de scan
-    geometry_msgs::PoseStamped scan_pose;
-    scan_pose.header.frame_id = Util::BASE_FRAME;
-    scan_pose.pose.position.x = Util::scan_position[0];
-    scan_pose.pose.position.y = Util::scan_position[1];
-    scan_pose.pose.position.z = Util::scan_position[2];
-    // Copia no constante de la orientación inicial de scanning
-    float scan_orientation[3];
-    scan_orientation[0] = Util::scan_orientation[0];
-    scan_orientation[1] = Util::scan_orientation[1];
-    scan_orientation[2] = Util::scan_orientation[2];
-    // Poner gripper en pose inicial
-    scan_orientation[0] += Util::SCAN_ROLL_DELTA;
-    scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
-    string GRIPPER_FRAME = (grasp_arm == 'l' ? "l" : "r") + Util::GRIPPER_FRAME_SUFFIX;
     bool gotopose_ok;
     if (grasp_arm == 'l')
-        gotopose_ok = r_driver->lgripper->goToPose(scan_pose);
+        gotopose_ok = r_driver->lgripper->goToPose(last_scan_pose);
     else
-        gotopose_ok = r_driver->rgripper->goToPose(scan_pose);
+        gotopose_ok = r_driver->rgripper->goToPose(last_scan_pose);
     if (not gotopose_ok){
         ROS_ERROR("PLACE: No se pudo ir a la pose especificada");
         return false;
@@ -633,6 +624,7 @@ int main(int argc, char **argv){
     ROS_INFO("PLACE: Iniciando RobotDriver");
     r_driver = new RobotDriver();
     ROS_INFO("PLACE: RobotDriver Creado e iniciado");
+
 
     //   ZONA DE PRUEBAS
 

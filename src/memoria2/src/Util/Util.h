@@ -25,7 +25,9 @@
 #include <moveit_msgs/AttachedCollisionObject.h>
 #include <moveit_msgs/CollisionObject.h>
 #include <shape_msgs/SolidPrimitive.h>
-// #include "../Polymesh/Polymesh.h"
+#include "../Polymesh/Polymesh.h"
+#include <geometric_shapes/shape_operations.h>
+// #include <shape_msgs/ShapeMsg.h>
 // #include "../RobotDriver/RobotDriver.h"
 
 using namespace std;
@@ -131,12 +133,13 @@ class Util{
         static void enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper, float radius = 0.15);
         static void attachBoundingBoxToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper, BBOriented bounding_box);
         static void detachBoundingBoxFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper);
+        static void attachMeshToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_arm, Polymesh &object_mesh);
 
     protected:
     private:
         static bool isPointInsideBox(PointXYZ p, Box box);
         static void removeCollisionObjectFromWorld(ros::Publisher &collision_object_pub, moveit_msgs::CollisionObject co);
-
+        static void polymeshToShapeMsg(Polymesh &pmesh, shape_msgs::Mesh &shapemsg);
 };
 
 #endif // UTIL_H

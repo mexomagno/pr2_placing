@@ -70,14 +70,16 @@ bool PlacedObject::computeStablePose(){
         ROS_ERROR("PLACEDOBJECT: Nube de objeto y de gripper deben estar en el mismo frame de referencia");
         return false;
     }
+    // ROS_INFO("PLACEDOBJECT: El objeto tiene %d puntos", (int)object_pc->points.size());
     // Crear convex hull del objeto. Internamente Polymesh calcula varias cosas útiles
-    Polymesh mesh = Polymesh(Util::getConvexHull(object_pc));
+    polymesh = Polymesh(Util::getConvexHull(object_pc));
+    // ROS_INFO("PLACEDOBJECT: Cloud del Polymesh del object tiene %d puntos", (int)polymesh.getPointCloud()->points.size());
     // Obtener listado de posibles parches estables
     vector<vector<int> > patches; // Todos los parches posibles, ordenados desde el más grande al más pequeño
     vector<double> patches_areas; // Sus areas correspondientes, en el mismo orden anterior.
-    mesh.getFlatPatches(Util::PATCH_ANGLE_THRESHOLD, patches, patches_areas);
+    polymesh.getFlatPatches(Util::PATCH_ANGLE_THRESHOLD, patches, patches_areas);
     // Obtener centro de masa
-    PointXYZ cm = mesh.getCenterOfMass();
+    PointXYZ cm = polymesh.getCenterOfMass();
     // Iterar hasta encontrar un parche estable. Priorizar parches grandes
     vector<int> best_patch;
     double best_patch_area;
@@ -86,7 +88,7 @@ bool PlacedObject::computeStablePose(){
     PointXYZ cm_proj;
     for (int i=0; i<patches.size(); i++){
         // Obtener plano representado por el parche
-        mesh.flattenPatch(patches[i], *patch_plane, patch_plane_coefs);
+        polymesh.flattenPatch(patches[i], *patch_plane, patch_plane_coefs);
         // proyectar centro de masa sobre plano
         cm_proj = Polymesh::projectPointOverFlatPointCloud(cm, patch_plane);
         // VERIFICACIÓN DE CONDICIONES:
@@ -111,7 +113,7 @@ bool PlacedObject::computeStablePose(){
             pose_out.header.frame_id = object_pc->header.frame_id; // frame del gripper "tool"
             stable_pose = pose_out;
             // Guardar bounding box
-            // setBoundingBox(mesh.getBoundingBox());
+            // setBoundingBox(polymesh.getBoundingBox());
             computeFeatures();
             ROS_INFO("PLACEDOBJECT: Pose guardada, terminando");
             return true;

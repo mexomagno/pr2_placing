@@ -605,295 +605,6 @@ void worldCallback(const moveit_msgs::PlanningScene::Ptr &scene){
     get_world = false;
 }
 
-/*void Util::disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, float radius){
-    ROS_INFO("UTIL: %s esfera",(disable ? "removiendo" : "attachando"));
-    // Creando collision object
-    moveit_msgs::CollisionObject co;
-    // Frame de referencia para la pose
-    co.header.frame_id = "l_gripper_tool_frame";
-    // co.header.stamp = ros::Time(0);
-    // Nombre del objeto
-    co.id = "my_collision_object";
-    // Creando shape
-    shape_msgs::SolidPrimitive shape;
-    shape.type = shape.SPHERE;
-    const float shape_size = radius;
-    shape.dimensions.push_back(shape_size); // x
-    shape.dimensions.push_back(shape_size); // y
-    shape.dimensions.push_back(shape_size); // z 
-    // Definiendo pose
-    geometry_msgs::Pose co_pose;
-    co_pose.position.x = co_pose.position.y = co_pose.position.z = co_pose.orientation.x = co_pose.orientation.y = co_pose.orientation.z = 0;
-    co_pose.orientation.w = 1;
-    co.primitives.push_back(shape);
-    co.primitive_poses.push_back(co_pose);
-
-    // Creando attached collision object
-    moveit_msgs::AttachedCollisionObject aco;
-    // Se attacha al gripper
-    aco.link_name = "l_wrist_roll_link";
-
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
-
-    // links que salen en RViz y no en gazebo
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
-    aco.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
-    aco.touch_links.push_back("base_link");
-    co.operation = (disable ? (co.REMOVE) : (co.ADD));
-    aco.object = co;
-    ROS_INFO("UTIL: %s colisiones para gripper", (disable ? "Deshabilitando" : "Habilitando"), co.id.c_str());
-    attached_object_pub.publish(aco);
-    attached_object_pub.publish(aco);
-    attached_object_pub.publish(aco);
-    // Al desattacharlo automáticamente se pone en el world. Hay que eliminarlo también.
-    if (disable){
-        // Subscribir al tópico que informa del mundo para verificar que se borró el objeto
-        ros::NodeHandle nh_;
-        ros::Subscriber world_sub = nh_.subscribe("/move_group/monitored_planning_scene", 1, worldCallback);
-        ros::Duration(0.5).sleep();
-        while (1){
-            // Eliminarlo del collision world
-            ROS_INFO("UTIL: Borrando del world");
-            collision_object_pub.publish(co);
-            // Esperar actualización del estado del world
-            get_world = true;
-            while (get_world){
-                ros::Duration(0.5).sleep();
-            }
-            // En este punto, ya recibí una actualización de los collision objects del world
-            // si está vacío, ok
-            if ((int)objects.size() == 0){
-                break;
-            }
-            // Si no, revisar que no se encuentre el objeto en cuestión
-            bool restart_loop = false;
-            for (int i = 0; i < (int)objects.size(); i++){
-                if (objects[i].id == co.id){
-                    // Reintentar
-                    ROS_WARN("UTIL: '%s' todavía no desaparece del world. Reintentando...", co.id.c_str());
-                    restart_loop = true;
-                    break;
-                }
-            }
-            if (restart_loop)
-                continue;
-            // ok, no está
-            break;
-        }  
-        // Dessuscribir automáticamente por salir del scope     
-    }
-}
-void Util::enableCollisionBox(BBOriented bounding_box, string frame_id, bool enable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
-    ROS_INFO("Agregando collision box");
-    // Crear shape
-    shape_msgs::SolidPrimitive shape;
-    shape.type = shape.BOX;
-    shape.dimensions.push_back(abs(bounding_box.min.x - bounding_box.max.x)); // x
-    shape.dimensions.push_back(abs(bounding_box.min.y - bounding_box.max.y)); // y
-    shape.dimensions.push_back(abs(bounding_box.min.z - bounding_box.max.z)); // z
-    geometry_msgs::Pose co_pose;
-    // co_pose.position.x = (bounding_box.min.x - bounding_box.max.x)/2;
-    // co_pose.position.y = (bounding_box.min.y - bounding_box.max.y)/2;
-    // co_pose.position.z = (bounding_box.min.z - bounding_box.max.z)/2;
-    co_pose.position = bounding_box.position;
-    co_pose.orientation = bounding_box.rotation;
-
-    moveit_msgs::CollisionObject co;
-    co.header.frame_id = frame_id;
-    co.id = "placed_object_collision_box";
-    co.primitives.push_back(shape);
-    co.primitive_poses.push_back(co_pose);
-    co.operation = (enable ? (co.ADD) : (co.REMOVE));
-
-    moveit_msgs::AttachedCollisionObject aco;
-    // Se attacha al gripper
-    aco.link_name = "l_wrist_roll_link";
-
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
-
-    // links que salen en RViz y no en gazebo
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_forearm_link" : "r_forearm_link");
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
-    aco.touch_links.push_back(frame_id[0] == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
-    aco.touch_links.push_back("base_link");
-    ROS_INFO("UTIL: %s colisiones para objeto manipulado", (enable ? "Habilitando" : "Deshabilitando"), co.id.c_str());
-    aco.object = co;
-    attached_object_pub.publish(aco);
-    attached_object_pub.publish(aco);
-    attached_object_pub.publish(aco);
-    if (not enable){
-        // Subscribir al tópico que informa del mundo para verificar que se borró el objeto
-        ros::NodeHandle nh_;
-        ros::Subscriber world_sub = nh_.subscribe("/move_group/monitored_planning_scene", 1, worldCallback);
-        ros::Duration(0.5).sleep();
-        while (1){
-            // Eliminarlo del collision world
-            ROS_INFO("UTIL: Borrando del world");
-            collision_object_pub.publish(co);
-            // Esperar actualización del estado del world
-            get_world = true;
-            while (get_world){
-                ros::Duration(0.5).sleep();
-            }
-            // En este punto, ya recibí una actualización de los collision objects del world
-            // si está vacío, ok
-            if ((int)objects.size() == 0){
-                break;
-            }
-            // Si no, revisar que no se encuentre el objeto en cuestión
-            bool restart_loop = false;
-            for (int i = 0; i < (int)objects.size(); i++){
-                if (objects[i].id == co.id){
-                    // Reintentar
-                    ROS_WARN("UTIL: '%s' todavía no desaparece del world. Reintentando...", co.id.c_str());
-                    restart_loop = true;
-                    break;
-                }
-            }
-            if (restart_loop)
-                continue;
-            // ok, no está
-            break;
-        }  
-        // Dessuscribir automáticamente por salir del scope
-        
-    }
-
-}
-void Util::clearCollisionObjects(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
-    // Subscribir al tópico que informa del mundo para verificar que se borró el objeto
-    ros::NodeHandle nh_;
-    ros::Subscriber world_sub = nh_.subscribe("/move_group/monitored_planning_scene", 1, worldCallback);
-    ros::Duration(0.5).sleep();
-    // Obtener estado del world
-    get_world = true;
-    while (get_world){
-        ros::Duration(0.5).sleep();
-    }
-    ROS_INFO("UTIL: Revisando y eliminando collision objects attachados");
-    int n_aco = (int)attached_objects.size();
-    int n_co = (int)objects.size();
-    if (n_aco > 0){
-        ROS_INFO("UTIL: No habian collision objects attachados");
-    }
-    else{
-        ROS_INFO("UTIL: Se encontraron %d attached collision objects", n_aco);
-        for (int i = 0; i < n_aco; i++){
-            attached_objects[i].object.operation = attached_objects[i].object.REMOVE;
-            attached_object_pub.publish(attached_objects[i].object);
-            ros::Duration(0.1).sleep();
-        }
-    }
-    // Actualizar objetos del world
-    get_world = true;
-    while (get_world){
-        ros::Duration(0.5).sleep();
-    }
-    ROS_INFO("UTIL: Eliminando cualquier collision object existente");
-    if ((int)objects.size() == 0){
-        ROS_INFO("UTIL: No habian collision objects");
-        return;
-    }
-    ROS_INFO("UTIL: Se encontraron %d collision objects. Eliminando...", (int)objects.size());
-    //     ROS_INFO("Agregando collision box");
-    // // Crear shape
-    // shape_msgs::SolidPrimitive shape;
-    // shape.type = shape.BOX;
-    // shape.dimensions.push_back(abs(bounding_box.min.x - bounding_box.max.x)); // x
-    // shape.dimensions.push_back(abs(bounding_box.min.y - bounding_box.max.y)); // y
-    // shape.dimensions.push_back(abs(bounding_box.min.z - bounding_box.max.z)); // z
-    // geometry_msgs::Pose co_pose;
-    // // co_pose.position.x = (bounding_box.min.x - bounding_box.max.x)/2;
-    // // co_pose.position.y = (bounding_box.min.y - bounding_box.max.y)/2;
-    // // co_pose.position.z = (bounding_box.min.z - bounding_box.max.z)/2;
-    // co_pose.position = bounding_box.position;
-    // co_pose.orientation = bounding_box.rotation;
-
-    // moveit_msgs::CollisionObject co;
-    // co.header.frame_id = frame_id;
-    // co.id = "placed_object_collision_box";
-    // co.primitives.push_back(shape);
-    // co.primitive_poses.push_back(co_pose);
-    // co.operation = (enable ? (co.ADD) : (co.REMOVE));
-
-    // moveit_msgs::AttachedCollisionObject aco;
-    // // Se attacha al gripper
-    // aco.link_name = "l_wrist_roll_link";
-
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
-
-    // // links que salen en RViz y no en gazebo
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_forearm_link" : "r_forearm_link");
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
-    // aco.touch_links.push_back(frame_id[0] == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
-    // aco.touch_links.push_back("base_link");
-    // ROS_INFO("UTIL: %s colisiones para objeto manipulado", (enable ? "Habilitando" : "Deshabilitando"), co.id.c_str());
-    // aco.object = co;
-    // attached_object_pub.publish(aco);
-    // attached_object_pub.publish(aco);
-    // attached_object_pub.publish(aco);
-    while((int)objects.size() > 0){
-        moveit_msgs::CollisionObject co;
-        co = objects[0];
-        co.operation = co.REMOVE;
-        // Intentar borrar objeto
-        while (1){
-            collision_object_pub.publish(co);
-            get_world = true;
-            while (get_world){
-                ros::Duration(0.5).sleep();
-            }
-            // Revisar si se borró
-            if ((int)objects.size() == 0)
-                return;
-            bool retry = false;
-            for (int i = 0; i < (int)objects.size(); i++){
-                if (objects[i].id == co.id){
-                    // reintentar borrado
-                    retry = true;
-                    break;
-                }
-            }
-            if (retry){
-                ROS_WARN("UTIL: '%s' no se borra aun. Reintentando...", co.id.c_str());
-                continue;
-            }
-            break;
-        }
-    } 
-}*/
-
 /**
  * enableDefaultGripperCollisions habilita o deshabilita la esfera de protección del gripper. Permite que se mueva libremente sin chocar con el objeto tomado.
  * @param attached_object_pub  Publicador para objetos attachados al robot
@@ -978,6 +689,8 @@ void Util::attachBoundingBoxToGripper(ros::Publisher &attached_object_pub, ros::
     geometry_msgs::Pose co_pose;
     co_pose.position = bounding_box.position;
     co_pose.orientation = bounding_box.rotation;
+    co.primitives.push_back(shape);
+    co.primitive_poses.push_back(co_pose);
     // Configurar attached para agregar a gripper
     // Agregando links permitidos
     a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
@@ -1019,7 +732,160 @@ void Util::detachBoundingBoxFromGripper(ros::Publisher &attached_object_pub, ros
     // Hay que eliminarlo ahora del mundo de manera segura.
     Util::removeCollisionObjectFromWorld(collision_object_pub, co);
 }
+/**
+ * attachMeshToGripper es similar a attachBoundingBoxToGripper, pero en vez de usar un bounding box, usa el mesh, para dibujar de forma más exacta el collision object.
+ * @param attached_object_pub  Publicador para attached_collision_object
+ * @param collision_object_pub Publicador para collision_object
+ * @param object_mesh          Malla del objeto, representada como Polymesh
+ */
+void Util::attachMeshToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper, Polymesh &object_mesh){
+    // ROS_INFO("UTIL: Se intentará agregar mesh al world");
+    // moveit_msgs::CollisionObject co;
+    // co.header.frame_id = (which_gripper == 'l' ? "l_gripper_tool_frame" : "r_gripper_tool_frame");
+    // co.id = "object_collision_mesh";
+    // shapes::Mesh m;
+    // Util::polymeshToShapeMsg(object_mesh, m);
+    // ROS_INFO("UTIL: Se intentara crear shape_msg a partir del mesh creado por mi");
+    // shape_msgs::Mesh co_mesh;
+    // shapes::ShapeMsg co_mesh_msg;
+    // shapes::constructMsgFromShape(&m, co_mesh_msg);
+    // ROS_INFO("UTIL: Mesh creado. Se intentara crear boost mesh");
+    // co_mesh = boost::get<shape_msgs::Mesh>(co_mesh_msg);
+    // ROS_INFO("UTIL: boost mesh creado.");
+    // co.meshes.resize(1);
+    // co.mesh_poses.resize(1);
+    // co.meshes[0] = co_mesh;
+    // co.mesh_poses.resize(1);
+    // co.mesh_poses[0].position.x = 0;
+    // co.mesh_poses[0].position.y = 0;
+    // co.mesh_poses[0].position.z = 0;
+    // co.mesh_poses[0].orientation.x = 0;
+    // co.mesh_poses[0].orientation.y = 0;
+    // co.mesh_poses[0].orientation.z = 0;
+    // co.mesh_poses[0].orientation.w = 1;
+    // ROS_INFO("UTIL: push_backs");
+    // co.meshes.push_back(co_mesh);
+    // co.mesh_poses.push_back(co.mesh_poses[0]);
+    // co.operation = co.ADD;
+    // ROS_INFO("UTIL: publish");
+    // collision_object_pub.publish(co);
+    // ROS_INFO("UTIL: done publishing");   
 
+    moveit_msgs::CollisionObject co;
+    co.header.frame_id = (which_gripper == 'l' ? "l_gripper_tool_frame" : "r_gripper_tool_frame");
+    co.id = "object_collision_mesh";
+    // crear y agregar malla
+    shape_msgs::Mesh co_mesh;
+    polymeshToShapeMsg(object_mesh, co_mesh);
+    geometry_msgs::Pose mesh_pose;
+    mesh_pose.orientation.w = 1;
+    co.meshes.push_back(co_mesh);
+    co.mesh_poses.push_back(mesh_pose);
+    co.operation = co.ADD;
+
+    // Crear attached collision object
+    moveit_msgs::AttachedCollisionObject a_co;
+    a_co.link_name = (which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
+    a_co.touch_links.push_back("base_link");
+    // Añadiendo objeto
+    a_co.object = co;
+    // Publicar
+    attached_object_pub.publish(a_co);
+}
+
+
+
+/*void Util::polymeshToShapemesh(Polymesh &pmesh, shapes::Mesh &smesh){
+    ROS_INFO("UTIL: Se intentará convertir polymesh a shape mesh");
+    // shapes::Mesh outmesh;// (new shapes::Mesh());
+    ROS_INFO("UTIL: Obteniendo pclmesh desde polymesh");
+    PolygonMesh pclmesh = pmesh.getPCLMesh();
+    PointCloud<PointXYZ>::Ptr pclcloud = pmesh.getPointCloud();//Util::getConvexHull(pmesh.getPointCloud());//= pmesh.getPCLMesh();
+    int n_triangles = (int)pclmesh.polygons.size();
+    int n_vertices = (int)pclcloud->points.size();
+    smesh.triangle_count = n_triangles;
+    smesh.vertex_count = n_vertices;
+    unsigned int triangles[n_triangles*3];
+    double vertices[n_vertices*3];
+    ROS_INFO("UTIL: triangle count: %d, vertex_count: %d", smesh.triangle_count, smesh.vertex_count);
+    ROS_INFO("UTIL: Construyendo %d vertices", n_vertices);
+    // Construir arreglo de vértices
+    for (int i=0; i<n_vertices; i++){
+        vertices[3*i] = pclcloud->points[i].x;
+        vertices[3*i+1] = pclcloud->points[i].y;
+        vertices[3*i+2] = pclcloud->points[i].z;
+    }
+    ROS_INFO("UTIL: Construyendo vertices");
+    // Construir arreglo de triangulos (poligonos)
+    for (int i=0; i<n_triangles; i++){
+        triangles[3*i] = ((unsigned int)pclmesh.polygons[i].vertices[0])*3;
+        triangles[3*i+1] = ((unsigned int)pclmesh.polygons[i].vertices[1])*3;
+        triangles[3*i+2] = ((unsigned int)pclmesh.polygons[i].vertices[2])*3;
+    }
+    ROS_INFO("UTIL: Asignando arreglos a estructura interna de mesh");
+    smesh.triangles = triangles;
+    smesh.vertices = vertices;
+    ROS_INFO("UTIL: Primer punto primer triangulo segun pcl: (%f, %f, %f)", pclcloud->points[pclmesh.polygons[0].vertices[0]].x, pclcloud->points[pclmesh.polygons[0].vertices[0]].y, pclcloud->points[pclmesh.polygons[0].vertices[0]].z);
+    ROS_INFO("UTIL: Primer punto primer triangulo segun mesh: (%f, %f, %f)", smesh.vertices[smesh.triangles[3*(0) + 0]], smesh.vertices[smesh.triangles[3*(0) + 0]+1], smesh.vertices[smesh.triangles[3*(0) + 0]+2]);
+    ROS_INFO("UTIL: segundo punto quinto triangulo segun pcl: (%f, %f, %f)", pclcloud->points[pclmesh.polygons[4].vertices[1]].x, pclcloud->points[pclmesh.polygons[4].vertices[1]].y, pclcloud->points[pclmesh.polygons[4].vertices[1]].z);
+    ROS_INFO("UTIL: segundo punto quinto triangulo segun mesh: (%f, %f, %f)", smesh.vertices[smesh.triangles[3*(4) + 1]], smesh.vertices[smesh.triangles[3*(4) + 1]+1], smesh.vertices[smesh.triangles[3*(4) +1]+2]);
+    ROS_INFO("UTIL: Computando normales y vertex normals");
+    smesh.computeTriangleNormals();
+    smesh.computeVertexNormals();
+    ROS_INFO("UTIL: DONE!");
+
+}*/
+
+void Util::polymeshToShapeMsg(Polymesh &pmesh, shape_msgs::Mesh &shapemsg){
+    // Un mesh se compone de:
+    //  1) Una lista de triángulos compuestos de
+    //      1.1) Una lista de índices al arreglo de vértices
+    //  2) Lista de vértices definidos como:
+    //      2.1) Tres coordenadas x y z
+    
+    /* Algoritmo:
+        - Crear vector de vértices a partir de vértices de nube de polygonmesh
+        - Crear vector de triángulos a partir de triángulos de polygonmesh
+    */
+    
+    // Obtener malla y nube
+    PolygonMesh pclmesh = pmesh.getPCLMesh();
+    PointCloud<PointXYZ>::Ptr pclcloud = pmesh.getPointCloud();
+    int n_triangles = pmesh.getPolygonNumber();
+    int n_vertices = (int)pclcloud->points.size();
+    // Poblar vértices
+    for (int i = 0; i < n_vertices; i++){
+        // Los índices de los vértices nuevos se mapean 1:1 a los índices del pointcloud original
+        geometry_msgs::Point new_vertice;
+        new_vertice.x = pclcloud->points[i].x;
+        new_vertice.y = pclcloud->points[i].y;
+        new_vertice.z = pclcloud->points[i].z;
+        shapemsg.vertices.push_back(new_vertice);  
+    }
+    // Poblar triángulos
+    for (int i = 0; i < n_triangles; i++){
+        shape_msgs::MeshTriangle new_triangle;
+        new_triangle.vertex_indices[0] = pclmesh.polygons[i].vertices[0];
+        new_triangle.vertex_indices[1] = pclmesh.polygons[i].vertices[1];
+        new_triangle.vertex_indices[2] = pclmesh.polygons[i].vertices[2];
+        shapemsg.triangles.push_back(new_triangle);
+    }
+    // listo
+}
 
 // PRIVATE
 bool Util::isPointInsideBox(PointXYZ p, Box box){

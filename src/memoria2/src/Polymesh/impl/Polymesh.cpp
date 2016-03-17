@@ -11,6 +11,9 @@ struct PatchAndArea{
 
 
 // PUBLIC
+Polymesh::Polymesh(){
+    poly_number_ = 0;
+}
 Polymesh::Polymesh(PolygonMesh mesh){
 	mesh_ = mesh;
 	poly_number_ = mesh.polygons.size();

@@ -22,8 +22,6 @@ struct box{
 };
 typedef struct box Box;
 #endif // STRUCT_BOX
-class PlacedObject{
-	// VARIABLES INTERNAS
 		
 #ifndef STRUCT_BOUNDING_BOX
 #define STRUCT_BOUNDING_BOX
@@ -35,6 +33,9 @@ struct bounding_box{
 };
 typedef struct bounding_box BBOriented;
 #endif // STRUCT_BOUNDING_BOX
+
+class PlacedObject{
+	// VARIABLES INTERNAS
 
 public:
 	// VARIABLES
@@ -48,6 +49,8 @@ public:
 	float base_area;
 	// bounding box
 	BBOriented bounding_box;
+	// Mesh
+	Polymesh polymesh;
 
 	// MÉTODOS
 	PlacedObject();

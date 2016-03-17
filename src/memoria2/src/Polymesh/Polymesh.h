@@ -41,6 +41,7 @@ class Polymesh{
 
 public:
 	// Constructor
+	Polymesh();
 	Polymesh(PolygonMesh mesh);
 	// --- Setters Getters ---
 	PointXYZ computeCentroid();
