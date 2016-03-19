@@ -166,6 +166,9 @@ set(SOURCES ${PROJECT_SOURCE_DIR}/src/RobotDriver/impl/RobotDriver.cpp
 add_executable(place2 src/place2.cpp ${SOURCES})
 target_link_libraries(place2 ${catkin_LIBRARIES})
 
+add_executable(teleop_gripper src/teleop_gripper.cpp)
+target_link_libraries(teleop_gripper ${catkin_LIBRARIES})
+
 #############
 ## Install ##
 #############

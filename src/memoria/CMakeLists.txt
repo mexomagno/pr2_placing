@@ -209,6 +209,9 @@ target_link_libraries(gripper_scanner ${catkin_LIBRARIES})
 add_executable(pickplace src/pickplace.cpp)
 target_link_libraries(pickplace ${catkin_LIBRARIES})
 
+# Se trasladó a memoria2
+# add_executable(grippernode src/grippernode.cpp)
+# target_link_libraries(grippernode ${catkin_LIBRARIES})
 
 #### TEST SELF FILTER
 
