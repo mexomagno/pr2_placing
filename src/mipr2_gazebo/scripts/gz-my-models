@@ -1,0 +1,6 @@
+#!/bin/bash
+
+## gz-my-models
+# Muestra todos los modelos propios que he creado o editado para uso con gazebo
+
+echo "$(ls "$HOME/.gazebo/models" | grep my_)"

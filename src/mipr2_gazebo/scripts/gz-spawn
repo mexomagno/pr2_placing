@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Script para spawnear objetos en el mundo de gazebo. 
+# Recibe: Nombre de objeto:alias_opcional, posición x, posición y, posición z. Si x y z no existen, spawnea en (0, 0, 0)
+GAZEBO_MODELS="$HOME/.gazebo/models"
+
+if [ "$#" == 0 ]; then
+	echo "uso: $ gz-spawn <nombre[:alias]> posx posy posz"
+	exit 0
+fi
+
+model_name="$(echo "$1" | cut -d':' -f1)"
+model_alias="$(echo "$1" | cut -d':' -f2)"
+
+if [ "$2" != "" ]; then
+	posx="$2"
+else
+	posx="0"
+fi
+if [ "$3" != "" ]; then
+	posy="$3"
+else
+	posy="0"
+fi
+if [ "$4" != "" ]; then
+	posz="$4"
+else
+	posz="0"
+fi
+if [ "$model_alias" == "" ]; then
+	model_alias=model_name
+fi
+
+echo "Spawneando '$model_name' como '$model_alias' en ($posx, $posy, $posz)"
+rosrun gazebo_ros spawn_model -sdf -file "$GAZEBO_MODELS/$model_name/model.sdf" -model "$model_alias" -x "$posx" -y "$posy" -z "$posz" -Y 0
