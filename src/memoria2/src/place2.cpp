@@ -102,7 +102,6 @@ bool getPlacedObject(){
         return false;
     }
     // Proteger gripper con bola para poder moverse
-    // Util::enableDefaultGripperCollisions(aco_pub, co_pub, false, grasp_arm);
     Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
     // Mover gripper a posición inicial de scanning
     ROS_INFO("PLACE: Mover gripper activo a pose de scaneo");
@@ -144,6 +143,8 @@ bool getPlacedObject(){
         Util::enableDefaultGripperCollisions(aco_pub, co_pub, false, grasp_arm);
         // Pedir nube de kinect
         cloud = r_driver->sensors->kinect->getNewCloud();
+        // Volver a poner esfera protectora. Evita generación de octomap
+        Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
         ROS_INFO("PLACE: nube recibida desde kinect: %d puntos, frame: %s", (int)cloud->points.size(), cloud->header.frame_id.c_str());
         ROS_INFO("PLACe: Primer punto está en (%f, %f, %f)", cloud->points[0].x, cloud->points[1].y, cloud->points[2].z);
         
@@ -187,15 +188,13 @@ bool getPlacedObject(){
             ROS_INFO("PLACE: Objeto: %d puntos. Gripper: %d puntos.", (int)the_object->object_pc->points.size(), (int)the_object->gripper_pc->points.size());
             // Obtener pose estable y otras características
             the_object->computeStablePose();
-            // Attachar bounding box de objeto como collision object
-            // Util::attachBoundingBoxToGripper(aco_pub, co_pub, grasp_arm, the_object->bounding_box);
-            // Attachar mesh del objeto como collisio object al robot
+            // Quitar esfera protectora
+            Util::enableDefaultGripperCollisions(aco_pub, co_pub, false, grasp_arm);
+            // INMEDIATAMENTE Attachar mesh del objeto como collisio object al robot
             Util::attachMeshToGripper(aco_pub, co_pub, grasp_arm, the_object->polymesh);
             last_scan_pose = scan_pose;
             return true;
         }
-        // Proteger gripper con bola
-        Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
         ROS_INFO("PLACE: Posicionandose psra siguiente scan");
         scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
         if (grasp_arm == 'l')
@@ -540,8 +539,8 @@ bool placeObject(){
             if (grasp_arm == 'l'){
                 ROS_INFO("PLACE: Abriendo gripper izquierdo");
                 r_driver->lgripper->setOpening(1, -1);
+                Util::detachMeshFromGripper(aco_pub, co_pub);
                 ros::Duration(1.0).sleep();
-                Util::detachBoundingBoxFromGripper(aco_pub, co_pub, grasp_arm);
                 ROS_INFO("PLACE: Retrocediendo gripper");
                 r_driver->lgripper->goToPose(gripper_backoff_pose);
                 ROS_INFO("PLACE: Cerrando gripper izquierdo");
@@ -550,8 +549,8 @@ bool placeObject(){
             else{
                 ROS_INFO("PLACE: Abriendo gripper derecho");
                 r_driver->rgripper->setOpening(1, -1);
+                Util::detachMeshFromGripper(aco_pub, co_pub);
                 ros::Duration(1.0).sleep();
-                Util::detachBoundingBoxFromGripper(aco_pub, co_pub, grasp_arm);
                 ROS_INFO("PLACE: Retrocediendo gripper");
                 r_driver->rgripper->goToPose(gripper_backoff_pose);
                 ROS_INFO("PLACE: Cerrando gripper derecho");
@@ -615,7 +614,11 @@ int main(int argc, char **argv){
         exit(1);
     }
     ROS_INFO("Asumiendo objeto en gripper %s", grasp_arm == 'l' ? "izquierdo" : "derecho");
-    // Iniciar nodo ROS
+    if (argc >= 3){
+        Util::COLLISION_BALL_RADIUS = atof(argv[2]);
+        ROS_INFO("Usando objeto de radio NO MAYOR a %fm", Util::COLLISION_BALL_RADIUS);
+    }
+    // Iniciar 1nodo ROS
     ros::init(argc, argv, "placing_node");
     ros::NodeHandle nh;
     // Para terminar con ctrl+c
@@ -623,6 +626,9 @@ int main(int argc, char **argv){
     // Iniciando robot driver
     ROS_INFO("PLACE: Iniciando RobotDriver");
     r_driver = new RobotDriver();
+    aco_pub = nh.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object", 10);
+    co_pub = nh.advertise<moveit_msgs::CollisionObject>("/collision_object", 10);
+    Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
     ROS_INFO("PLACE: RobotDriver Creado e iniciado");
 
 
@@ -638,8 +644,6 @@ int main(int argc, char **argv){
     stable_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("stable_pose", 1);
     surface_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("surface_pose", 1);
 
-    aco_pub = nh.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object", 10);
-    co_pub = nh.advertise<moveit_msgs::CollisionObject>("/collision_object", 10);
     
 
     ros::Duration(1).sleep();

@@ -45,10 +45,11 @@ const float Util::tuck_orientation[]      = {Util::PI/2.0, Util::PI/2.0, 0}; // 
 const float Util::GRIPPER_STABILIZE_TIME  = 1;
 const float Util::SCAN_PASSTHROUGH_Z      = 0.5;
 const float Util::SCAN_LEAFSIZE           = 0.005;
+float       Util::COLLISION_BALL_RADIUS   = 0.20; // Radio de bola protectora de gripper
 // Stable surface
 const float Util::PATCH_ANGLE_THRESHOLD  = 0.2;
 // Placing 
-const float Util::PLACING_Z_MARGIN        = 0.01; // Distancia desde el objeto a la superficie, donde soltarlo.
+const float Util::PLACING_Z_MARGIN        = 0.01; // [Mejor funcional: 0.08] Distancia desde el objeto a la superficie, donde soltarlo. MOVER CON CUIDADO PARA NO CHOCAR CON OCTOMAP
 const float Util::PLACING_BACKOFF_DISTANCE = 0.15; // Distancia hacia la que retroceder cuando se suelta el objeto
 
 
@@ -613,7 +614,7 @@ void worldCallback(const moveit_msgs::PlanningScene::Ptr &scene){
  * @param which_gripper        Cual de los dos grippers
  * @param radius               Tamaño de la bola. Tiene valor default.
  */
-void Util::enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper, float radius){
+void Util::enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper){
     // Crear collision object
     moveit_msgs::CollisionObject co;
     co.id = "gripper_collision_ball";
@@ -623,7 +624,7 @@ void Util::enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, r
     // Crear shape y su pose, y añadirla
     shape_msgs::SolidPrimitive shape;
     shape.type = shape.SPHERE;
-    const float shape_size = radius;
+    const float shape_size = Util::COLLISION_BALL_RADIUS;
     shape.dimensions.push_back(shape_size); // x
     shape.dimensions.push_back(shape_size); // y
     shape.dimensions.push_back(shape_size); // z 
@@ -806,7 +807,15 @@ void Util::attachMeshToGripper(ros::Publisher &attached_object_pub, ros::Publish
     // Publicar
     attached_object_pub.publish(a_co);
 }
-
+void Util::detachMeshFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
+    moveit_msgs::CollisionObject co;
+    co.id = "object_collision_mesh";
+    co.operation = co.REMOVE;
+    moveit_msgs::AttachedCollisionObject a_co;
+    a_co.object = co;
+    attached_object_pub.publish(a_co);
+    removeCollisionObjectFromWorld(collision_object_pub, co);
+}
 
 
 /*void Util::polymeshToShapemesh(Polymesh &pmesh, shapes::Mesh &smesh){

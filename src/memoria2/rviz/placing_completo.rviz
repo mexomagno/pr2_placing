@@ -4,9 +4,10 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /PlanningScene1
         - /PlanningScene1/Scene Geometry1
         - /PlanningScene1/Scene Robot1
+        - /MotionPlanning1
+        - /MotionPlanning1/Scene Geometry1
         - /MotionPlanning1/Scene Robot1
       Splitter Ratio: 0.565217
     Tree Height: 545
@@ -539,9 +540,848 @@ Visualization Manager:
       Reference Frame: head_mount_kinect_rgb_optical_frame
       Value: true
     - Class: moveit_rviz_plugin/PlanningScene
-      Enabled: true
+      Enabled: false
       Move Group Namespace: ""
       Name: PlanningScene
+      Planning Scene Topic: /move_group/monitored_planning_scene
+      Robot Description: robot_description
+      Scene Geometry:
+        Scene Alpha: 0.9
+        Scene Color: 50; 230; 50
+        Scene Display Time: 0.2
+        Show Scene Geometry: true
+        Voxel Coloring: Z-Axis
+        Voxel Rendering: Occupied Voxels
+      Scene Robot:
+        Attached Body Color: 150; 50; 150
+        Links:
+          All Links Enabled: true
+          Expand Joint Details: false
+          Expand Link Details: false
+          Expand Tree: false
+          Link Tree Style: Links in Alphabetic Order
+        Robot Alpha: 0.5
+        Show Robot Collision: true
+        Show Robot Visual: false
+      Value: false
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 170; 85; 255
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: surface
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.01
+      Style: Points
+      Topic: /surface
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 170; 85; 255
+      Enabled: true
+      History Length: 1
+      Name: surface centroid
+      Radius: 0.07
+      Topic: /surface_centroid
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 170; 85; 255
+      Enabled: true
+      Head Length: 0.1
+      Head Radius: 0.03
+      Name: surface_normal
+      Shaft Length: 0.15
+      Shaft Radius: 0.01
+      Shape: Arrow
+      Topic: /surface_normal
+      Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 170; 85; 127
+      Enabled: true
+      History Length: 1
+      Name: closest point
+      Radius: 0.2
+      Topic: /closest_point
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 170; 0; 127
+      Enabled: true
+      Head Length: 0.3
+      Head Radius: 0.1
+      Name: closest pose
+      Shaft Length: 1
+      Shaft Radius: 0.05
+      Shape: Arrow
+      Topic: /closest_pose
+      Value: true
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 0.1
+      Name: gripper frame
+      Radius: 0.003
+      Reference Frame: l_gripper_tool_frame
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: flat proj
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.01
+      Style: Flat Squares
+      Topic: /flat_proj
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 0; 0
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: object
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.01
+      Style: Points
+      Topic: /object_pc
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 0; 0; 255
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: gripper
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 8
+      Size (m): 0.01
+      Style: Points
+      Topic: /gripper_pc
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 85; 255; 0
+      Enabled: true
+      Head Length: 0.1
+      Head Radius: 0.04
+      Name: gripper_future_pose
+      Shaft Length: 0.4
+      Shaft Radius: 0.01
+      Shape: Arrow
+      Topic: /gripper_future_pose
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.03
+      Head Radius: 0.04
+      Name: pose_estable
+      Shaft Length: 0.2
+      Shaft Radius: 0.01
+      Shape: Arrow
+      Topic: /stable_pose
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 255; 85; 0
+      Enabled: true
+      Head Length: 0.03
+      Head Radius: 0.04
+      Name: surface_pose
+      Shaft Length: 0.2
+      Shaft Radius: 0.005
+      Shape: Arrow
+      Topic: /surface_pose
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 85; 170; 0
+      Enabled: true
+      Head Length: 0.1
+      Head Radius: 0.04
+      Name: gripper_pose
+      Shaft Length: 0.4
+      Shaft Radius: 0.01
+      Shape: Arrow
+      Topic: /gripper_pose
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 85; 0; 127
+      Enabled: true
+      Head Length: 0.3
+      Head Radius: 0.1
+      Name: ini_unitv
+      Shaft Length: 1
+      Shaft Radius: 0.05
+      Shape: Arrow
+      Topic: /pose_ini_unitv
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 85; 85; 127
+      Enabled: true
+      Head Length: 0.3
+      Head Radius: 0.1
+      Name: end_unitv
+      Shaft Length: 1
+      Shaft Radius: 0.05
+      Shape: Arrow
+      Topic: /pose_end_unitv
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 255; 255; 127
+      Enabled: true
+      Head Length: 0.3
+      Head Radius: 0.1
+      Name: end_transf
+      Shaft Length: 1
+      Shaft Radius: 0.05
+      Shape: Arrow
+      Topic: /pose_end_transformed
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
+      Color: 255; 255; 0
+      Enabled: true
+      Head Length: 0.3
+      Head Radius: 0.1
+      Name: end_transf_quat
+      Shaft Length: 1
+      Shaft Radius: 0.05
+      Shape: Arrow
+      Topic: pose_end_transformed_quat
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 0; 0
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: chull
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.02
+      Style: Spheres
+      Topic: /chull
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 85; 0
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: self_filter
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.01
+      Style: Points
+      Topic: /move_group/moveit_self_filtered
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Class: moveit_rviz_plugin/MotionPlanning
+      Enabled: true
+      Move Group Namespace: ""
+      MoveIt_Goal_Tolerance: 0
+      MoveIt_Planning_Attempts: 10
+      MoveIt_Planning_Time: 5
+      MoveIt_Use_Constraint_Aware_IK: true
+      MoveIt_Warehouse_Host: 127.0.0.1
+      MoveIt_Warehouse_Port: 33829
+      Name: MotionPlanning
+      Planned Path:
+        Links:
+          All Links Enabled: true
+          Expand Joint Details: false
+          Expand Link Details: false
+          Expand Tree: false
+          Link Tree Style: Links in Alphabetic Order
+          base_bellow_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          base_footprint:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          base_laser_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          base_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          bl_caster_l_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          bl_caster_r_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          bl_caster_rotation_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          br_caster_l_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          br_caster_r_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          br_caster_rotation_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          double_stereo_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fl_caster_l_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fl_caster_r_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fl_caster_rotation_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fr_caster_l_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fr_caster_r_wheel_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          fr_caster_rotation_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_kinect_ir_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_kinect_ir_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          head_mount_kinect_rgb_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_kinect_rgb_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          head_mount_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_prosilica_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_mount_prosilica_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          head_pan_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_plate_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          head_tilt_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          high_def_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          high_def_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          imu_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_elbow_flex_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_forearm_cam_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_forearm_cam_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_forearm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_forearm_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_l_finger_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_l_finger_tip_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_gripper_l_finger_tip_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_led_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_gripper_motor_accelerometer_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_motor_screw_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_gripper_motor_slider_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_gripper_palm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_r_finger_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_r_finger_tip_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_gripper_tool_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_shoulder_lift_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_shoulder_pan_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_torso_lift_side_plate_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          l_upper_arm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_upper_arm_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_wrist_flex_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          l_wrist_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          laser_tilt_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          laser_tilt_mount_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          narrow_stereo_l_stereo_camera_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_l_stereo_camera_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_r_stereo_camera_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          narrow_stereo_r_stereo_camera_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          projector_wg6802418_child_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          projector_wg6802418_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_elbow_flex_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_forearm_cam_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_forearm_cam_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_forearm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_forearm_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_l_finger_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_l_finger_tip_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_gripper_l_finger_tip_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_led_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_gripper_motor_accelerometer_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_motor_screw_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_gripper_motor_slider_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_gripper_palm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_r_finger_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_r_finger_tip_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_gripper_tool_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_shoulder_lift_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_shoulder_pan_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_torso_lift_side_plate_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          r_upper_arm_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_upper_arm_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_wrist_flex_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          r_wrist_roll_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          sensor_mount_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          torso_lift_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          torso_lift_motor_screw_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_l_stereo_camera_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_l_stereo_camera_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_r_stereo_camera_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          wide_stereo_r_stereo_camera_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+        Loop Animation: false
+        Robot Alpha: 0.5
+        Show Robot Collision: false
+        Show Robot Visual: false
+        Show Trail: false
+        State Display Time: 0.05 s
+        Trajectory Topic: /move_group/display_planned_path
+      Planning Metrics:
+        Payload: 1
+        Show Joint Torques: false
+        Show Manipulability: false
+        Show Manipulability Index: false
+        Show Weight Limit: false
+        TextHeight: 0.08
+      Planning Request:
+        Colliding Link Color: 255; 0; 0
+        Goal State Alpha: 1
+        Goal State Color: 250; 128; 0
+        Interactive Marker Size: 0
+        Joint Violation Color: 255; 0; 255
+        Planning Group: arms
+        Query Goal State: false
+        Query Start State: false
+        Show Workspace: false
+        Start State Alpha: 1
+        Start State Color: 0; 255; 0
       Planning Scene Topic: /move_group/monitored_planning_scene
       Robot Description: robot_description
       Scene Geometry:
@@ -999,409 +1839,13 @@ Visualization Manager:
         Show Robot Collision: true
         Show Robot Visual: false
       Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 170; 85; 255
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 4096
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: surface
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.01
-      Style: Points
-      Topic: /surface
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
-    - Alpha: 1
-      Class: rviz/PointStamped
-      Color: 170; 85; 255
-      Enabled: true
-      History Length: 1
-      Name: surface centroid
-      Radius: 0.07
-      Topic: /surface_centroid
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 170; 85; 255
-      Enabled: true
-      Head Length: 0.1
-      Head Radius: 0.03
-      Name: surface_normal
-      Shaft Length: 0.15
-      Shaft Radius: 0.01
-      Shape: Arrow
-      Topic: /surface_normal
-      Value: true
-    - Alpha: 1
-      Class: rviz/PointStamped
-      Color: 170; 85; 127
-      Enabled: true
-      History Length: 1
-      Name: closest point
-      Radius: 0.2
-      Topic: /closest_point
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 255; 25; 0
-      Enabled: true
-      Head Length: 0.03
-      Head Radius: 0.04
-      Name: pose_estable
-      Shaft Length: 0.2
-      Shaft Radius: 0.01
-      Shape: Arrow
-      Topic: /stable_pose
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 170; 0; 127
-      Enabled: true
-      Head Length: 0.3
-      Head Radius: 0.1
-      Name: closest pose
-      Shaft Length: 1
-      Shaft Radius: 0.05
-      Shape: Arrow
-      Topic: /closest_pose
-      Value: true
     - Class: rviz/Axes
       Enabled: true
-      Length: 0.1
-      Name: gripper frame
-      Radius: 0.003
-      Reference Frame: l_gripper_tool_frame
+      Length: 0.2
+      Name: Axes
+      Radius: 0.01
+      Reference Frame: l_wrist_flex_link
       Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 0; 0
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 4096
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: object
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.01
-      Style: Points
-      Topic: /object_pc
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 0; 0; 255
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 4096
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: gripper
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 8
-      Size (m): 0.01
-      Style: Points
-      Topic: /gripper_pc
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 85; 255; 0
-      Enabled: true
-      Head Length: 0.1
-      Head Radius: 0.04
-      Name: gripper_future_pose
-      Shaft Length: 0.4
-      Shaft Radius: 0.01
-      Shape: Arrow
-      Topic: /gripper_future_pose
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 255; 85; 0
-      Enabled: true
-      Head Length: 0.03
-      Head Radius: 0.04
-      Name: surface_pose
-      Shaft Length: 0.2
-      Shaft Radius: 0.005
-      Shape: Arrow
-      Topic: /surface_pose
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 85; 170; 0
-      Enabled: true
-      Head Length: 0.1
-      Head Radius: 0.04
-      Name: gripper_pose
-      Shaft Length: 0.4
-      Shaft Radius: 0.01
-      Shape: Arrow
-      Topic: /gripper_pose
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 85; 0; 127
-      Enabled: true
-      Head Length: 0.3
-      Head Radius: 0.1
-      Name: ini_unitv
-      Shaft Length: 1
-      Shaft Radius: 0.05
-      Shape: Arrow
-      Topic: /pose_ini_unitv
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 85; 85; 127
-      Enabled: true
-      Head Length: 0.3
-      Head Radius: 0.1
-      Name: end_unitv
-      Shaft Length: 1
-      Shaft Radius: 0.05
-      Shape: Arrow
-      Topic: /pose_end_unitv
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 255; 255; 127
-      Enabled: true
-      Head Length: 0.3
-      Head Radius: 0.1
-      Name: end_transf
-      Shaft Length: 1
-      Shaft Radius: 0.05
-      Shape: Arrow
-      Topic: /pose_end_transformed
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 255; 255; 0
-      Enabled: true
-      Head Length: 0.3
-      Head Radius: 0.1
-      Name: end_transf_quat
-      Shaft Length: 1
-      Shaft Radius: 0.05
-      Shape: Arrow
-      Topic: pose_end_transformed_quat
-      Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 0; 0
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 4096
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: chull
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.02
-      Style: Spheres
-      Topic: /chull
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 4096
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: flat proj
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.01
-      Style: Flat Squares
-      Topic: /flat_proj
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 85; 0
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 4096
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: self_filter
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.01
-      Style: Points
-      Topic: /move_group/moveit_self_filtered
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
-    - Class: moveit_rviz_plugin/MotionPlanning
-      Enabled: false
-      Move Group Namespace: ""
-      MoveIt_Goal_Tolerance: 0
-      MoveIt_Planning_Attempts: 10
-      MoveIt_Planning_Time: 5
-      MoveIt_Use_Constraint_Aware_IK: true
-      MoveIt_Warehouse_Host: 127.0.0.1
-      MoveIt_Warehouse_Port: 33829
-      Name: MotionPlanning
-      Planned Path:
-        Links:
-          All Links Enabled: true
-          Expand Joint Details: false
-          Expand Link Details: false
-          Expand Tree: false
-          Link Tree Style: Links in Alphabetic Order
-        Loop Animation: false
-        Robot Alpha: 0.5
-        Show Robot Collision: false
-        Show Robot Visual: false
-        Show Trail: false
-        State Display Time: 0.05 s
-        Trajectory Topic: /move_group/display_planned_path
-      Planning Metrics:
-        Payload: 1
-        Show Joint Torques: false
-        Show Manipulability: false
-        Show Manipulability Index: false
-        Show Weight Limit: false
-        TextHeight: 0.08
-      Planning Request:
-        Colliding Link Color: 255; 0; 0
-        Goal State Alpha: 1
-        Goal State Color: 250; 128; 0
-        Interactive Marker Size: 0
-        Joint Violation Color: 255; 0; 255
-        Planning Group: arms
-        Query Goal State: false
-        Query Start State: false
-        Show Workspace: false
-        Start State Alpha: 1
-        Start State Color: 0; 255; 0
-      Planning Scene Topic: /move_group/monitored_planning_scene
-      Robot Description: robot_description
-      Scene Geometry:
-        Scene Alpha: 0.9
-        Scene Color: 50; 230; 50
-        Scene Display Time: 0.2
-        Show Scene Geometry: true
-        Voxel Coloring: Z-Axis
-        Voxel Rendering: Occupied Voxels
-      Scene Robot:
-        Attached Body Color: 150; 50; 150
-        Links:
-          All Links Enabled: true
-          Expand Joint Details: false
-          Expand Link Details: false
-          Expand Tree: false
-          Link Tree Style: Links in Alphabetic Order
-        Robot Alpha: 0.5
-        Show Robot Collision: true
-        Show Robot Visual: false
-      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -1426,22 +1870,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.83138
+      Distance: 1.59455
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.0489282
-        Y: 0.391368
-        Z: 0.656894
+        X: 0.717665
+        Y: -0.199361
+        Z: 1.00113
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.349797
+      Pitch: 0.664796
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.19077
+      Yaw: 4.43216
     Saved: ~
 Window Geometry:
   Displays:
@@ -1451,7 +1895,7 @@ Window Geometry:
   Hide Right Dock: true
   Motion Planning:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000010f00000262fc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006400fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000002800000262000000dd00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670000000274000000160000017400ffffff000000010000010f00000261fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000002800000261000000b000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000005560000003bfc0100000002fb0000000800540069006d0065010000000000000556000002f600fffffffb0000000800540069006d00650100000000000004500000000000000000000004410000026200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000019200000262fc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006400fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000002800000262000000dd00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e0067000000010b0000017f0000017400ffffff000000010000010f00000261fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000002800000261000000b000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000005560000003bfc0100000002fb0000000800540069006d0065010000000000000556000002f600fffffffb0000000800540069006d00650100000000000004500000000000000000000003be0000026200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:

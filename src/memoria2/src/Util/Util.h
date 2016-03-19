@@ -130,10 +130,11 @@ class Util{
         // static void enableCollisionBox(BBOriented bounding_box, string frame_id, bool enable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
         // static void clearCollisionObjects(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
 
-        static void enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper, float radius = 0.15);
+        static void enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper);
         static void attachBoundingBoxToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper, BBOriented bounding_box);
         static void detachBoundingBoxFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper);
         static void attachMeshToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_arm, Polymesh &object_mesh);
+        static void detachMeshFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
 
     protected:
     private:
