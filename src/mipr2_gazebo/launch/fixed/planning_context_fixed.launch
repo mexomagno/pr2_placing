@@ -11,6 +11,7 @@
   <!-- Load to the parameter server yaml files -->
   <group ns="robot_description_planning">    
     <rosparam command="load" file="$(find pr2_moveit_config)/config/joint_limits.yaml"/>
+    <rosparam command="load" file="$(find mipr2_gazebo)/config/paddings.yaml"/>
   </group>
 
   <!-- Load default settings for kinematics; these settings are overridden by settings in a node's namespace -->

@@ -15,6 +15,7 @@ La superficie por defecto a utilizar es "mesita" -->
     <arg name="rviz" default="false"/>              <!-- Para iniciar con RViz -->
     <arg name="quick" default="false"/>             <!-- Para correr mundo con parámetros rápidos -->
     <arg name="cube" default="false" />             <!-- Para spawnear cubo sobre la superficie -->
+    <arg name="torso_up" default="true" />
     
     <!-- Imprimir en pantalla argumentos usados -->
     <node 
@@ -27,6 +28,7 @@ La superficie por defecto a utilizar es "mesita" -->
 \tContexto Moveit: \t$(arg moveit)\n
 \tRviz: \t\t\t$(arg rviz)\n
 \tModo rápido: \t\t$(arg quick)\n
+\tTorso up: \t\t\t$(arg torso_up)\n
 \tSpawnear cubo: \t\t$(arg cube)\n'"
         output="screen"/>
 
@@ -67,7 +69,8 @@ La superficie por defecto a utilizar es "mesita" -->
         name="call_rostopic"
         pkg="rostopic"
         type="rostopic"
-        args="pub -r 0.2  /torso_controller/command trajectory_msgs/JointTrajectory &quot; {joint_names: ['torso_lift_joint'], points : [ {positions: [0.34], velocities: [0.1]} ] }&quot;" />
+        args="pub -r 0.2  /torso_controller/command trajectory_msgs/JointTrajectory &quot; {joint_names: ['torso_lift_joint'], points : [ {positions: [0.34], velocities: [0.1]} ] }&quot;"
+        if="$(arg torso_up)" />
 
     <!-- Cargar contexto moveit -->
     <include file="$(find mipr2_gazebo)/launch/fixed/moveit_demo_fixed.launch" if="$(arg moveit)">
