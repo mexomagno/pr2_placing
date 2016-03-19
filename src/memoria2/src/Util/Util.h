@@ -93,6 +93,7 @@ class Util{
         static const float GRIPPER_STABILIZE_TIME;
         static const float SCAN_PASSTHROUGH_Z;
         static const float SCAN_LEAFSIZE;
+        static       float COLLISION_BALL_RADIUS;
         // GetPlacingPose
         static const float PATCH_ANGLE_THRESHOLD;
         static const float PLACING_Z_MARGIN;
