@@ -21,12 +21,16 @@ double LINEAR_STEP = 0.05;
 double ANGULAR_STEP =  45; // grados
 char WHICH_GRIPPER;
 string GRIPPER_FRAME;
+string WRIST_JOINT;
+string FLEX_JOINT;
 
 ros::Publisher current_pose_pub;
 ros::Publisher new_pose_pub;
 moveit::planning_interface::MoveGroup *group;
 moveit::planning_interface::MoveGroup::Plan plan;
 double gripper_orientation[] = {0,0,0}; //RPY
+double current_roll = 0;
+double current_flex = 0;
 // MÉTODOS
 double gradToRad(double grad){
 	return PI*grad/180.0;
@@ -66,7 +70,7 @@ void printUsage(){
 	printf("\t'W/S': Moverse en Y (relativo a gripper)\n");
 	printf("\t'E/D': Moverse en Z (relativo a gripper)\n");
 	printf("\t'i/k': Roll (X)\n");
-	// printf("\t'j/l': pitch (Y)\n");
+	printf("\t'j/l': Flex (Y)\n");
 	printf("\t'1': Cambiar paso lineal (metros)\n");
 	printf("\t'2': Cambiar paso angular (grados)\n");
 	printf("\t'h': Ayuda (este menú)\n");
@@ -235,17 +239,37 @@ bool linear(double x_step, double y_step, double z_step, bool odom){
 // 	new_pose.pose.orientation
 // }
 bool angular(double roll, double flex){
-	gripper_orientation[0] += gradToRad(roll*ANGULAR_STEP);
-	gripper_orientation[1] += gradToRad(flex*ANGULAR_STEP);
-	geometry_msgs::Quaternion quat = tf::createQuaternionMsgFromRollPitchYaw(gripper_orientation[0], gripper_orientation[1], gripper_orientation[2]);
-	geometry_msgs::PoseStamped new_pose = group->getCurrentPose();
-	new_pose.pose.orientation = quat;
-	new_pose_pub.publish(new_pose);
-	group->setPoseTarget(new_pose);
+	// gripper_orientation[0] += gradToRad(roll*ANGULAR_STEP);
+	// gripper_orientation[1] += gradToRad(flex*ANGULAR_STEP);
+	// geometry_msgs::Quaternion quat = tf::createQuaternionMsgFromRollPitchYaw(gripper_orientation[0], gripper_orientation[1], gripper_orientation[2]);
+	// geometry_msgs::PoseStamped new_pose = group->getCurrentPose();
+	// new_pose.pose.orientation = quat;
+	// new_pose_pub.publish(new_pose);
+	// group->setPoseTarget(new_pose);
+	double new_roll = current_roll;
+	double new_flex = current_flex;
+	if (roll != 0){
+		ROS_INFO("Haciendo ROLL");
+		new_roll += gradToRad(roll*ANGULAR_STEP);
+		// current_roll = (current_roll < 0 ? current_roll + 2*PI : (current_roll > 2*PI ? current_roll - 2*PI : current_roll));
+		group->setPoseTarget(group->getCurrentPose());
+		group->setJointValueTarget(WRIST_JOINT, new_roll);
+	}
+	else{
+		ROS_INFO("Haciendo FLEX");
+		new_flex += gradToRad(flex*ANGULAR_STEP);
+		// current_flex = (current_flex < 0 ? current_flex + 2*PI : (current_flex > 2*PI ? current_flex - 2*PI : current_flex));
+		group->setPoseTarget(group->getCurrentPose());
+		group->setJointValueTarget(FLEX_JOINT, new_flex);
+	}
 	bool plan_done = group->plan(plan);
 	if (plan_done){
 		ROS_INFO("Plan exitoso");
 		group->move();
+		if (roll != 0)
+			current_roll = new_roll;
+		else
+			current_flex = new_flex;
 	}
 	else{
 		ROS_ERROR("Plan falla");
@@ -380,12 +404,12 @@ bool processInput(char input){
 		case 'i':
 			success = angular(1, 0);
 			break;
-		// case 'j':
-		// 	success = angular(0, -1);
-		// 	break;
-		// case 'l':
-		// 	success = angular(0, 1);
-		// 	break;
+		case 'j':
+			success = angular(0, -1);
+			break;
+		case 'l':
+			success = angular(0, 1);
+			break;
 		// Otros
 		case '1':
 			printf("Ingrese nuevo valor de paso lineal (actual: %fm):  ", LINEAR_STEP);
@@ -447,7 +471,8 @@ int main(int argc, char **argv){
 	printUsage();
 	printf("Gripper: '%s', linear: %f, angular: %f\n", (WHICH_GRIPPER == 'l' ? "izquierdo" : "derecho"), LINEAR_STEP, ANGULAR_STEP);
 	GRIPPER_FRAME = (WHICH_GRIPPER == 'l' ? "/l_wrist_flex_link" : "/r_wrist_flex_link");
-	
+	WRIST_JOINT = (WHICH_GRIPPER == 'l' ? "l_wrist_roll_joint" : "r_wrist_roll_joint");
+	FLEX_JOINT = (WHICH_GRIPPER == 'l' ? "l_wrist_flex_joint" : "r_wrist_flex_joint");
 	// Iniciar nodo ROS
 	ros::init(argc, argv, "gripper_node");
 	ros::NodeHandle nh;
