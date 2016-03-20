@@ -77,7 +77,7 @@ bool RobotGripperDriver::setOpeningNonBlocking(float opening, float max_effort =
     ROS_INFO("RobotGripperDriver: Seteando %s gripper apertura %f", this->getWhich().c_str(), opening);
     ROS_WARN("RobotGripperDriver: No se esperará feedback");
     float position = (MAX_OPENING - MIN_OPENING)*opening + MIN_OPENING;
-    pr2_conrollers_msgs::Pr2GripperCommandActionGoal action_goal;
+    pr2_controllers_msgs::Pr2GripperCommandActionGoal action_goal;
     action_goal.goal.command.max_effort = (max_effort < MAX_EFFORT ? max_effort : MAX_EFFORT);
     while (gripper_goal_.getNumSubscribers() == 0)
         ros::Duration(0.05).sleep();
