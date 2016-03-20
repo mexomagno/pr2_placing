@@ -59,14 +59,14 @@ char getch() {
 }
 void printUsage(){
 	printf("Uso:\n");
-	printf("\t'w/s': Moverse en X (relativo a gripper)\n");
-	printf("\t'a/d': Moverse en Y (relativo a gripper)\n");
-	printf("\t'q/e': Moverse en Z (relativo a gripper)\n");
-	printf("\t'W/S': Moverse en X (relativo a odom)\n");
-	printf("\t'A/D': Moverse en Y (relativo a odom)\n");
-	printf("\t'Q/E': Moverse en Z (relativo a odom)\n");
+	printf("\t'q/a': Moverse en X (relativo a odom)\n");
+	printf("\t'w/s': Moverse en Y (relativo a odom)\n");
+	printf("\t'e/d': Moverse en Z (relativo a odom)\n");
+	printf("\t'Q/A': Moverse en X (relativo a gripper)\n");
+	printf("\t'W/S': Moverse en Y (relativo a gripper)\n");
+	printf("\t'E/D': Moverse en Z (relativo a gripper)\n");
 	printf("\t'i/k': Roll (X)\n");
-	printf("\t'j/l': pitch (Y)\n");
+	// printf("\t'j/l': pitch (Y)\n");
 	printf("\t'1': Cambiar paso lineal (metros)\n");
 	printf("\t'2': Cambiar paso angular (grados)\n");
 	printf("\t'h': Ayuda (este menú)\n");
@@ -335,43 +335,43 @@ bool processInput(char input){
 	bool success;
 	string new_step;
 	switch (input){
-		// Según gripper_frame
-		case 's':
-			success = linear(-1, 0, 0, false);
-			break;
-		case 'w':
-			success = linear(1, 0, 0, false);
-			break;
-		case 'a':
-			success = linear(0, -1, 0, false);
-			break;
-		case 'd':
-			success = linear(0, 1, 0, false);
-			break;
-		case 'q':
-			success = linear(0, 0, -1, false);
-			break;
-		case 'e':
-			success = linear(0, 0, 1, false);
-			break;
 		//  Según odom
-		case 'S':
+		case 'a':
 			success = linear(-1, 0, 0, true);
 			break;
-		case 'W':
+		case 'q':
 			success = linear(1, 0, 0, true);
 			break;
-		case 'A':
+		case 's':
 			success = linear(0, -1, 0, true);
 			break;
-		case 'D':
+		case 'w':
 			success = linear(0, 1, 0, true);
 			break;
-		case 'Q':
+		case 'd':
 			success = linear(0, 0, -1, true);
 			break;
-		case 'E':
+		case 'e':
 			success = linear(0, 0, 1, true);
+			break;
+		// Según gripper_frame
+		case 'A':
+			success = linear(-1, 0, 0, false);
+			break;
+		case 'Q':
+			success = linear(1, 0, 0, false);
+			break;
+		case 'S':
+			success = linear(0, -1, 0, false);
+			break;
+		case 'W':
+			success = linear(0, 1, 0, false);
+			break;
+		case 'D':
+			success = linear(0, 0, -1, false);
+			break;
+		case 'E':
+			success = linear(0, 0, 1, false);
 			break;
 		// Angular
 		case 'k':
@@ -380,21 +380,21 @@ bool processInput(char input){
 		case 'i':
 			success = angular(1, 0);
 			break;
-		case 'j':
-			success = angular(0, -1);
-			break;
-		case 'l':
-			success = angular(0, 1);
-			break;
+		// case 'j':
+		// 	success = angular(0, -1);
+		// 	break;
+		// case 'l':
+		// 	success = angular(0, 1);
+		// 	break;
 		// Otros
 		case '1':
-			printf("Ingrese nuevo valor de paso lineal (actual: %fm)", LINEAR_STEP);
+			printf("Ingrese nuevo valor de paso lineal (actual: %fm):  ", LINEAR_STEP);
 			cin >> new_step;
 			LINEAR_STEP = atof(new_step.c_str());
 			success = true;
 			break;
 		case '2':
-			printf("Ingrese nuevo valor de paso angular (actual: %fm)", ANGULAR_STEP);
+			printf("Ingrese nuevo valor de paso angular (actual: %fm):  ", ANGULAR_STEP);
 			cin >> new_step;
 			ANGULAR_STEP = atof(new_step.c_str());
 			success = true;
