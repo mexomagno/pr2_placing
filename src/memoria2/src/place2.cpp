@@ -83,10 +83,11 @@ void signalHandler(int signum){
  * @return                  True en success, false en error.
  */
 bool getPlacedObject(){
+    ROS_INFO("PLACE: Comienza adquisición de modelo del objeto");
     bool gotopose_ok;
     PointCloud<PointXYZ>::Ptr object_out (new PointCloud<PointXYZ>());
     // Mover gripper no activo a posición donde no moleste
-    ROS_INFO("PLACE: Quitar del campo visual al gripper inactivo");
+    ROS_INFO("PLACE: Quitando del campo visual al gripper inactivo");
     if (grasp_arm == 'l')
         gotopose_ok = r_driver->rgripper->moveElsewhere();
     else
@@ -98,6 +99,7 @@ bool getPlacedObject(){
     // Proteger gripper con bola para poder moverse
     Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
     // Mover gripper a posición inicial de scanning
+    ROS_INFO("PLACE: Moviendo gripper activo a posición de scaneo");
     // A continuación se aplica un pequeño parche para poder rotar
     // PARCHE 1) Obtener scan position relativo a ODOM
     Eigen::Matrix4f tf = Util::getTransformation(Util::TORSO_FRAME, Util::ODOM_FRAME);
@@ -124,16 +126,33 @@ bool getPlacedObject(){
     scan_orientation[0] += Util::SCAN_ROLL_DELTA;
     scan_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(scan_orientation[0], scan_orientation[1], scan_orientation[2]);
     string GRIPPER_FRAME = (grasp_arm == 'l' ? "l" : "r") + Util::GRIPPER_FRAME_SUFFIX;
-    if (grasp_arm == 'l')
+
+    // Setear limite de codo para robot. Esto evita no poder girar objetos grandes
+    moveit_msgs::Constraints constraint;
+    moveit_msgs::JointConstraint jc;
+    jc.joint_name = (grasp_arm == 'l' ? "l" : "r") + Util::ARM_ROLL_JOINT_PREFIX;
+    jc.position = 0;
+    jc.tolerance_below = Util::toRad(70);
+    jc.tolerance_above = Util::toRad(70);
+    jc.weight = 10;
+    constraint.joint_constraints.push_back(jc);
+
+    if (grasp_arm == 'l'){
+        r_driver->lgripper->moveit_group_->setPathConstraints(constraint);
         gotopose_ok = r_driver->lgripper->goToPose(scan_pose);
-    else
+        r_driver->lgripper->moveit_group_->clearPathConstraints();
+    }
+    else{
+        r_driver->rgripper->moveit_group_->setPathConstraints(constraint);
         gotopose_ok = r_driver->rgripper->goToPose(scan_pose);
+        r_driver->rgripper->moveit_group_->clearPathConstraints();
+    }
     if (not gotopose_ok){
         ROS_ERROR("PLACE: No se pudo ir a la pose especificada");
         return false;
     }
     // Mirar al gripper
-    // r_driver->head->lookAt(Util::BASE_FRAME, Util::scan_position[0], Util::scan_position[1], Util::scan_position[2]);
+    ROS_INFO("PLACE: Mirando hacia el gripper activo");
     r_driver->head->lookAt(GRIPPER_FRAME, 0, 0, 0);
     ros::Duration(Util::GRIPPER_STABILIZE_TIME).sleep();
     // Contenedores para objetos creados en el ciclo
@@ -145,14 +164,14 @@ bool getPlacedObject(){
     Eigen::Matrix4f transformation;
     // Scanear
     while ( 1 ){
+        ROS_INFO("PLACE: Scaneando...");
         // Quitar esfera protectora del gripper
         Util::enableDefaultGripperCollisions(aco_pub, co_pub, false, grasp_arm);
         // Pedir nube de kinect
         cloud = r_driver->sensors->kinect->getNewCloud();
         // Volver a poner esfera protectora. Evita generación de octomap
         Util::enableDefaultGripperCollisions(aco_pub, co_pub, true, grasp_arm);
-        ROS_INFO("PLACE: nube recibida desde kinect: %d puntos, frame: %s", (int)cloud->points.size(), cloud->header.frame_id.c_str());
-        ROS_INFO("PLACE: Primer punto está en (%f, %f, %f)", cloud->points[0].x, cloud->points[1].y, cloud->points[2].z);
+        ROS_INFO("PLACE: nube recibida: %d puntos  (frame: '%s')", (int)cloud->points.size(), cloud->header.frame_id.c_str());
         if ((int)cloud->points.size() == 0){
             ROS_WARN("PLACE: Se recibieron 0 puntos... eso es raro. Ojo!");
         }
@@ -201,6 +220,7 @@ bool getPlacedObject(){
             // INMEDIATAMENTE Attachar mesh del objeto como collisio object al robot
             Util::attachMeshToGripper(aco_pub, co_pub, grasp_arm, the_object->polymesh);
             last_scan_pose = scan_pose;
+            ROS_INFO("PLACE: Finaliza exitosamente adquisición de objeto");
             return true;
         }
         ROS_INFO("PLACE: Posicionandose psra siguiente scan");
@@ -224,11 +244,12 @@ bool getPlacedObject(){
  * @return                   True en success, False en error
  */
 bool getPlacingSurface(){
+    ROS_INFO("PLACE: Comienza adquisición de superficie de posicionamiento...");
     bool gotopose_ok;
     geometry_msgs::PoseStamped surface_normal;
     geometry_msgs::PointStamped surface_centroid;
     // Mover gripper con objeto a posición donde no moleste
-    ROS_INFO("PLACE: Quitar del campo visual al gripper con objeto");
+    ROS_INFO("PLACE: Quitando del campo visual al gripper activo");
     geometry_msgs::PoseStamped tuck_pose_active;
     tuck_pose_active.pose.position.x = Util::active_gripper_starting_position[0];
     tuck_pose_active.pose.position.y = (grasp_arm == 'r' ? Util::active_gripper_starting_position[1]*-1 : Util::active_gripper_starting_position[1]);
@@ -248,7 +269,7 @@ bool getPlacingSurface(){
     const float max_yaw = Util::PI/2.0;  // 90°
     const float yaw_step = Util::PI/4.0; // 45°
     float yaw = min_yaw;
-    ROS_INFO("Se inicia búsqueda de superficie");
+    ROS_INFO("PLACE: Mirando a primer punto de búsqueda");
     // Mirar al frente
     r_driver->head->lookAt(Util::BASE_FRAME, 1.5, 0, 0);
     // Contenedor de nube de puntos
@@ -257,7 +278,7 @@ bool getPlacingSurface(){
                               cloud_surface(new PointCloud<PointXYZ>());
     // Iterar y mirar alrededor
     while (yaw <= max_yaw){
-        ROS_INFO("PLACE: Rotando a yaw = %f", Util::toGrad(yaw));
+        ROS_INFO("PLACE: Rotando cabeza a yaw = %f", Util::toGrad(yaw));
         // Rotar cabeza
         r_driver->head->rotate(Util::BASE_FRAME, yaw);
         ros::Duration(Util::KINECT_STABILIZE_TIME).sleep();
@@ -295,13 +316,15 @@ bool getPlacingSurface(){
                     return false;
                 }
             }
+            ROS_INFO("PLACE: Refinación exitosa");
             // Superficie refinada. Guardar
             the_surface->setCloud(cloud_surface);
             the_surface->setNormal(surface_normal);
             the_surface->setCentroid(surface_centroid);
             // Agregar superficie al collision world
             PolygonMesh surface_triangles = Util::getTriangulation(cloud_surface);
-            Util::addSurfaceAsCollisionObject(co_pub, surface_triangles);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+            Util::addSurfaceAsCollisionObject(co_pub, surface_triangles);
+            ROS_INFO("PLACE: Finaliza exitosamente adquisición con superficie de %d puntos", (int)cloud_surface->points.size());                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
             return true;
         }
         ROS_INFO("PLACE: No encontrada. Iterando...");
@@ -416,7 +439,6 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
     r_driver->head->lookAt(Util::BASE_FRAME, centroid.x, centroid.y, centroid.z);
     return true;    
 }
-
 /**
  * placeObject         Toma la pose estable del objeto, relativo al gripper, y la nube de puntos de la superficie
  *                     encontrada, para buscar en la superficie algun lugar donde poder poner el objeto. Cuando encuentra
@@ -430,14 +452,16 @@ bool moveToSurface(PointCloud<PointXYZ>::Ptr cloud){
  * @return             True en éxito, false en caso contrario
  */
 bool placeObject(){
+    ROS_INFO("PLACE: Comienza posicionamiento de objeto");
     ros::NodeHandle nh_;
     ros::Publisher gripper_pose_pub = nh_.advertise<geometry_msgs::PoseStamped>("gripper_pose",1);
     ros::Publisher gripper_future_pose_pub = nh_.advertise<geometry_msgs::PoseStamped>("gripper_future_pose",1);
 
     // Eliminar puntos donde no puede ocurrir el placing
-    PointIndices::Ptr placing_points = Util::getFactiblePlacingPointsIndices((the_surface->cloud), the_surface->normal, the_object->base_area);
+    // PointIndices::Ptr placing_points = Util::getFactiblePlacingPointsIndices((the_surface->cloud), the_surface->normal, the_object->base_area);
 
     // Volver a llevar gripper a pose de scan
+    ROS_INFO("PLACE: Moviendo gripper activo a pose default");
     bool gotopose_ok;
     if (grasp_arm == 'l')
         gotopose_ok = r_driver->lgripper->goToPose(last_scan_pose);
@@ -447,8 +471,152 @@ bool placeObject(){
         ROS_ERROR("PLACE: No se pudo ir a la pose especificada");
         return false;
     }
+    ROS_INFO("PLACE: Comienza búsqueda de pose para griper basada en estabilidad de objeto");
+    // Obtener transformación, transformar pose estable y superficie a baseframe
+    geometry_msgs::PoseStamped stable_pose_odom;
+    stable_pose_odom.header.frame_id = Util::ODOM_FRAME;
+    Eigen::Matrix4f gripper_to_odom_tf = Util::getTransformation(the_object->stable_pose.header.frame_id, Util::ODOM_FRAME);
+    stable_pose_odom.pose = Util::transformPose(the_object->stable_pose.pose, gripper_to_odom_tf); // OJO ACÁ, TRANSFORM DE POSE ESTABLE. OJO SI ESTO GENERA ERRORES
+    // Iterar (hasta éxito o hasta máximo de intentos)
+    // Crear arreglo de 0 a (the_surface->cloud)->points.size()
+    int pc_indices[(int)(the_surface->cloud)->points.size()];
+    for (int i=0; i<(int)(the_surface->cloud)->points.size(); i++)
+        pc_indices[i] = i;
+    // Desordenar indices
+    random_shuffle(&pc_indices[0], &pc_indices[(int)(the_surface->cloud)->points.size()-1]);
+    for (int i=0; i<(int)(the_surface->cloud)->points.size(); i++){
+        ROS_INFO("PLACE: Mostrando posible punto de placing (indice %d de %d)", i, (int)(the_surface->cloud)->points.size());
+        // Construyo una posible pose, basado en puntos de la superficie y la normal transformada
+        geometry_msgs::PoseStamped new_surface_pose;
+        new_surface_pose.header.frame_id = Util::ODOM_FRAME;
+        new_surface_pose.pose.position.x = (the_surface->cloud)->points[pc_indices[i]].x;
+        new_surface_pose.pose.position.y = (the_surface->cloud)->points[pc_indices[i]].y;
+        new_surface_pose.pose.position.z = (the_surface->cloud)->points[pc_indices[i]].z;
+        new_surface_pose.pose.orientation = the_surface->normal.pose.orientation;
+        surface_pose_pub.publish(new_surface_pose);
+        surface_pose_pub.publish(new_surface_pose);
+        surface_pose_pub.publish(new_surface_pose);
+        // obtener transformación pose estable a pose alcanzable
+        
+        geometry_msgs::PoseStamped gripper_pose;
+        if (grasp_arm == 'l')
+            gripper_pose = r_driver->lgripper->getCurrentPose();
+        else
+            gripper_pose = r_driver->rgripper->getCurrentPose();
+        ROS_INFO("PLACE: Transformando pose gripper a baseframe");
+        gripper_pose_pub.publish(gripper_pose);
+        gripper_pose_pub.publish(gripper_pose);
+        gripper_pose_pub.publish(gripper_pose);
+        ROS_INFO("PLACE: Calculando y mostrando futura posible pose del gripper");
+        Eigen::Vector3f pose_ini_orientation = Util::quaternionMsgToVector(stable_pose_odom.pose.orientation);
+        Eigen::Vector3f pose_end_orientation = Util::quaternionMsgToVector(new_surface_pose.pose.orientation);
+        // ROTACION CON QUATERNION
+        // Obtener quaternion de rotación entre pose inicial y final del objeto
+        Eigen::Quaternionf rotation_q = Util::getQuaternionBetweenVectors(pose_ini_orientation, pose_end_orientation);
+        // Rotar orientación y posición del gripper
+        Eigen::Vector3f gripper_p (gripper_pose.pose.position.x, gripper_pose.pose.position.y, gripper_pose.pose.position.z);
+        Eigen::Vector3f gripper_q = Util::quaternionMsgToVector(gripper_pose.pose.orientation);
+        Eigen::Vector3f object_pose_ini (stable_pose_odom.pose.position.x, stable_pose_odom.pose.position.y, stable_pose_odom.pose.position.z);
+        Eigen::Vector3f object_pose_end (new_surface_pose.pose.position.x, new_surface_pose.pose.position.y, new_surface_pose.pose.position.z);
+        // Usar valores de pose que manda para transformar gripper_pose_base
+        gripper_p -= object_pose_ini;
+        Eigen::Quaternionf gripper_p_quat = Util::eigenVectorToQuaternion(gripper_p);
+        gripper_p_quat = rotation_q*gripper_p_quat*rotation_q.inverse();
+        Eigen::Quaternionf gripper_q_quat = Util::eigenVectorToQuaternion(gripper_q);
+        gripper_q_quat = rotation_q*gripper_q_quat*rotation_q.inverse();
+        gripper_q_quat.normalize();
+        gripper_q = gripper_q_quat.vec();
+        gripper_p = gripper_p_quat.vec() + object_pose_end;
+        gripper_p.z() += Util::PLACING_Z_MARGIN;
+        
+        // Rotar pose alrededor de la normal de la pose tentativa
+        if (gripper_q[0] < 0){
+            ROS_INFO("PLACE: Pose apunta hacia el robot... rotando");
+            Eigen::AngleAxis<float> rotate(Util::PI, Util::quaternionMsgToVector(new_surface_pose.pose.orientation));
+            gripper_p -= object_pose_end;
+            gripper_p = rotate*gripper_p;
+            gripper_p += object_pose_end;
+            gripper_q = rotate*gripper_q;
+        }
+        geometry_msgs::PoseStamped gripper_future_pose;
+        gripper_future_pose.header.frame_id = Util::ODOM_FRAME;
+        gripper_future_pose.pose.position.x = gripper_p[0];
+        gripper_future_pose.pose.position.y = gripper_p[1];
+        gripper_future_pose.pose.position.z = gripper_p[2];
+        gripper_future_pose.pose.orientation = Util::coefsToQuaternionMsg(gripper_q[0], gripper_q[1], gripper_q[2]);
+        // Publicar
+        gripper_future_pose_pub.publish(gripper_future_pose);
+        gripper_future_pose_pub.publish(gripper_future_pose);
+        gripper_future_pose_pub.publish(gripper_future_pose);
+        // Intentar ir a la pose
+        ROS_INFO("PLACE: Intentando ir a pose...");
+        if (grasp_arm == 'l')
+            gotopose_ok = r_driver->lgripper->goToPose(gripper_future_pose);
+        else
+            gotopose_ok = r_driver->rgripper->goToPose(gripper_future_pose);
+        if (gotopose_ok){
+            ROS_INFO("PLACE: Pose alcanzada");
+            // Soltar objeto
+            // Quitar gripper
+            // El gripper retrocederá una distancia determinada, en la misma dirección que su orientación
+            geometry_msgs::PoseStamped gripper_backoff_pose = gripper_future_pose;
+            Eigen::Vector3f backoff_position = gripper_p - Util::PLACING_BACKOFF_DISTANCE*(gripper_q.normalized());
+            gripper_backoff_pose.pose.position.x = backoff_position[0];
+            gripper_backoff_pose.pose.position.y = backoff_position[1];
+            gripper_backoff_pose.pose.position.z = backoff_position[2];
+            if (grasp_arm == 'l'){
+                ROS_INFO("PLACE: Abriendo gripper izquierdo");
+                r_driver->lgripper->setOpening(1, -1);
+                Util::detachMeshFromGripper(aco_pub, co_pub);
+                ros::Duration(1.0).sleep();
+                ROS_INFO("PLACE: Retrocediendo gripper");
+                r_driver->lgripper->goToPose(gripper_backoff_pose);
+                ROS_INFO("PLACE: Cerrando gripper izquierdo");
+                r_driver->lgripper->setOpeningNonBlocking(0, 1000);
+            }
+            else{
+                ROS_INFO("PLACE: Abriendo gripper derecho");
+                r_driver->rgripper->setOpening(1, -1);
+                Util::detachMeshFromGripper(aco_pub, co_pub);
+                ros::Duration(1.0).sleep();
+                ROS_INFO("PLACE: Retrocediendo gripper");
+                r_driver->rgripper->goToPose(gripper_backoff_pose);
+                ROS_INFO("PLACE: Cerrando gripper derecho");
+                r_driver->rgripper->setOpeningNonBlocking(0, 1000);
+            }
+            ROS_INFO("PLACE: Objeto exitosamente posicionado");
+            return true;
+        }
+        // END TEST
 
-    // Obtener transformación, transformar pose y plano a baseframe
+        ros::Duration(0.3).sleep();
+    }
+    return false;
+    
+}
+
+/*bool placeObject_old(){
+    ROS_INFO("PLACE: Comienza posicionamiento de objeto");
+    ros::NodeHandle nh_;
+    ros::Publisher gripper_pose_pub = nh_.advertise<geometry_msgs::PoseStamped>("gripper_pose",1);
+    ros::Publisher gripper_future_pose_pub = nh_.advertise<geometry_msgs::PoseStamped>("gripper_future_pose",1);
+
+    // Eliminar puntos donde no puede ocurrir el placing
+    // PointIndices::Ptr placing_points = Util::getFactiblePlacingPointsIndices((the_surface->cloud), the_surface->normal, the_object->base_area);
+
+    // Volver a llevar gripper a pose de scan
+    ROS_INFO("PLACE: Moviendo gripper activo a pose default");
+    bool gotopose_ok;
+    if (grasp_arm == 'l')
+        gotopose_ok = r_driver->lgripper->goToPose(last_scan_pose);
+    else
+        gotopose_ok = r_driver->rgripper->goToPose(last_scan_pose);
+    if (not gotopose_ok){
+        ROS_ERROR("PLACE: No se pudo ir a la pose especificada");
+        return false;
+    }
+    ROS_INFO("PLACE: Comienza búsqueda de pose para griper basada en estabilidad de objeto");
+    // Obtener transformación, transformar pose estable y superficie a baseframe
     geometry_msgs::PoseStamped stable_pose_base;
     stable_pose_base.header.frame_id = Util::BASE_FRAME;
     Eigen::Matrix4f gripper_to_base_tf = Util::getTransformation(the_object->stable_pose.header.frame_id, Util::BASE_FRAME);
@@ -531,11 +699,13 @@ bool placeObject(){
         gripper_future_pose_pub.publish(gripper_future_pose);
         gripper_future_pose_pub.publish(gripper_future_pose);
         // Intentar ir a la pose
+        ROS_INFO("PLACE: Intentando ir a pose...");
         if (grasp_arm == 'l')
             gotopose_ok = r_driver->lgripper->goToPose(gripper_future_pose);
         else
             gotopose_ok = r_driver->rgripper->goToPose(gripper_future_pose);
         if (gotopose_ok){
+            ROS_INFO("PLACE: Pose alcanzada");
             // Soltar objeto
             // Quitar gripper
             // El gripper retrocederá una distancia determinada, en la misma dirección que su orientación
@@ -564,6 +734,7 @@ bool placeObject(){
                 ROS_INFO("PLACE: Cerrando gripper derecho");
                 r_driver->rgripper->setOpeningNonBlocking(0, 1000);
             }
+            ROS_INFO("PLACE: Objeto exitosamente posicionado");
             return true;
         }
         // END TEST
@@ -572,7 +743,7 @@ bool placeObject(){
     }
     return false;
     
-}
+}*/
 void place(geometry_msgs::PoseStamped placing_pose){
     vector<moveit_msgs::PlaceLocation> loc;
     moveit_msgs::PlaceLocation g;
@@ -597,7 +768,7 @@ void place(geometry_msgs::PoseStamped placing_pose){
     g.post_place_posture.points.resize(1);
     g.post_place_posture.points[0].positions.resize(1);
     g.post_place_posture.points[0].positions[0] = 1;
-
+    ROS_INFO("PLACE: Intentando posicionar con place de moveit");
     loc.push_back(g);
     if (grasp_arm == 'l'){
         r_driver->lgripper->moveit_group_->setSupportSurfaceName(Util::COLLISION_SURFACE_ID);
@@ -609,6 +780,7 @@ void place(geometry_msgs::PoseStamped placing_pose){
         r_driver->rgripper->moveit_group_->setPlannerId("RRTConnectkConfigDefault");
         r_driver->rgripper->moveit_group_->place(Util::COLLISION_MESH_ID, loc);   
     }
+    ROS_INFO("PLACE: Fin place moveit");
 }
 
 /**
@@ -646,6 +818,17 @@ int main(int argc, char **argv){
     r_driver = new RobotDriver();
     
 
+    // vector<string> joints;
+    // if (grasp_arm == 'l')
+    //     joints = r_driver->lgripper->moveit_group_->getJoints();
+    // else
+    //     joints = r_driver->rgripper->moveit_group_->getJoints();
+    // for (int  i=0; i<(int)joints.size(); i++){
+    //     printf("Joint[%d]: %s\n", i, joints[i].c_str());
+    // }
+
+
+
 
 
 
@@ -682,6 +865,7 @@ int main(int argc, char **argv){
         ROS_ERROR("No se pudo obtener el objeto");
         endProgram(1);
     }
+
     ROS_INFO("Objeto obtenido. Obteniendo superficie");
     object_pc_pub.publish(the_object->object_pc);
     object_pc_pub.publish(the_object->object_pc);

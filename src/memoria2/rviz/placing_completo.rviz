@@ -6,6 +6,8 @@ Panels:
       Expanded:
         - /PlanningScene1/Scene Geometry1
         - /PlanningScene1/Scene Robot1
+        - /gripper_pose1
+        - /gripper_future_pose1
         - /MotionPlanning1
         - /MotionPlanning1/Scene Geometry1
         - /MotionPlanning1/Scene Robot1
@@ -737,6 +739,20 @@ Visualization Manager:
       Axes Length: 1
       Axes Radius: 0.1
       Class: rviz/Pose
+      Color: 85; 170; 0
+      Enabled: true
+      Head Length: 0.1
+      Head Radius: 0.04
+      Name: gripper_pose
+      Shaft Length: 0.4
+      Shaft Radius: 0.01
+      Shape: Axes
+      Topic: /gripper_pose
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.1
+      Class: rviz/Pose
       Color: 85; 255; 0
       Enabled: true
       Head Length: 0.1
@@ -744,7 +760,7 @@ Visualization Manager:
       Name: gripper_future_pose
       Shaft Length: 0.4
       Shaft Radius: 0.01
-      Shape: Arrow
+      Shape: Axes
       Topic: /gripper_future_pose
       Value: true
     - Alpha: 1
@@ -774,20 +790,6 @@ Visualization Manager:
       Shaft Radius: 0.005
       Shape: Arrow
       Topic: /surface_pose
-      Value: true
-    - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.1
-      Class: rviz/Pose
-      Color: 85; 170; 0
-      Enabled: true
-      Head Length: 0.1
-      Head Radius: 0.04
-      Name: gripper_pose
-      Shaft Length: 0.4
-      Shaft Radius: 0.01
-      Shape: Arrow
-      Topic: /gripper_pose
       Value: true
     - Alpha: 1
       Axes Length: 1
@@ -1870,7 +1872,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.18025
+      Distance: 1.45524
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
@@ -1882,10 +1884,10 @@ Visualization Manager:
         Z: 1.33933
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.454797
+      Pitch: 0.459797
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.13532
+      Yaw: 5.16532
     Saved: ~
 Window Geometry:
   Displays:
