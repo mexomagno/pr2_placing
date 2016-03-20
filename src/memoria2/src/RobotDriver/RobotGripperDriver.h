@@ -8,6 +8,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/planning_interface/planning_interface.h>
+#include <tf/transform_listener.h>
 // #include <moveit/planning_scene_interface/planning_scene_interface.h>
 
 using namespace std;
@@ -18,16 +19,18 @@ class RobotGripperDriver{
 	ros::Subscriber gripper_status_;
 	ros::Publisher gripper_goal_;
     moveit::planning_interface::MoveGroup::Plan planner_;
-    moveit::planning_interface::MoveGroup *moveit_group_;
     ros::AsyncSpinner *spinner_;
-	char which_;
+    char which_;
     public:
+        moveit::planning_interface::MoveGroup *moveit_group_;
         RobotGripperDriver(const string which);
         ~RobotGripperDriver();
         bool setOpening(float opening, float max_effort);
+        bool setOpeningNonBlocking(float opening, float max_effort);
         string getWhich();
         geometry_msgs::PoseStamped getCurrentPose();
         bool goToPose(geometry_msgs::PoseStamped pose);
+        bool moveElsewhere();
     protected:
     private:
 };

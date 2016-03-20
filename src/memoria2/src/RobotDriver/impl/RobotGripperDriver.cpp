@@ -5,6 +5,11 @@ const float MAX_EFFORT = 1000;
 const float RESEND_DELAY = 0.1;
 const float MAX_OPENING = 0.085;
 const float MIN_OPENING = 0;
+const int GO_TO_POSE_RETRIES = 2;
+const float ELSEWHERE_POSITION[] = {0, 0.4, -0.62}; 
+const float ELSEWHERE_ORIENTATION[] = {Util::PI/2.0, Util::PI/2.0, 0}; 
+
+
 string GOAL_TOPIC;
 string STATUS_TOPIC;
 // VARIABLES GLOBALES
@@ -68,6 +73,19 @@ bool RobotGripperDriver::setOpening(float opening, float max_effort = MAX_EFFORT
 	ROS_INFO("RobotGripperDriver: %s gripper movido", this->getWhich().c_str());
 	return true;
 }
+bool RobotGripperDriver::setOpeningNonBlocking(float opening, float max_effort = MAX_EFFORT){
+    ROS_INFO("RobotGripperDriver: Seteando %s gripper apertura %f", this->getWhich().c_str(), opening);
+    ROS_WARN("RobotGripperDriver: No se esperará feedback");
+    float position = (MAX_OPENING - MIN_OPENING)*opening + MIN_OPENING;
+    pr2_conrollers_msgs::Pr2GripperCommandActionGoal action_goal;
+    action_goal.goal.command.max_effort = (max_effort < MAX_EFFORT ? max_effort : MAX_EFFORT);
+    while (gripper_goal_.getNumSubscribers() == 0)
+        ros::Duration(0.05).sleep();
+    gripper_goal_.publish(action_goal);
+    gripper_goal_.publish(action_goal);
+    gripper_goal_.publish(action_goal);
+    ROS_INFO("RobotGripperDriver: Comando correctamente enviado a gripper %s", this->getWhich().c_str());
+}
 string RobotGripperDriver::getWhich(){
 	switch (this->which_){
 		case 'l': return "left";
@@ -79,18 +97,57 @@ string RobotGripperDriver::getWhich(){
 geometry_msgs::PoseStamped RobotGripperDriver::getCurrentPose(){
     return this->moveit_group_->getCurrentPose();
 }
-bool RobotGripperDriver::goToPose(geometry_msgs::PoseStamped pose){
+bool RobotGripperDriver::goToPose(geometry_msgs::PoseStamped pose_in){
+    geometry_msgs::PoseStamped pose;
+    if (pose_in.header.frame_id != Util::ODOM_FRAME){
+        ROS_WARN("RobotGripperDriver: Se recibe pose respecto a frame '%s'. Transformando...", pose_in.header.frame_id.c_str());
+        Eigen::Matrix4f tf = Util::getTransformation(pose_in.header.frame_id, Util::ODOM_FRAME);
+        pose.pose = Util::transformPose(pose_in.pose, tf);
+        pose.header.frame_id = Util::ODOM_FRAME;
+    }
+    else
+        pose=pose_in;
 	this->moveit_group_->setPoseTarget(pose);
     ROS_INFO("RobotGripperDriver: Planeando para pose (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f, %.2f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
-    bool plan_done = this->moveit_group_->plan(this->planner_);
-    ROS_INFO("RobotGripperDriver: Plan %s", plan_done ? "EXITOSO" : "FALLIDO");
-    if (plan_done){
-    	ROS_INFO("RobotGripperDriver: Ejecutando plan...");
-    	this->moveit_group_->move();
+    bool plan_done;
+    for (int i=0; i<GO_TO_POSE_RETRIES; i++){
+        ROS_INFO("RobotGripperDriver: Intento %d de %d de ir a pose", i+1, GO_TO_POSE_RETRIES);
+        plan_done = this->moveit_group_->plan(this->planner_);
+        if (plan_done){
+            ROS_INFO("RobotGripperDriver: Plan EXITOSO");
+            for (int j=0; j<GO_TO_POSE_RETRIES; j++){
+                ROS_INFO("Intento %d de %d de ejecutarlo...", j+1, GO_TO_POSE_RETRIES);
+                bool move_done = this->moveit_group_->move();
+                if (move_done){
+                    ROS_INFO("RobotGripperDriver: Plan ejecutado con éxito.");
+                    return move_done;
+                }
+                ROS_WARN("Ocurrió un problema al ejecutar el plan. %s", (j< GO_TO_POSE_RETRIES - 1 ? " Reintentando..." : ""));
+            }
+            break;
+        }
+        ROS_WARN("RobotGripperDriver: Plan FALLIDO %s", (i < GO_TO_POSE_RETRIES - 1 ? ". Reintentando..." : ""));
     }
-    return plan_done;
+    ROS_ERROR("RobotGripperDriver: No se pudo ir a la pose después de %d intentos", GO_TO_POSE_RETRIES);
+    return false;
+}
+/**
+ * moveElsewhere mueve el gripper a un lugar donde no moleste. Por ahora se define esta pose como al lado del robot, abajo.
+ * @return [description]
+ */
+bool RobotGripperDriver::moveElsewhere(){
+    geometry_msgs::PoseStamped pose;
+    pose.header.frame_id = Util::TORSO_FRAME;
+    pose.pose.position.x = ELSEWHERE_POSITION[0];
+    pose.pose.position.y = ELSEWHERE_POSITION[1] * (which_ == 'l' ? 1 : -1);
+    pose.pose.position.z = ELSEWHERE_POSITION[2];
+    pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(ELSEWHERE_ORIENTATION[0], ELSEWHERE_ORIENTATION[1], ELSEWHERE_ORIENTATION[2]);
+    return goToPose(pose);
 }
 /**
  * TODO:
  * 		- Implementar timeout en setOpening.
+ *
+ * DONE:
+ *      - Implementer goToPose dependiente del frame
  */
