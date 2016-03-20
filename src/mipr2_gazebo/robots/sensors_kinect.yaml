@@ -1,8 +1,9 @@
 sensors:
   - sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
     point_cloud_topic: /head_mount_kinect/depth_registered/points
-    max_range: 5.0
+    max_range: 3.5 # default 5.0
     point_subsample: 1 # default 1. No puede ser <1
     padding_offset: 0.009 #default 0.1
     padding_scale: 1.0 # default 1.0
     filtered_cloud_topic: moveit_self_filtered
+# - sensor_plugin: occupancy_map_monitor/DepthImageOctomapUpdater # Propuesto en internet para mejor update de voxels, https://github.com/ros-planning/moveit_ros/issues/315
