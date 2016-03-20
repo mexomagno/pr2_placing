@@ -82,6 +82,7 @@ class Util{
         static const string COLLISION_SURFACE_ID;
         static const string GRIPPER_JOINT_PREFIX;
         static const string GRIPPER_LINK_PREFIX;
+        static const string ARM_ROLL_JOINT_PREFIX;
 
         // Otros
         static const float PI;

@@ -24,6 +24,7 @@ const string Util::COLLISION_MESH_ID           = "object_collision_mesh";
 const string Util::COLLISION_SURFACE_ID        = "surface_collision_mesh";
 const string Util::GRIPPER_JOINT_PREFIX        = "_gripper_joint";
 const string Util::GRIPPER_LINK_PREFIX         = "_wrist_roll_link";
+const string Util::ARM_ROLL_JOINT_PREFIX       = "_upper_arm_roll_joint";
 
 // Otros
 const float Util::PI                      = 3.1416;
@@ -214,6 +215,7 @@ PolygonMesh Util::getConvexHull(PointCloud<PointXYZ>::Ptr cloud){
     return mesh;
 }
 PolygonMesh Util::getTriangulation(PointCloud<PointXYZ>::Ptr cloud){
+    ROS_INFO("GETTRIANGULATION: Se ingresa nube de %d puntos", (int)cloud->points.size());
     // Calcular normales
     NormalEstimation<PointXYZ, Normal> n;
     PointCloud<Normal>::Ptr normals (new PointCloud<Normal>());
@@ -223,16 +225,18 @@ PolygonMesh Util::getTriangulation(PointCloud<PointXYZ>::Ptr cloud){
     n.setSearchMethod(tree);
     n.setKSearch(20);
     n.compute(*normals);
+    ROS_INFO("GETTRIANGULATION: Obtenidas %d normales", (int)normals->points.size());
     // Crear nube con normales
     PointCloud<PointNormal>::Ptr cloud_with_normals (new PointCloud<PointNormal>());
     concatenateFields(*cloud, *normals, *cloud_with_normals);
+    ROS_INFO("GETTRIANGULATION: Concatenada resulta en  %d point-normals", (int)cloud_with_normals->points.size());
     // 
     search::KdTree<PointNormal>::Ptr tree2 (new search::KdTree<PointNormal>());
     tree2->setInputCloud(cloud_with_normals);
     // Triangular
     PolygonMesh triangles;
     GreedyProjectionTriangulation<PointNormal> gp3;
-    gp3.setSearchRadius(SEG_THRESHOLD);
+    gp3.setSearchRadius(SEG_THRESHOLD*13);
     gp3.setMu(2.5);
     gp3.setMaximumNearestNeighbors(50);
     gp3.setMaximumSurfaceAngle(Util::PI/4); // 45°
@@ -242,6 +246,8 @@ PolygonMesh Util::getTriangulation(PointCloud<PointXYZ>::Ptr cloud){
     gp3.setInputCloud(cloud_with_normals);
     gp3.setSearchMethod(tree2);
     gp3.reconstruct(triangles);
+    ROS_INFO("GETTRIANGULATION: Finalmente se obtuvo %d triángulos", (int)triangles.polygons.size());
+
     return triangles;
 }
 // Transformaciones
@@ -749,7 +755,7 @@ void Util::addSurfaceAsCollisionObject(ros::Publisher &collision_object_pub, Pol
     co.mesh_poses.push_back(mesh_pose);
     co.operation = co.ADD;
     collision_object_pub.publish(co);
-    ROS_INFO("UTIL: Haciendi tiempo para que desaparezcan voxels cerca de la superficie...");
+    ROS_INFO("UTIL: Haciendo tiempo para que desaparezcan voxels cerca de la superficie...");
     ros::Duration(Util::VOXEL_UPDATE_DELAY).sleep();
 }
 void Util::pclPolygonMeshToShapeMsg(PolygonMesh pclmesh, shape_msgs::Mesh &shapemsg){
