@@ -236,13 +236,13 @@ void prePick(string object, moveit::planning_interface::MoveGroup &group){
         return;
     }
     geometry_msgs::Pose pose_lata = gms_srv.response.pose;
-    pose_lata.position.x -=0.2;
+    pose_lata.position.x -=0.3;
     pose_lata.position.z +=0.03;
     pose_lata.orientation.x = pose_lata.orientation.y = pose_lata.orientation.z = 0;
     pose_lata.orientation.w = 1;
     // Guardar la pose actual
     //geometry_msgs::PoseStamped prev_pose = group.getCurrentPose();
-    ROS_INFO("Situándose detras de la lata");
+    ROS_INFO("Situándose detras del objeto");
     joint_values = group.getCurrentJointValues();
     for (int i = 0; i < joint_values.size(); i++)
         printf("currentJointValues %d: %f\n", i, joint_values[i]);
