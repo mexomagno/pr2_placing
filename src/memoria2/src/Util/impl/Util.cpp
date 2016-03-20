@@ -7,6 +7,8 @@ const string Util::BASE_FRAME                  = "/base_footprint";
 const string Util::ODOM_FRAME                  = "/odom_combined";
 const string Util::CAMERA_FRAME                = "/high_def_frame";
 const string Util::KINECT_FRAME                = "/head_mount_kinect_rgb_optical_frame";
+const string Util::TORSO_FRAME                 = "/torso_lift_link";
+const string Util::GRIPPER_FRAME_SUFFIX        = "_gripper_tool_frame";
 
 // Tópicos
 const string Util::KINECT_TOPIC                = "/head_mount_kinect/depth_registered/points";
@@ -15,6 +17,13 @@ const string Util::GRIPPER_GOAL_TOPIC_SUFFIX   = "_gripper_controller/gripper_ac
 const string Util::GRIPPER_STATUS_TOPIC_SUFFIX = "_gripper_controller/gripper_action/result";
 const string Util::BASE_CONTROLLER_TOPIC       = "/base_controller/command";
 const string Util::ODOM_TOPIC                  = "/base_odometry/odom";
+
+// Strings en general
+const string Util::COLLISION_BALL_ID           = "object_collision_ball"; 
+const string Util::COLLISION_MESH_ID           = "object_collision_mesh"; 
+const string Util::COLLISION_SURFACE_ID        = "surface_collision_mesh";
+const string Util::GRIPPER_JOINT_PREFIX        = "_gripper_joint";
+const string Util::GRIPPER_LINK_PREFIX         = "_wrist_roll_link";
 
 // Otros
 const float Util::PI                      = 3.1416;
@@ -37,8 +46,7 @@ const float Util::active_gripper_starting_orientation[] = {0, -Util::PI/2.0, 0};
 
 // Gripper Scanner
 const float Util::SCAN_ROLL_DELTA         = Util::PI/2.0;
-const string Util::GRIPPER_FRAME_SUFFIX   = "_gripper_tool_frame";
-const float Util::scan_position[]         = {0.6, 0, 1.2};
+const float Util::scan_position[]         = {0.68, 0, 0.01}; // RELATIVO A TORSO
 const float Util::scan_orientation[]      = {0, -Util::PI/2.0, 0}; //R, P, Y
 const float Util::tuck_position[]         = {0, 0.40, 0.48}; // Relativo a baseframe
 const float Util::tuck_orientation[]      = {Util::PI/2.0, Util::PI/2.0, 0}; // relativo a baseframe
@@ -46,6 +54,7 @@ const float Util::GRIPPER_STABILIZE_TIME  = 1;
 const float Util::SCAN_PASSTHROUGH_Z      = 0.5;
 const float Util::SCAN_LEAFSIZE           = 0.005;
 float       Util::COLLISION_BALL_RADIUS   = 0.20; // Radio de bola protectora de gripper
+const float Util::VOXEL_UPDATE_DELAY      = 1;
 // Stable surface
 const float Util::PATCH_ANGLE_THRESHOLD  = 0.2;
 // Placing 
@@ -112,7 +121,6 @@ PointCloud<PointXYZ>::Ptr Util::subsampleCloud(PointCloud<PointXYZ>::Ptr cloud_i
     cloud_out->header.frame_id = cloud_in->header.frame_id;
     return cloud_out;
 }
-
 geometry_msgs::Point Util::getCloudCentroid(PointCloud<PointXYZ>::Ptr cloud_in){
     Eigen::Vector4f centroid;
     compute3DCentroid(*cloud_in, centroid);
@@ -205,6 +213,37 @@ PolygonMesh Util::getConvexHull(PointCloud<PointXYZ>::Ptr cloud){
     chull.reconstruct(mesh);
     return mesh;
 }
+PolygonMesh Util::getTriangulation(PointCloud<PointXYZ>::Ptr cloud){
+    // Calcular normales
+    NormalEstimation<PointXYZ, Normal> n;
+    PointCloud<Normal>::Ptr normals (new PointCloud<Normal>());
+    search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>());
+    tree->setInputCloud(cloud);
+    n.setInputCloud(cloud);
+    n.setSearchMethod(tree);
+    n.setKSearch(20);
+    n.compute(*normals);
+    // Crear nube con normales
+    PointCloud<PointNormal>::Ptr cloud_with_normals (new PointCloud<PointNormal>());
+    concatenateFields(*cloud, *normals, *cloud_with_normals);
+    // 
+    search::KdTree<PointNormal>::Ptr tree2 (new search::KdTree<PointNormal>());
+    tree2->setInputCloud(cloud_with_normals);
+    // Triangular
+    PolygonMesh triangles;
+    GreedyProjectionTriangulation<PointNormal> gp3;
+    gp3.setSearchRadius(SEG_THRESHOLD);
+    gp3.setMu(2.5);
+    gp3.setMaximumNearestNeighbors(50);
+    gp3.setMaximumSurfaceAngle(Util::PI/4); // 45°
+    gp3.setMinimumAngle(Util::PI/18); // 10°
+    gp3.setMaximumAngle(2*Util::PI/3); // 120°
+    gp3.setNormalConsistency(false);
+    gp3.setInputCloud(cloud_with_normals);
+    gp3.setSearchMethod(tree2);
+    gp3.reconstruct(triangles);
+    return triangles;
+}
 // Transformaciones
 Eigen::Vector3f Util::transformVector(Eigen::Vector3f vector_in, Eigen::Matrix4f transf){
     Eigen::Vector4f vector_in_4f(vector_in[0], vector_in[1], vector_in[2], 1);
@@ -274,59 +313,18 @@ Eigen::Quaternionf Util::getQuaternionBetweenVectors(Eigen::Vector3f vini, Eigen
     rotation_q.w() = 1 + vini.dot(vend); // Asume que vini y vend están normalizados
     return rotation_q;
 }
-/*Eigen::Matrix4f Util::getTransformBetweenPoses(geometry_msgs::Pose pose_ini, geometry_msgs::Pose pose_end){
-    // Algoritmo para rotación sacado de http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
-    // Transformar quaternions a vectores
-    tf::Quaternion tf_q;
-    tf::quaternionMsgToTF(pose_ini.orientation, tf_q);
-    tf::Vector3 normal1(1, 0, 0), normal2(1, 0, 0);
-    normal1 = tf::quatRotate(tf_q, normal2);
-    normal1.normalize();
-    Eigen::Vector3f pose_ini_orientation (normal1.x(), normal1.y(), normal1.z());
-    tf::quaternionMsgToTF(pose_end.orientation, tf_q);
-    normal2 = tf::quatRotate(tf_q, normal2);
-    normal2.normalize();
-    Eigen::Vector3f pose_end_orientation (normal2.x(), normal2.y(), normal2.z());
-    // Calcular matriz de rotación
-    Eigen::Vector3f v = pose_ini_orientation.cross(pose_end_orientation);
-    float s = v.norm();
-    float c = pose_ini_orientation.dot(pose_end_orientation);
-    Eigen::Matrix3f R = Eigen::Matrix3f::Identity();
-    // R = I + [v]x + [v]x^2(1-c/s)
-    Eigen::Matrix3f vskew;
-    vskew << 0, -v[2], v[1],
-             v[2], 0, -v[0],
-             -v[1], v[0], 0;
-    R = R + vskew + vskew*vskew*((1-c)/s);
-    // Crear matriz de traslación
-    Eigen::Vector3f T(pose_ini.position.x-pose_end.position.x, pose_ini.position.y-pose_end.position.y, pose_ini.position.z-pose_end.position.z);
-    // Juntar matrices y generar una sola matriz de transformación
-    Eigen::Matrix4f transformation;
-    transformation << R(0,0), R(0,1), R(0,2), T[0],
-                      R(1,0), R(1,1), R(1,2), T[1],
-                      R(2,0), R(2,1), R(2,2), T[2],
-                         0   ,    0   ,   0    ,  1;
-    ROS_INFO("UTIL: getTransformBetweenPoses( (%f, %f, %f) , (%f, %f, %f)) -> \nT: (%f, %f, %f)", pose_ini.position.x, pose_ini.position.y, pose_ini.position.z, pose_end.position.x, pose_end.position.x, pose_end.position.x, T[0], T[1], T[2]);
-    return transformation;
-}*/
-/*Eigen::Vector3f Util::quaternionMsgToVector(geometry_msgs::Quaternion q){
-    tf::Quaternion tf_q;
-    tf::quaternionMsgToTF(q, tf_q);
-    tf::Vector3 itongo(1, 0, 0);
-    itongo = tf::quatRotate(tf_q, itongo);
-    itongo.normalize(); // Redundante
-    return Eigen::Vector3f (itongo.x(), itongo.y(), itongo.z());
-}*/
-// Utilidades específicas
+// Utilidades específicas Placing
 /**
  * searchPlacingSurface: Función que busca iterativamente en una nube de puntos la ocurrencia de una superficie plana sensata para efectuar el placing.
  *                         Este método debe ser llamado INMEDIATAMENTE luego de obtener la nube de puntos desde el kinect.
- * @param  cloud_in    : Nube de puntos donde buscar
- * @param  min_height  : Altura mínima de la superficie
- * @param  max_height  : Altura máxima de la superficie
- * @param  inclination : Inclinación máxima admitida
- * @return 
- * @param  cloud_out   : Donde se retornan los inliers
+ * @param  cloud_in          : Nube de puntos donde buscar
+ * @param  &cloud_out        : Nube de puntos que representa a la superficie RELATIVA A ODOM
+ * @param  &surface_normal   : Normal de la superficie RELATIVA A ODOM
+ * @param  &surface_centroid : Centroide nube RELATIVO A ODOM
+ * @param  min_height        : Mínima altura aceptable segun ODOM
+ * @param  max_height        : Máxima altura aceptable segun ODOM
+ * @param  inclination       : Máxima inclinación aceptable, en radianes, relativa al plano XY. Mesa lisa tiene inclinación PI/2
+ * @return  True en éxito, False en caso contrario.
  */
 bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, geometry_msgs::PointStamped &surface_centroid, float min_height, float max_height, float inclination){
     // variables auxiliares, para borrar
@@ -373,21 +371,12 @@ bool Util::searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<P
         extractor.setNegative(false);
         extractor.filter(*cloud_plane);
         // Verificar primer criterio de aceptación: Altura mínima
-        // pc_pub1.publish(*cloud_plane);
         ROS_INFO("UTIL: Area aproximada de la superficie: %fm2", Util::SUBSAMPLE_LEAFSIZE*Util::SUBSAMPLE_LEAFSIZE*(int)inliers->indices.size());
         geometry_msgs::PointStamped cloud_centroid, cloud_centroid_base;
         cloud_centroid.point = Util::getCloudCentroid(cloud_plane);
         cloud_centroid.header.frame_id = cloud_in->header.frame_id;
-        // cloud_centroid.header.stamp = stamped_tf.stamp_;
-        // point_pub1.publish(cloud_centroid);
-        /*Eigen::Vector4f centroid_vector (cloud_centroid.point.x, cloud_centroid.point.y, cloud_centroid.point.z, 1);
-        Eigen::Vector4f centroid_vector_base = transformation*centroid_vector;
-        cloud_centroid_base.point.x = centroid_vector_base[0];
-        cloud_centroid_base.point.y = centroid_vector_base[1];
-        cloud_centroid_base.point.z = centroid_vector_base[2];*/
         cloud_centroid_base.header.frame_id = Util::ODOM_FRAME;
         cloud_centroid_base.point = Util::transformPoint(cloud_centroid.point, transformation);
-        // tf_listener.transformPoint(Util::ODOM_FRAME, cloud_centroid, cloud_centroid_base);
         ROS_INFO("UTIL: Centroide según base: (%f, %f, %f)", cloud_centroid_base.point.x, cloud_centroid_base.point.y, cloud_centroid_base.point.z);
         point_pub2.publish(cloud_centroid_base);
         if (cloud_centroid_base.point.z > min_height and cloud_centroid_base.point.z < max_height){
@@ -590,6 +579,7 @@ bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoeffici
     // printf("Nube NO es cortada por plano\n");
     return false;
 }
+// Collision objects
 void worldCallback(const moveit_msgs::PlanningScene::Ptr &scene){
     if (not get_world)
         return;
@@ -605,7 +595,6 @@ void worldCallback(const moveit_msgs::PlanningScene::Ptr &scene){
     }
     get_world = false;
 }
-
 /**
  * enableDefaultGripperCollisions habilita o deshabilita la esfera de protección del gripper. Permite que se mueva libremente sin chocar con el objeto tomado.
  * @param attached_object_pub  Publicador para objetos attachados al robot
@@ -617,10 +606,12 @@ void worldCallback(const moveit_msgs::PlanningScene::Ptr &scene){
 void Util::enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper){
     // Crear collision object
     moveit_msgs::CollisionObject co;
-    co.id = "gripper_collision_ball";
+    co.id = Util::COLLISION_BALL_ID;
     moveit_msgs::AttachedCollisionObject a_co;
-    a_co.link_name = (which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link");
-    co.header.frame_id = (which_gripper == 'l' ? "l_gripper_tool_frame" : "r_gripper_tool_frame");
+    // a_co.link_name = (which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link");
+    a_co.link_name = (which_gripper == 'l' ? "l" : "r") + Util::GRIPPER_LINK_PREFIX;
+    // co.header.frame_id = (which_gripper == 'l' ? "l_gripper_tool_frame" : "r_gripper_tool_frame");
+    co.header.frame_id = (which_gripper == 'l' ? "l" : "r") + Util::GRIPPER_FRAME_SUFFIX;
     // Crear shape y su pose, y añadirla
     shape_msgs::SolidPrimitive shape;
     shape.type = shape.SPHERE;
@@ -634,21 +625,7 @@ void Util::enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, r
     co.primitive_poses.push_back(co_pose);
     // Configurar attached para agregar a gripper
     // Agregando links permitidos
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
-    a_co.touch_links.push_back("base_link");
+    Util::setAllowedCollisionLinks(a_co, which_gripper);
     // Añadiendo objeto
     if (enable){
         co.operation = co.ADD;
@@ -659,9 +636,12 @@ void Util::enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, r
     a_co.object = co;
     // Publicar nuevo objeto attachado al robot
     attached_object_pub.publish(a_co);
-    if (enable)
+    if (enable){
+        ROS_INFO("UTIL: Haciendo tiempo para que desaparezcan voxels dentro de collision object...");
+        ros::Duration(Util::VOXEL_UPDATE_DELAY).sleep(); // Para esperar que desaparezcan voxels dentro de la esfera;
         return;
-    ros::Duration(0.3).sleep();
+    }
+    ros::Duration(0.3).sleep(); // Para asegurarse de que el tópico escuchó nuestra petición y la entendió, por ende, desattachó.
     // En este punto, el objeto está desattachado del robot pero existe en el mundo.
     // Hay que eliminarlo ahora del mundo de manera segura.
     Util::removeCollisionObjectFromWorld(collision_object_pub, co);
@@ -694,27 +674,12 @@ void Util::attachBoundingBoxToGripper(ros::Publisher &attached_object_pub, ros::
     co.primitive_poses.push_back(co_pose);
     // Configurar attached para agregar a gripper
     // Agregando links permitidos
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
-    a_co.touch_links.push_back("base_link");
+    Util::setAllowedCollisionLinks(a_co, which_gripper);
     // Añadiendo objeto
     a_co.object = co;
     // Publicar nuevo objeto attachado al robot
     attached_object_pub.publish(a_co);
 }
-
 /**
  * detachBoundingBoxFromGripper elimina bounding box del objeto graspeado del gripper y luego del mundo.
  * @param attached_object_pub  Publicador para objetos attachados al robot
@@ -740,44 +705,12 @@ void Util::detachBoundingBoxFromGripper(ros::Publisher &attached_object_pub, ros
  * @param object_mesh          Malla del objeto, representada como Polymesh
  */
 void Util::attachMeshToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper, Polymesh &object_mesh){
-    // ROS_INFO("UTIL: Se intentará agregar mesh al world");
-    // moveit_msgs::CollisionObject co;
-    // co.header.frame_id = (which_gripper == 'l' ? "l_gripper_tool_frame" : "r_gripper_tool_frame");
-    // co.id = "object_collision_mesh";
-    // shapes::Mesh m;
-    // Util::polymeshToShapeMsg(object_mesh, m);
-    // ROS_INFO("UTIL: Se intentara crear shape_msg a partir del mesh creado por mi");
-    // shape_msgs::Mesh co_mesh;
-    // shapes::ShapeMsg co_mesh_msg;
-    // shapes::constructMsgFromShape(&m, co_mesh_msg);
-    // ROS_INFO("UTIL: Mesh creado. Se intentara crear boost mesh");
-    // co_mesh = boost::get<shape_msgs::Mesh>(co_mesh_msg);
-    // ROS_INFO("UTIL: boost mesh creado.");
-    // co.meshes.resize(1);
-    // co.mesh_poses.resize(1);
-    // co.meshes[0] = co_mesh;
-    // co.mesh_poses.resize(1);
-    // co.mesh_poses[0].position.x = 0;
-    // co.mesh_poses[0].position.y = 0;
-    // co.mesh_poses[0].position.z = 0;
-    // co.mesh_poses[0].orientation.x = 0;
-    // co.mesh_poses[0].orientation.y = 0;
-    // co.mesh_poses[0].orientation.z = 0;
-    // co.mesh_poses[0].orientation.w = 1;
-    // ROS_INFO("UTIL: push_backs");
-    // co.meshes.push_back(co_mesh);
-    // co.mesh_poses.push_back(co.mesh_poses[0]);
-    // co.operation = co.ADD;
-    // ROS_INFO("UTIL: publish");
-    // collision_object_pub.publish(co);
-    // ROS_INFO("UTIL: done publishing");   
-
     moveit_msgs::CollisionObject co;
     co.header.frame_id = (which_gripper == 'l' ? "l_gripper_tool_frame" : "r_gripper_tool_frame");
-    co.id = "object_collision_mesh";
+    co.id = Util::COLLISION_MESH_ID;
     // crear y agregar malla
     shape_msgs::Mesh co_mesh;
-    polymeshToShapeMsg(object_mesh, co_mesh);
+    pclPolygonMeshToShapeMsg(object_mesh.getPCLMesh(), co_mesh);
     geometry_msgs::Pose mesh_pose;
     mesh_pose.orientation.w = 1;
     co.meshes.push_back(co_mesh);
@@ -787,79 +720,39 @@ void Util::attachMeshToGripper(ros::Publisher &attached_object_pub, ros::Publish
     // Crear attached collision object
     moveit_msgs::AttachedCollisionObject a_co;
     a_co.link_name = (which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" : "l_gripper_r_finger_tip_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" : "r_gripper_r_finger_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" : "r_gripper_l_finger_tip_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" : "r_gripper_l_finger_link"); 
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" : "r_wrist_roll_link"); // redundante
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" : "r_wrist_flex_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" : "r_forearm_roll_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" : "r_elbow_flex_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" : "r_upper_arm_roll_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" : "r_shoulder_lift_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" : "r_forearm_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" : "r_gripper_motor_accelerometer_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" : "r_gripper_palm_link");
-    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  : "r_upper_arm_link");
-    a_co.touch_links.push_back("base_link");
+    Util::setAllowedCollisionLinks(a_co, which_gripper);
     // Añadiendo objeto
     a_co.object = co;
     // Publicar
     attached_object_pub.publish(a_co);
+    ROS_INFO("UTIL: Haciendo tiempo para que desaparezcan voxels dentro de collision object...");
+    ros::Duration(Util::VOXEL_UPDATE_DELAY).sleep(); // Para esperar que desaparezcan voxels dentro de la esfera;
 }
 void Util::detachMeshFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub){
     moveit_msgs::CollisionObject co;
-    co.id = "object_collision_mesh";
+    co.id = Util::COLLISION_MESH_ID;
     co.operation = co.REMOVE;
     moveit_msgs::AttachedCollisionObject a_co;
     a_co.object = co;
     attached_object_pub.publish(a_co);
     removeCollisionObjectFromWorld(collision_object_pub, co);
 }
-
-
-/*void Util::polymeshToShapemesh(Polymesh &pmesh, shapes::Mesh &smesh){
-    ROS_INFO("UTIL: Se intentará convertir polymesh a shape mesh");
-    // shapes::Mesh outmesh;// (new shapes::Mesh());
-    ROS_INFO("UTIL: Obteniendo pclmesh desde polymesh");
-    PolygonMesh pclmesh = pmesh.getPCLMesh();
-    PointCloud<PointXYZ>::Ptr pclcloud = pmesh.getPointCloud();//Util::getConvexHull(pmesh.getPointCloud());//= pmesh.getPCLMesh();
-    int n_triangles = (int)pclmesh.polygons.size();
-    int n_vertices = (int)pclcloud->points.size();
-    smesh.triangle_count = n_triangles;
-    smesh.vertex_count = n_vertices;
-    unsigned int triangles[n_triangles*3];
-    double vertices[n_vertices*3];
-    ROS_INFO("UTIL: triangle count: %d, vertex_count: %d", smesh.triangle_count, smesh.vertex_count);
-    ROS_INFO("UTIL: Construyendo %d vertices", n_vertices);
-    // Construir arreglo de vértices
-    for (int i=0; i<n_vertices; i++){
-        vertices[3*i] = pclcloud->points[i].x;
-        vertices[3*i+1] = pclcloud->points[i].y;
-        vertices[3*i+2] = pclcloud->points[i].z;
-    }
-    ROS_INFO("UTIL: Construyendo vertices");
-    // Construir arreglo de triangulos (poligonos)
-    for (int i=0; i<n_triangles; i++){
-        triangles[3*i] = ((unsigned int)pclmesh.polygons[i].vertices[0])*3;
-        triangles[3*i+1] = ((unsigned int)pclmesh.polygons[i].vertices[1])*3;
-        triangles[3*i+2] = ((unsigned int)pclmesh.polygons[i].vertices[2])*3;
-    }
-    ROS_INFO("UTIL: Asignando arreglos a estructura interna de mesh");
-    smesh.triangles = triangles;
-    smesh.vertices = vertices;
-    ROS_INFO("UTIL: Primer punto primer triangulo segun pcl: (%f, %f, %f)", pclcloud->points[pclmesh.polygons[0].vertices[0]].x, pclcloud->points[pclmesh.polygons[0].vertices[0]].y, pclcloud->points[pclmesh.polygons[0].vertices[0]].z);
-    ROS_INFO("UTIL: Primer punto primer triangulo segun mesh: (%f, %f, %f)", smesh.vertices[smesh.triangles[3*(0) + 0]], smesh.vertices[smesh.triangles[3*(0) + 0]+1], smesh.vertices[smesh.triangles[3*(0) + 0]+2]);
-    ROS_INFO("UTIL: segundo punto quinto triangulo segun pcl: (%f, %f, %f)", pclcloud->points[pclmesh.polygons[4].vertices[1]].x, pclcloud->points[pclmesh.polygons[4].vertices[1]].y, pclcloud->points[pclmesh.polygons[4].vertices[1]].z);
-    ROS_INFO("UTIL: segundo punto quinto triangulo segun mesh: (%f, %f, %f)", smesh.vertices[smesh.triangles[3*(4) + 1]], smesh.vertices[smesh.triangles[3*(4) + 1]+1], smesh.vertices[smesh.triangles[3*(4) +1]+2]);
-    ROS_INFO("UTIL: Computando normales y vertex normals");
-    smesh.computeTriangleNormals();
-    smesh.computeVertexNormals();
-    ROS_INFO("UTIL: DONE!");
-
-}*/
-
-void Util::polymeshToShapeMsg(Polymesh &pmesh, shape_msgs::Mesh &shapemsg){
+void Util::addSurfaceAsCollisionObject(ros::Publisher &collision_object_pub, PolygonMesh &surface_mesh){
+    moveit_msgs::CollisionObject co;
+    co.header.frame_id = Util::ODOM_FRAME;
+    co.id = Util::COLLISION_SURFACE_ID;
+    shape_msgs::Mesh co_mesh;
+    pclPolygonMeshToShapeMsg(surface_mesh, co_mesh);
+    geometry_msgs::Pose mesh_pose;
+    mesh_pose.orientation.w = 1;
+    co.meshes.push_back(co_mesh);
+    co.mesh_poses.push_back(mesh_pose);
+    co.operation = co.ADD;
+    collision_object_pub.publish(co);
+    ROS_INFO("UTIL: Haciendi tiempo para que desaparezcan voxels cerca de la superficie...");
+    ros::Duration(Util::VOXEL_UPDATE_DELAY).sleep();
+}
+void Util::pclPolygonMeshToShapeMsg(PolygonMesh pclmesh, shape_msgs::Mesh &shapemsg){
     // Un mesh se compone de:
     //  1) Una lista de triángulos compuestos de
     //      1.1) Una lista de índices al arreglo de vértices
@@ -872,9 +765,12 @@ void Util::polymeshToShapeMsg(Polymesh &pmesh, shape_msgs::Mesh &shapemsg){
     */
     
     // Obtener malla y nube
-    PolygonMesh pclmesh = pmesh.getPCLMesh();
-    PointCloud<PointXYZ>::Ptr pclcloud = pmesh.getPointCloud();
-    int n_triangles = pmesh.getPolygonNumber();
+    // PolygonMesh pclmesh = pmesh.getPCLMesh();
+    // PointCloud<PointXYZ>::Ptr pclcloud = pmesh.getPointCloud();
+    // int n_triangles = pmesh.getPolygonNumber();
+    PointCloud<PointXYZ>::Ptr pclcloud (new PointCloud<PointXYZ>());
+    fromPCLPointCloud2(pclmesh.cloud, *pclcloud);
+    int n_triangles = (int)pclmesh.polygons.size();
     int n_vertices = (int)pclcloud->points.size();
     // Poblar vértices
     for (int i = 0; i < n_vertices; i++){
@@ -895,13 +791,29 @@ void Util::polymeshToShapeMsg(Polymesh &pmesh, shape_msgs::Mesh &shapemsg){
     }
     // listo
 }
-
 // PRIVATE
 bool Util::isPointInsideBox(PointXYZ p, Box box){
     bool in_x = (p.x > box.center[0] - box.size[0]/2.0) and (p.x < box.center[0] + box.size[0]/2.0);
     bool in_y = (p.y > box.center[1] - box.size[1]/2.0) and (p.y < box.center[1] + box.size[1]/2.0);
     bool in_z = (p.z > box.center[2] - box.size[2]/2.0) and (p.z < box.center[2] + box.size[2]/2.0);
     return in_x and in_y and in_z;
+}
+void Util::setAllowedCollisionLinks(moveit_msgs::AttachedCollisionObject &a_co, char which_gripper){
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_tip_link" :           "r_gripper_r_finger_tip_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_r_finger_link" :               "r_gripper_r_finger_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_tip_link" :           "r_gripper_l_finger_tip_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_l_finger_link" :               "r_gripper_l_finger_link"); 
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_roll_link" :                     "r_wrist_roll_link"); // redundante
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_wrist_flex_link" :                     "r_wrist_flex_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_roll_link" :                   "r_forearm_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_elbow_flex_link" :                     "r_elbow_flex_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_roll_link" :                 "r_upper_arm_roll_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_shoulder_lift_link" :                  "r_shoulder_lift_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_forearm_link" :                        "r_forearm_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_motor_accelerometer_link" :    "r_gripper_motor_accelerometer_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_gripper_palm_link" :                   "r_gripper_palm_link");
+    a_co.touch_links.push_back(which_gripper == 'l' ? "l_upper_arm_link"  :                     "r_upper_arm_link");
+    a_co.touch_links.push_back("base_link");
 }
 void Util::removeCollisionObjectFromWorld(ros::Publisher &collision_object_pub, moveit_msgs::CollisionObject co){
     // Subscribir al tópico que informa del mundo para verificar que se borró el objeto

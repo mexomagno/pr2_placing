@@ -15,6 +15,8 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/common/centroid.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/surface/gp3.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/surface/concave_hull.h>
 #include <pcl/surface/convex_hull.h>
@@ -63,6 +65,8 @@ class Util{
         static const string ODOM_FRAME;
         static const string CAMERA_FRAME;
         static const string KINECT_FRAME;
+        static const string TORSO_FRAME;
+        static const string GRIPPER_FRAME_SUFFIX;
 
         // Tópicos
         static const string KINECT_TOPIC;
@@ -71,6 +75,13 @@ class Util{
         static const string GRIPPER_STATUS_TOPIC_SUFFIX;
         static const string BASE_CONTROLLER_TOPIC;
         static const string ODOM_TOPIC;
+
+        // Strings en general
+        static const string COLLISION_BALL_ID;
+        static const string COLLISION_MESH_ID;
+        static const string COLLISION_SURFACE_ID;
+        static const string GRIPPER_JOINT_PREFIX;
+        static const string GRIPPER_LINK_PREFIX;
 
         // Otros
         static const float PI;
@@ -85,7 +96,6 @@ class Util{
         static const float active_gripper_starting_orientation[];
         // Gripper scanner
         static const float SCAN_ROLL_DELTA;
-        static const string GRIPPER_FRAME_SUFFIX;
         static const float scan_position[];
         static const float scan_orientation[];
         static const float tuck_position[];
@@ -94,6 +104,7 @@ class Util{
         static const float SCAN_PASSTHROUGH_Z;
         static const float SCAN_LEAFSIZE;
         static       float COLLISION_BALL_RADIUS;
+        static const float VOXEL_UPDATE_DELAY;
         // GetPlacingPose
         static const float PATCH_ANGLE_THRESHOLD;
         static const float PLACING_Z_MARGIN;
@@ -112,36 +123,32 @@ class Util{
         static void getClosestPoint(PointCloud<PointXYZ>::Ptr cloud, geometry_msgs::PointStamped &closest_point, float &closest_point_distance);
         static Eigen::Matrix4f getTransformation(string orig_frame, string target_frame);
         static PolygonMesh getConvexHull(PointCloud<PointXYZ>::Ptr cloud);
+        static PolygonMesh getTriangulation(PointCloud<PointXYZ>::Ptr cloud);
         // Transformaciones
         static Eigen::Vector3f transformVector(Eigen::Vector3f vector_in, Eigen::Matrix4f transf);
         static geometry_msgs::Point transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf);
         static geometry_msgs::Pose transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf);
         static Eigen::Matrix3f getRotationBetweenVectors(Eigen::Vector3f v1, Eigen::Vector3f v2);
         static Eigen::Quaternionf getQuaternionBetweenVectors(Eigen::Vector3f vini, Eigen::Vector3f vend);
-        // static Eigen::Matrix4f getTransformBetweenPoses(geometry_msgs::Pose pose_ini, geometry_msgs::Pose pose_end);
         // Utilidades específicas
         static bool searchPlacingSurface(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &cloud_out, geometry_msgs::PoseStamped &surface_normal, geometry_msgs::PointStamped &surface_centroid, float min_height, float max_height, float inclination);
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
         static PointIndices::Ptr getFactiblePlacingPointsIndices(PointCloud<PointXYZ>::Ptr cloud_in, geometry_msgs::PoseStamped surface_normal_pose, float base_area);
-        // static bool getStablePose(PointCloud<PointXYZ>::Ptr object_pc, PointCloud<PointXYZ>::Ptr gripper_pc, geometry_msgs::PoseStamped &pose_out);
         static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);
 
         // Collision World
-        // static void disableGripperCollisions(char which_gripper, bool disable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, float radius = 0.15);
-        // static void enableCollisionBox(BBOriented bounding_box, string frame_id, bool enable, ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
-        // static void clearCollisionObjects(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
-
         static void enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper);
         static void attachBoundingBoxToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper, BBOriented bounding_box);
         static void detachBoundingBoxFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_gripper);
         static void attachMeshToGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, char which_arm, Polymesh &object_mesh);
         static void detachMeshFromGripper(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub);
-
+        static void addSurfaceAsCollisionObject(ros::Publisher &collision_object_pub, PolygonMesh &surface_mesh);
     protected:
     private:
         static bool isPointInsideBox(PointXYZ p, Box box);
+        static void pclPolygonMeshToShapeMsg(PolygonMesh pclmesh, shape_msgs::Mesh &shapemsg);
         static void removeCollisionObjectFromWorld(ros::Publisher &collision_object_pub, moveit_msgs::CollisionObject co);
-        static void polymeshToShapeMsg(Polymesh &pmesh, shape_msgs::Mesh &shapemsg);
+        static void setAllowedCollisionLinks(moveit_msgs::AttachedCollisionObject &a_co, char which_gripper);
 };
 
 #endif // UTIL_H

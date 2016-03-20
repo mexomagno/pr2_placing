@@ -18,11 +18,11 @@ class PlacingSurface{
 
 public:
 	// VARIABLES
-	// nube de puntos
+	// nube de puntos RELATIVA A ODOM
 	PointCloud<PointXYZ>::Ptr cloud;
-	// Vector normal
+	// Vector normal RELATIVO A ODOM
 	geometry_msgs::PoseStamped normal;
-	// Centroide
+	// Centroide RELATIVO A ODOM
 	geometry_msgs::PointStamped centroid;
 
 	// MÉTODOS
