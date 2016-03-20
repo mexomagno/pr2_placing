@@ -55,7 +55,10 @@ void PlacedObject::setBaseArea(float new_base_area){
 // void PlacedObject::setBoundingBox(vector<PointXYZ> new_bounding_box){
 //     bounding_box = new_bounding_box;
 // }
-
+/**
+ * computeStablePose calcula pose estable. Nube del objeto y de la nube debieran estar en el frame del gripper.
+ * @return [description]
+ */
 bool PlacedObject::computeStablePose(){
 	geometry_msgs::PoseStamped pose_out;
 	ROS_INFO("PLACEDOBJECT: Realizando cálculo de pose estable");
