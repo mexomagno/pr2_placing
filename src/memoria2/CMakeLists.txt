@@ -169,6 +169,16 @@ target_link_libraries(place2 ${catkin_LIBRARIES})
 add_executable(teleop_gripper src/teleop_gripper.cpp)
 target_link_libraries(teleop_gripper ${catkin_LIBRARIES})
 
+
+## TESTING 
+
+set(SOURCES_TEST ${PROJECT_SOURCE_DIR}/src/Util/impl/Util.cpp)
+
+add_executable(tf_test src/tf_test.cpp ${SOURCES})
+target_link_libraries(tf_test ${catkin_LIBRARIES})
+
+
+
 #############
 ## Install ##
 #############
