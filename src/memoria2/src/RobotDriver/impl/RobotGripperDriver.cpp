@@ -36,6 +36,8 @@ RobotGripperDriver::RobotGripperDriver(const string which){
     ROS_INFO("RobotGripperDriver: Inicializando grupo '%s'", group_s.c_str());
     // moveit::planning_interface::MoveGroup group(group_s.c_str());
     this->moveit_group_ = new moveit::planning_interface::MoveGroup(group_s.c_str());
+    this->moveit_group_->setPlannerId(Util::MOVEIT_PLANNER);
+    this->moveit_group_->setPlanningTime(Util::MOVEIT_PLANNING_TIME);
     ROS_INFO("RobotGripperDriver: Creando e iniciando spinner");
     this->spinner_ = new ros::AsyncSpinner(1);
     this->spinner_->start();
