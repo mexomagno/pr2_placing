@@ -128,6 +128,7 @@ class Util{
         // Transformaciones
         static Eigen::Vector3f transformVector(Eigen::Vector3f vector_in, Eigen::Matrix4f transf);
         static geometry_msgs::Point transformPoint(geometry_msgs::Point point_in, Eigen::Matrix4f transf);
+        static geometry_msgs::Quaternion transformOrientation(geometry_msgs::Quaternion q, Eigen::Matrix4f transf);
         static geometry_msgs::Pose transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf);
         static Eigen::Matrix3f getRotationBetweenVectors(Eigen::Vector3f v1, Eigen::Vector3f v2);
         static Eigen::Quaternionf getQuaternionBetweenVectors(Eigen::Vector3f vini, Eigen::Vector3f vend);

@@ -30,6 +30,10 @@ const string Util::ARM_ROLL_JOINT_PREFIX       = "_upper_arm_roll_joint";
 const float Util::PI                      = 3.1416;
 const float Util::SUBSAMPLE_LEAFSIZE      = 0.05;
 const int   FIND_SURFACE_POSE_RETRYS      = 3;
+const float Util::MOVEIT_PLANNING_TIME    = 1;
+const string Util::MOVEIT_PLANNER         = "RRTConnectkConfigDefault"; 
+
+
 // segmentación
 const float WAIT_TF_TIMEOUT               = 1.0;
 const float SEG_THRESHOLD                 = 0.01;
@@ -55,11 +59,11 @@ const float Util::GRIPPER_STABILIZE_TIME  = 1;
 const float Util::SCAN_PASSTHROUGH_Z      = 0.5;
 const float Util::SCAN_LEAFSIZE           = 0.005;
 float       Util::COLLISION_BALL_RADIUS   = 0.20; // Radio de bola protectora de gripper
-const float Util::VOXEL_UPDATE_DELAY      = 1;
+const float Util::VOXEL_UPDATE_DELAY      = 1.5;
 // Stable surface
 const float Util::PATCH_ANGLE_THRESHOLD  = 0.2;
 // Placing 
-const float Util::PLACING_Z_MARGIN        = 0.01; // [Mejor funcional: 0.08] Distancia desde el objeto a la superficie, donde soltarlo. MOVER CON CUIDADO PARA NO CHOCAR CON OCTOMAP
+const float Util::PLACING_Z_MARGIN        = 0.02; // [Mejor funcional: 0.08] Distancia desde el objeto a la superficie, donde soltarlo. MOVER CON CUIDADO PARA NO CHOCAR CON OCTOMAP
 const float Util::PLACING_BACKOFF_DISTANCE = 0.15; // Distancia hacia la que retroceder cuando se suelta el objeto
 
 
@@ -190,7 +194,8 @@ Eigen::Matrix4f Util::getTransformation(string frame_ini, string frame_end){
         ROS_ERROR("UTIL: Excepcion al obtener transformacion: %s", ex.what());
         return transformation;
     }
-    tf::Matrix3x3 rotation = stamped_tf.getBasis();
+    // tf::Matrix3x3 rotation = stamped_tf.getBasis();
+    tf::Matrix3x3 rotation (stamped_tf.getRotation());
     tf::Vector3 translation = stamped_tf.getOrigin();
     Eigen::Matrix3f upleft3x3;
     upleft3x3 << rotation[0][0], rotation[0][1], rotation[0][2],
@@ -271,7 +276,31 @@ geometry_msgs::Point Util::transformPoint(geometry_msgs::Point point_in, Eigen::
     point_out.z = point_4f[2];
     return point_out;
 }
-geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf){
+geometry_msgs::Quaternion Util::transformOrientation(geometry_msgs::Quaternion q, Eigen::Matrix4f tf){
+    // Obtener componente de rotacion de la matriz
+    tf::Matrix3x3 rotation (tf(0,0), tf(0,1), tf(0,2), tf(1,0), tf(1,1), tf(1,2), tf(2,0), tf(2,1), tf(2,2));
+    // Convertir a quaternion tf
+    tf::Quaternion rot_q;
+    rotation.getRotation(rot_q);
+    // Convertir quaternionmsg a tf
+    tf::Quaternion in_q (q.x, q.y, q.z, q.w);
+    // Añadir rotaciones
+    rot_q *= in_q; // OJO: SERÁ EL ORDEN CORRECTO?
+    // Crear nuevo quaternion
+    geometry_msgs::Quaternion new_q;
+    new_q.x = rot_q.x();
+    new_q.y = rot_q.y();
+    new_q.z = rot_q.z();
+    new_q.w = rot_q.w();
+    return new_q;
+}
+geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matrix4f tf){
+    geometry_msgs::Pose pose_out;
+    pose_out.position = transformPoint(pose_in.position, tf);
+    pose_out.orientation = transformOrientation(pose_in.orientation, tf);
+    return pose_out;
+}
+/*geometry_msgs::Pose Util::transformPose_old(geometry_msgs::Pose pose_in, Eigen::Matrix4f transf){
     geometry_msgs::Pose pose_out;
     // Obtener rotación desde matriz de transformación
     Eigen::Matrix4f rot;
@@ -292,7 +321,7 @@ geometry_msgs::Pose Util::transformPose(geometry_msgs::Pose pose_in, Eigen::Matr
     // Transportar posición
     pose_out.position = Util::transformPoint(pose_in.position, transf);
     return pose_out;
-}
+}*/
 Eigen::Matrix3f Util::getRotationBetweenVectors(Eigen::Vector3f vini, Eigen::Vector3f vend){
     Eigen::Vector3f norm_vini = vini.normalized();
     Eigen::Vector3f norm_vend = vend.normalized();
