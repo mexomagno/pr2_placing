@@ -28,6 +28,7 @@
 #include <moveit_msgs/CollisionObject.h>
 #include <shape_msgs/SolidPrimitive.h>
 #include "../Polymesh/Polymesh.h"
+#include "../PlacingSurface/PlacingSurface.h"
 #include <geometric_shapes/shape_operations.h>
 // #include <shape_msgs/ShapeMsg.h>
 // #include "../RobotDriver/RobotDriver.h"
@@ -67,6 +68,7 @@ class Util{
         static const string KINECT_FRAME;
         static const string TORSO_FRAME;
         static const string GRIPPER_FRAME_SUFFIX;
+        static const string SHOULDER_FRAME_SUFFIX;
 
         // Tópicos
         static const string KINECT_TOPIC;
@@ -95,6 +97,8 @@ class Util{
         static const int   SURFACE_REFINING_ITERATIONS;
         static const float active_gripper_starting_position[];
         static const float active_gripper_starting_orientation[];
+        static const float MOVEIT_PLANNING_TIME;
+        static const string MOVEIT_PLANNER;
         // Gripper scanner
         static const float SCAN_ROLL_DELTA;
         static const float scan_position[];
@@ -137,6 +141,7 @@ class Util{
         static bool gripperFilter(PointCloud<PointXYZ>::Ptr cloud_in, PointCloud<PointXYZ>::Ptr &object_out, PointCloud<PointXYZ>::Ptr &gripper_out);
         static PointIndices::Ptr getFactiblePlacingPointsIndices(PointCloud<PointXYZ>::Ptr cloud_in, geometry_msgs::PoseStamped surface_normal_pose, float base_area);
         static bool isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoefficients::Ptr coefs, PointXYZ p_plane);
+        static vector<geometry_msgs::PoseStamped> getPossiblePlacingPoses(char which_gripper, PlacingSurface the_surface, geometry_msgs::PoseStamped stable_pose, geometry_msgs::PoseStamped gripper_current_pose);
 
         // Collision World
         static void enableDefaultGripperCollisions(ros::Publisher &attached_object_pub, ros::Publisher &collision_object_pub, bool enable, char which_gripper);

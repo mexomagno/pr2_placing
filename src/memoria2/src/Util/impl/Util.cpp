@@ -9,6 +9,7 @@ const string Util::CAMERA_FRAME                = "/high_def_frame";
 const string Util::KINECT_FRAME                = "/head_mount_kinect_rgb_optical_frame";
 const string Util::TORSO_FRAME                 = "/torso_lift_link";
 const string Util::GRIPPER_FRAME_SUFFIX        = "_gripper_tool_frame";
+const string Util::SHOULDER_FRAME_SUFFIX       = "_l_shoulder_pan_link";
 
 // Tópicos
 const string Util::KINECT_TOPIC                = "/head_mount_kinect/depth_registered/points";
@@ -32,7 +33,7 @@ const float Util::SUBSAMPLE_LEAFSIZE      = 0.05;
 const int   FIND_SURFACE_POSE_RETRYS      = 3;
 const float Util::MOVEIT_PLANNING_TIME    = 1;
 const string Util::MOVEIT_PLANNER         = "RRTConnectkConfigDefault"; 
-
+const float ARM_LENGTH                    = 0.4+0.321+0.15; // Sacado de especificaciones de hardware del PR2
 
 // segmentación
 const float WAIT_TF_TIMEOUT               = 1.0;
@@ -61,9 +62,10 @@ const float Util::SCAN_LEAFSIZE           = 0.005;
 float       Util::COLLISION_BALL_RADIUS   = 0.20; // Radio de bola protectora de gripper
 const float Util::VOXEL_UPDATE_DELAY      = 1.5;
 // Stable surface
-const float Util::PATCH_ANGLE_THRESHOLD  = 0.2;
+const float Util::PATCH_ANGLE_THRESHOLD   = 0.2;
+const float POSSIBLE_ROTATIONS_NUMBER     = 10;
 // Placing 
-const float Util::PLACING_Z_MARGIN        = 0.02; // [Mejor funcional: 0.08] Distancia desde el objeto a la superficie, donde soltarlo. MOVER CON CUIDADO PARA NO CHOCAR CON OCTOMAP
+const float Util::PLACING_Z_MARGIN        = 0.008; // [Mejor funcional: 0.08] Distancia desde el objeto a la superficie, donde soltarlo. MOVER CON CUIDADO PARA NO CHOCAR CON OCTOMAP
 const float Util::PLACING_BACKOFF_DISTANCE = 0.15; // Distancia hacia la que retroceder cuando se suelta el objeto
 
 
@@ -614,6 +616,104 @@ bool Util::isPointCloudCutByPlane(PointCloud<PointXYZ>::Ptr cloud, ModelCoeffici
     // printf("Nube NO es cortada por plano\n");
     return false;
 }
+vector<geometry_msgs::PoseStamped> Util::getPossiblePlacingPoses(char which_gripper, PlacingSurface the_surface, geometry_msgs::PoseStamped stable_pose, geometry_msgs::PoseStamped gripper_current_pose){
+    
+
+    // obtener posición del hombro del gripper activo
+    ROS_INFO("UTIL: Obteniendo posición del hombro...");
+    string SHOULDER_FRAME = (which_gripper == 'l' ? "l" : "r") + Util::SHOULDER_FRAME_SUFFIX;
+    Eigen::Matrix4f shoulder_odom_tf = Util::getTransformation(SHOULDER_FRAME, Util::ODOM_FRAME);
+    geometry_msgs::Pose zero;
+    zero.position.x = zero.position.y = zero.position.z = zero.orientation.x = zero.orientation.y = zero.orientation.z = 0;
+    zero.orientation.w = 1;
+    geometry_msgs::PoseStamped shoulder_pose;
+    shoulder_pose.header.frame_id = Util::ODOM_FRAME;
+    shoulder_pose.pose = transformPose(zero, shoulder_odom_tf);
+    // Este valor será usado después
+    Eigen::Vector3f shoulder_position (shoulder_pose.pose.position.x, shoulder_pose.pose.position.y, shoulder_pose.pose.position.z);
+    ROS_INFO("UTIL: Hombro en (%f, %f, %f)", shoulder_position.x(), shoulder_position.y(), shoulder_position.z());
+    // Reducir nube de puntos de superficie
+    //      Acá se quita todos los puntos que la nube no puede alcanzar y 
+    //      son restados de la nube
+    PointCloud<PointXYZ>::Ptr reachable_cloud (new PointCloud<PointXYZ>());
+    reachable_cloud->header.frame_id = the_surface.cloud->header.frame_id;
+    // Recorrer puntos de la nube, recoger sólo los cercanos al hombro
+    for (int i=0; i<(int)the_surface.cloud->points.size(); i++){
+        PointXYZ point = the_surface.cloud->points[i];
+        Eigen::Vector3f point_position (point.x, point.y, point.z);
+        if ((point_position-shoulder_position).norm() < ARM_LENGTH){
+            reachable_cloud->points.push_back(point);
+        }
+    }
+    ROS_INFO("UTIL: Puntos superficie: %d. Puntos alcanzables: %d.", (int)the_surface.cloud->points.size(), (int)reachable_cloud->points.size());
+    if ((int)reachable_cloud->points.size() == 0)
+        ROS_WARN("UTIL: No se obtuvo ningún punto alcanzable! ojo!");
+    // Nube construida
+    // Calcular rotación de pose gripper, relativa a pose estable
+    // Notación:    A: poses objeto
+    //              B: poses gripper
+    //              X: Incógnita
+    tf::Quaternion qa (stable_pose.pose.orientation.x, stable_pose.pose.orientation.y, stable_pose.pose.orientation.z, stable_pose.pose.orientation.w);
+    tf::Quaternion qb (gripper_current_pose.pose.orientation.x, gripper_current_pose.pose.orientation.y, gripper_current_pose.pose.orientation.z, gripper_current_pose.pose.orientation.w);
+    tf::Quaternion qx = qa.inverse()*qb;
+    // Para cálculos posteriores vectoriales
+    Eigen::Vector3f va (stable_pose.pose.position.x, stable_pose.pose.position.y, stable_pose.pose.position.z);
+    Eigen::Vector3f vb (gripper_current_pose.pose.position.x, gripper_current_pose.pose.position.y, gripper_current_pose.pose.position.z);
+    Eigen::Vector3f vba = vb-va;                            // Este es el importante. Utilizado para obtener pose.position de gripper al final.
+    geometry_msgs::Quaternion posb_q = Util::coefsToQuaternionMsg(vba.x(), vba.y(), vba.z());
+    tf::Quaternion tf_posb_q (posb_q.x, posb_q.y, posb_q.z, posb_q.w);
+    tf::Quaternion tf_a_posb = qa.inverse()*tf_posb_q;      // Este es el segundo importante. Con este se obtiene la pose.position del gripper haciendo qa*tf_a_posb
+
+    // Construir indices aleatorios de búsqueda en la superficie
+    int pc_indices[(int)reachable_cloud->points.size()];
+    for (int i=0; i<(int)reachable_cloud->points.size(); i++)
+        pc_indices[i] = i;
+    random_shuffle(&pc_indices[0], &pc_indices[(int)reachable_cloud->points.size()-1]);
+    // Recorrer nube de puntos alcanzables en orden aleatorio y poblar arreglo
+    ROS_INFO("UTIL: Comienza creación de puntos posibles de placing");
+    vector<geometry_msgs::PoseStamped> poses_out;
+    for (int i=0; i<(int)reachable_cloud->points.size(); i++){
+        // Construyo nueva pose en el punto actual
+        geometry_msgs::PoseStamped new_surface_pose;
+        new_surface_pose.header.frame_id = Util::ODOM_FRAME;
+        new_surface_pose.pose.position.x = reachable_cloud->points[pc_indices[i]].x;
+        new_surface_pose.pose.position.y = reachable_cloud->points[pc_indices[i]].y;
+        new_surface_pose.pose.position.z = reachable_cloud->points[pc_indices[i]].z;
+        new_surface_pose.pose.orientation = the_surface.normal.pose.orientation;
+        tf::Quaternion new_surface_q (new_surface_pose.pose.orientation.x, new_surface_pose.pose.orientation.y, new_surface_pose.pose.orientation.z, new_surface_pose.pose.orientation.w);
+        Eigen::Vector3f new_surface_position (new_surface_pose.pose.position.x, new_surface_pose.pose.position.y, new_surface_pose.pose.position.z);
+        // Construir futuras poses del gripper alrededor de este punto
+        for (int theta_index = 0; theta_index < POSSIBLE_ROTATIONS_NUMBER; theta_index++){
+            // Crear orientación
+            float current_roll = (2*Util::PI/POSSIBLE_ROTATIONS_NUMBER)*theta_index; // Angulo de rotación actual en radianes
+            geometry_msgs::PoseStamped future_gripper_pose;
+            future_gripper_pose.header.frame_id = Util::ODOM_FRAME;
+            geometry_msgs::Quaternion roll_msg = tf::createQuaternionMsgFromRollPitchYaw(current_roll, 0, 0);
+            tf::Quaternion roll_q (roll_msg.x, roll_msg.y, roll_msg.z, roll_msg.w);
+            tf::Quaternion future_gripper_q = new_surface_q*roll_q*qx;
+            future_gripper_pose.pose.orientation.x = future_gripper_q.x();
+            future_gripper_pose.pose.orientation.y = future_gripper_q.y();
+            future_gripper_pose.pose.orientation.z = future_gripper_q.z();
+            future_gripper_pose.pose.orientation.w = future_gripper_q.w();
+            // Cálculo de posición
+            tf::Quaternion future_gripper_position_q = new_surface_q*roll_q*tf_a_posb;
+            geometry_msgs::Quaternion fgpq_temp;
+            fgpq_temp.x = future_gripper_position_q.x();
+            fgpq_temp.y = future_gripper_position_q.y();
+            fgpq_temp.z = future_gripper_position_q.z();
+            fgpq_temp.w = future_gripper_position_q.w();
+            Eigen::Vector3f future_gripper_position = Util::quaternionMsgToVector(fgpq_temp)*vba.norm() + new_surface_position;
+            future_gripper_pose.pose.position.x = future_gripper_position.x();
+            future_gripper_pose.pose.position.y = future_gripper_position.y();
+            future_gripper_pose.pose.position.z = future_gripper_position.z()+Util::PLACING_Z_MARGIN;
+            // Añadir a lista de poses posibles
+            poses_out.push_back(future_gripper_pose);
+        }
+    }
+    ROS_INFO("UTIL: Finaliza creación de puntos posibles de placing");
+    return poses_out;
+}
+
 // Collision objects
 void worldCallback(const moveit_msgs::PlanningScene::Ptr &scene){
     if (not get_world)

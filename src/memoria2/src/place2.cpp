@@ -484,96 +484,31 @@ bool placeObject(){
     gripper_pose_pub.publish(gripper_current_pose);
     gripper_pose_pub.publish(gripper_current_pose);
     gripper_pose_pub.publish(gripper_current_pose);
-    // Calcular rotación de pose gripper, relativa a pose estable
-    // Notación:    A: poses objeto
-    //              B: poses gripper
-    //              X: Incógnita
-    tf::Quaternion qa (stable_pose.pose.orientation.x, stable_pose.pose.orientation.y, stable_pose.pose.orientation.z, stable_pose.pose.orientation.w);
-    tf::Quaternion qb (gripper_current_pose.pose.orientation.x, gripper_current_pose.pose.orientation.y, gripper_current_pose.pose.orientation.z, gripper_current_pose.pose.orientation.w);
-    tf::Quaternion qx = qa.inverse()*qb;
-    // Para cálculos posteriores vectoriales
-    Eigen::Vector3f va (stable_pose.pose.position.x, stable_pose.pose.position.y, stable_pose.pose.position.z);
-    Eigen::Vector3f vb (gripper_current_pose.pose.position.x, gripper_current_pose.pose.position.y, gripper_current_pose.pose.position.z);
-    Eigen::Vector3f vba = vb-va;                            // Este es el importante. Utilizado para obtener pose.position de gripper al final.
-    geometry_msgs::Quaternion posb_q = Util::coefsToQuaternionMsg(vba.x(), vba.y(), vba.z());
-    tf::Quaternion tf_posb_q (posb_q.x, posb_q.y, posb_q.z, posb_q.w);
-    tf::Quaternion tf_a_posb = qa.inverse()*tf_posb_q;      // Este es el segundo importante. Con este se obtiene la pose.position del gripper haciendo qa*tf_a_posb
 
-/*    // para testear que qx es correcto
-    geometry_msgs::PoseStamped test_pose;
-    test_pose.header.frame_id = Util::ODOM_FRAME;
-    test_pose.pose.position = gripper_current_pose.pose.position;
-    tf::Quaternion test_q = qa*qx;
-    test_pose.pose.orientation.x = test_q.x();
-    test_pose.pose.orientation.y = test_q.y();
-    test_pose.pose.orientation.z = test_q.z();
-    test_pose.pose.orientation.w = test_q.w();
-    test_pose_pub.publish(test_pose);
-    test_pose_pub.publish(test_pose);
-    test_pose_pub.publish(test_pose);
-    // */
-
-
-
-    // Iterar (hasta éxito o hasta máximo de intentos)
-    // Crear arreglo de 0 a (the_surface->cloud)->points.size()
-    int pc_indices[(int)(the_surface->cloud)->points.size()];
-    for (int i=0; i<(int)(the_surface->cloud)->points.size(); i++)
-        pc_indices[i] = i;
-    // Desordenar indices
-    random_shuffle(&pc_indices[0], &pc_indices[(int)(the_surface->cloud)->points.size()-1]);
-    for (int i=0; i<(int)(the_surface->cloud)->points.size(); i++){
-        ROS_INFO("PLACE: Mostrando posible punto de placing (indice %d de %d)", i, (int)(the_surface->cloud)->points.size());
-        // Construyo una posible pose, basado en puntos de la superficie y la normal transformada
-        geometry_msgs::PoseStamped new_surface_pose;
-        new_surface_pose.header.frame_id = Util::ODOM_FRAME;
-        new_surface_pose.pose.position.x = (the_surface->cloud)->points[pc_indices[i]].x;
-        new_surface_pose.pose.position.y = (the_surface->cloud)->points[pc_indices[i]].y;
-        new_surface_pose.pose.position.z = (the_surface->cloud)->points[pc_indices[i]].z;
-        new_surface_pose.pose.orientation = the_surface->normal.pose.orientation;
-        surface_pose_pub.publish(new_surface_pose);
-        surface_pose_pub.publish(new_surface_pose);
-        surface_pose_pub.publish(new_surface_pose);
-        tf::Quaternion new_surface_q (new_surface_pose.pose.orientation.x, new_surface_pose.pose.orientation.y, new_surface_pose.pose.orientation.z, new_surface_pose.pose.orientation.w);
-        Eigen::Vector3f new_surface_position (new_surface_pose.pose.position.x, new_surface_pose.pose.position.y, new_surface_pose.pose.position.z);
-
-        ROS_INFO("PLACE: Calculando y mostrando futura posible pose del gripper");
-        geometry_msgs::PoseStamped future_gripper_pose;
-        future_gripper_pose.header.frame_id = Util::ODOM_FRAME;
-        // Cálculo de orientación: qgrippernueva = qnuevasuperficie*qx
-        tf::Quaternion future_gripper_q = new_surface_q*qx;
-        future_gripper_pose.pose.orientation.x = future_gripper_q.x();
-        future_gripper_pose.pose.orientation.y = future_gripper_q.y();
-        future_gripper_pose.pose.orientation.z = future_gripper_q.z();
-        future_gripper_pose.pose.orientation.w = future_gripper_q.w();
-        // Cálculo de posición:
-        tf::Quaternion future_gripper_position_q = new_surface_q*tf_a_posb;
-        geometry_msgs::Quaternion fgpq_temp;
-        fgpq_temp.x = future_gripper_position_q.x();
-        fgpq_temp.y = future_gripper_position_q.y();
-        fgpq_temp.z = future_gripper_position_q.z();
-        fgpq_temp.w = future_gripper_position_q.w();
-        Eigen::Vector3f future_gripper_position = Util::quaternionMsgToVector(fgpq_temp)*vba.norm() + new_surface_position; // orientación y largo
-        future_gripper_pose.pose.position.x = future_gripper_position.x();
-        future_gripper_pose.pose.position.y = future_gripper_position.y();
-        future_gripper_pose.pose.position.z = future_gripper_position.z();
-        gripper_future_pose_pub.publish(future_gripper_pose);
-        gripper_future_pose_pub.publish(future_gripper_pose);
-        gripper_future_pose_pub.publish(future_gripper_pose);
-        // Intentar ir a la pose
-        ROS_INFO("PLACE: Intentando ir a pose...");
+    // Crear conjunto de posibles poses
+    //  Este es un proceso importante, pues disminuye el volumen de posibles poses. 
+    //  En este proceso se restan los puntos muy lejanos al brazo activo, y se crean distintas orientaciones 
+    //  posibles para cada punto. Esto resulta en un vector de poses posibles
+    vector<geometry_msgs::PoseStamped> placing_poses = Util::getPossiblePlacingPoses(grasp_arm, *the_surface, stable_pose, gripper_current_pose);
+    ROS_INFO("PLACE: Se obtuvieron %d poses posibles. Comenzando intentos", (int)placing_poses.size());
+    // Probar poses
+    for (int i = 0; i < (int)placing_poses.size(); i++){
+        ROS_INFO("PLACE: Probando %d de %d poses", i+1, (int)placing_poses.size());
+        gripper_future_pose_pub.publish(placing_poses[i]);
+        gripper_future_pose_pub.publish(placing_poses[i]);
+        gripper_future_pose_pub.publish(placing_poses[i]);
         if (grasp_arm == 'l')
-            gotopose_ok = r_driver->lgripper->goToPose(future_gripper_pose);
+            gotopose_ok = r_driver->lgripper->goToPose(placing_poses[i]);
         else
-            gotopose_ok = r_driver->rgripper->goToPose(future_gripper_pose);
+            gotopose_ok = r_driver->rgripper->goToPose(placing_poses[i]);
         if (gotopose_ok){
             ROS_INFO("PLACE: Pose alcanzada");
             // Soltar objeto
             // Quitar gripper
             // El gripper retrocederá una distancia determinada, en la misma dirección que su orientación
-            geometry_msgs::PoseStamped gripper_backoff_pose = future_gripper_pose;
+            geometry_msgs::PoseStamped gripper_backoff_pose = placing_poses[i];
             // Eigen::Vector3f backoff_position = gripper_p - Util::PLACING_BACKOFF_DISTANCE*(gripper_q.normalized());
-            Eigen::Vector3f backoff_position = Eigen::Vector3f(future_gripper_pose.pose.position.x, future_gripper_pose.pose.position.y, future_gripper_pose.pose.position.z) - Util::quaternionMsgToVector(future_gripper_pose.pose.orientation).normalized()*Util::PLACING_BACKOFF_DISTANCE;
+            Eigen::Vector3f backoff_position = Eigen::Vector3f(placing_poses[i].pose.position.x, placing_poses[i].pose.position.y, placing_poses[i].pose.position.z) - Util::quaternionMsgToVector(placing_poses[i].pose.orientation).normalized()*Util::PLACING_BACKOFF_DISTANCE;
             gripper_backoff_pose.pose.position.x = backoff_position.x();
             gripper_backoff_pose.pose.position.y = backoff_position.y();
             gripper_backoff_pose.pose.position.z = backoff_position.z();
@@ -600,10 +535,110 @@ bool placeObject(){
             ROS_INFO("PLACE: Objeto exitosamente posicionado");
             return true;
         }
-        // END TEST
-        ros::Duration(0.3).sleep();
+        ROS_INFO("PLACE: %d-esima pose no funciono", i+1);
     }
+    ROS_ERROR("PLACE: Ninguna pose sirvió. Eso es malo. Terminando...");
     return false;
+
+    // // Iterar (hasta éxito o hasta máximo de intentos)
+    // // Crear arreglo de 0 a (the_surface->cloud)->points.size()
+    // int pc_indices[(int)(the_surface->cloud)->points.size()];
+    // for (int i=0; i<(int)(the_surface->cloud)->points.size(); i++)
+    //     pc_indices[i] = i;
+    // // Desordenar indices
+    // random_shuffle(&pc_indices[0], &pc_indices[(int)(the_surface->cloud)->points.size()-1]);
+    // for (int i=0; i<(int)(the_surface->cloud)->points.size(); i++){
+
+
+
+
+
+        // ROS_INFO("PLACE: Mostrando posible punto de placing (indice %d de %d)", i, (int)(the_surface->cloud)->points.size());
+        // // Construyo una posible pose, basado en puntos de la superficie y la normal transformada
+        // geometry_msgs::PoseStamped new_surface_pose;
+        // new_surface_pose.header.frame_id = Util::ODOM_FRAME;
+        // new_surface_pose.pose.position.x = (the_surface->cloud)->points[pc_indices[i]].x;
+        // new_surface_pose.pose.position.y = (the_surface->cloud)->points[pc_indices[i]].y;
+        // new_surface_pose.pose.position.z = (the_surface->cloud)->points[pc_indices[i]].z;
+        // new_surface_pose.pose.orientation = the_surface->normal.pose.orientation;
+        // surface_pose_pub.publish(new_surface_pose);
+        // surface_pose_pub.publish(new_surface_pose);
+        // surface_pose_pub.publish(new_surface_pose);
+        // tf::Quaternion new_surface_q (new_surface_pose.pose.orientation.x, new_surface_pose.pose.orientation.y, new_surface_pose.pose.orientation.z, new_surface_pose.pose.orientation.w);
+        // Eigen::Vector3f new_surface_position (new_surface_pose.pose.position.x, new_surface_pose.pose.position.y, new_surface_pose.pose.position.z);
+
+        // ROS_INFO("PLACE: Calculando y mostrando futura posible pose del gripper");
+        // geometry_msgs::PoseStamped future_gripper_pose;
+        // future_gripper_pose.header.frame_id = Util::ODOM_FRAME;
+        // // Cálculo de orientación: qgrippernueva = qnuevasuperficie*qx
+        // tf::Quaternion future_gripper_q = new_surface_q*qx;
+        // future_gripper_pose.pose.orientation.x = future_gripper_q.x();
+        // future_gripper_pose.pose.orientation.y = future_gripper_q.y();
+        // future_gripper_pose.pose.orientation.z = future_gripper_q.z();
+        // future_gripper_pose.pose.orientation.w = future_gripper_q.w();
+        // // Cálculo de posición:
+        // tf::Quaternion future_gripper_position_q = new_surface_q*tf_a_posb;
+        // geometry_msgs::Quaternion fgpq_temp;
+        // fgpq_temp.x = future_gripper_position_q.x();
+        // fgpq_temp.y = future_gripper_position_q.y();
+        // fgpq_temp.z = future_gripper_position_q.z();
+        // fgpq_temp.w = future_gripper_position_q.w();
+        // Eigen::Vector3f future_gripper_position = Util::quaternionMsgToVector(fgpq_temp)*vba.norm() + new_surface_position; // orientación y largo
+        // future_gripper_pose.pose.position.x = future_gripper_position.x();
+        // future_gripper_pose.pose.position.y = future_gripper_position.y();
+        // future_gripper_pose.pose.position.z = future_gripper_position.z();
+        // gripper_future_pose_pub.publish(future_gripper_pose);
+        // gripper_future_pose_pub.publish(future_gripper_pose);
+        // gripper_future_pose_pub.publish(future_gripper_pose);
+
+
+
+
+
+        // // Intentar ir a la pose
+        // ROS_INFO("PLACE: Intentando ir a pose...");
+        // if (grasp_arm == 'l')
+        //     gotopose_ok = r_driver->lgripper->goToPose(future_gripper_pose);
+        // else
+        //     gotopose_ok = r_driver->rgripper->goToPose(future_gripper_pose);
+        // if (gotopose_ok){
+        //     ROS_INFO("PLACE: Pose alcanzada");
+            // Soltar objeto
+            // Quitar gripper
+            // El gripper retrocederá una distancia determinada, en la misma dirección que su orientación
+    //         geometry_msgs::PoseStamped gripper_backoff_pose = future_gripper_pose;
+    //         // Eigen::Vector3f backoff_position = gripper_p - Util::PLACING_BACKOFF_DISTANCE*(gripper_q.normalized());
+    //         Eigen::Vector3f backoff_position = Eigen::Vector3f(future_gripper_pose.pose.position.x, future_gripper_pose.pose.position.y, future_gripper_pose.pose.position.z) - Util::quaternionMsgToVector(future_gripper_pose.pose.orientation).normalized()*Util::PLACING_BACKOFF_DISTANCE;
+    //         gripper_backoff_pose.pose.position.x = backoff_position.x();
+    //         gripper_backoff_pose.pose.position.y = backoff_position.y();
+    //         gripper_backoff_pose.pose.position.z = backoff_position.z();
+    //         if (grasp_arm == 'l'){
+    //             ROS_INFO("PLACE: Abriendo gripper izquierdo");
+    //             r_driver->lgripper->setOpening(1, -1);
+    //             Util::detachMeshFromGripper(aco_pub, co_pub);
+    //             ros::Duration(1.0).sleep();
+    //             ROS_INFO("PLACE: Retrocediendo gripper");
+    //             r_driver->lgripper->goToPose(gripper_backoff_pose);
+    //             ROS_INFO("PLACE: Cerrando gripper izquierdo");
+    //             r_driver->lgripper->setOpeningNonBlocking(0, 1000);
+    //         }
+    //         else{
+    //             ROS_INFO("PLACE: Abriendo gripper derecho");
+    //             r_driver->rgripper->setOpening(1, -1);
+    //             Util::detachMeshFromGripper(aco_pub, co_pub);
+    //             ros::Duration(1.0).sleep();
+    //             ROS_INFO("PLACE: Retrocediendo gripper");
+    //             r_driver->rgripper->goToPose(gripper_backoff_pose);
+    //             ROS_INFO("PLACE: Cerrando gripper derecho");
+    //             r_driver->rgripper->setOpeningNonBlocking(0, 1000);
+    //         }
+    //         ROS_INFO("PLACE: Objeto exitosamente posicionado");
+    //         return true;
+    //     }
+    //     // END TEST
+    //     ros::Duration(0.3).sleep();
+    // }
+    // return false;
 }
 /*bool placeObject_old2(){
     ROS_INFO("PLACE: Comienza posicionamiento de objeto");
